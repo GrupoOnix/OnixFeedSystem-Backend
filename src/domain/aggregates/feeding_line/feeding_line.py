@@ -24,6 +24,7 @@ class FeedingLine:
         self._sensors: Tuple[ISensor, ...] = ()
         self._slot_assignments: Dict[int, SlotAssignment] = {} # Dict para búsquedas rápidas
         self._created_at = datetime.utcnow() #TODO: ver que hacer con esto
+        self._presentation_metadata: Optional[Dict[str, Any]] = None  # Metadatos de UI (nodes, edges, positions)
 
     @classmethod
     def create(cls,
@@ -84,6 +85,28 @@ class FeedingLine:
     def selector(self) -> ISelector:
         return cast(ISelector, self._selector)
     
+    @property
+    def sensors(self) -> Tuple[ISensor, ...]:
+        return self._sensors
+    
+    @property
+    def presentation_metadata(self) -> Optional[Dict[str, Any]]:
+        """Metadatos de presentación (layout visual del canvas)."""
+        return self._presentation_metadata
+    
+    def set_presentation_metadata(self, metadata: Optional[Dict[str, Any]]) -> None:
+        """
+        Establece metadatos de presentación para esta línea.
+        
+        Estos metadatos NO son parte de la lógica de dominio, son datos
+        de UI (nodos, edges, posiciones) que se persisten junto con la línea
+        para que el frontend pueda reconstruir el canvas visual.
+        
+        Args:
+            metadata: Diccionario con estructura de presentación (nodes, edges, etc.)
+                     o None para limpiar los metadatos.
+        """
+        self._presentation_metadata = metadata
 
     def get_slot_assignments(self) -> List[SlotAssignment]:
         return list(self._slot_assignments.values())

@@ -25,13 +25,13 @@ def _validate_name_format(value: str, field_name: str = "El nombre"):
     if len(value) > 100:
         raise ValueError(f"{field_name} no debe exceder 100 caracteres (recibió {len(value)})")
     
-    # ^[a-zA-Z0-9\s_-]+$
-    # ^                 -> inicio del string
-    # [a-zA-Z0-9\s_-]  -> permite letras, números, espacios, guión bajo, guión
-    # +                 -> uno o más de esos caracteres
-    # $                 -> fin del string
-    if not re.match(r'^[a-zA-Z0-9\s_-]+$', value):
-        raise ValueError(f"{field_name} solo puede contener letras, números, espacios, guiones (-) y guiones bajos (_)")
+    # ^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ\s_-]+$
+    # ^                              -> inicio del string
+    # [a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ\s_-] -> permite letras (con tildes), ñ, ü, números, espacios, guión bajo, guión
+    # +                              -> uno o más de esos caracteres
+    # $                              -> fin del string
+    if not re.match(r'^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ\s_-]+$', value):
+        raise ValueError(f"{field_name} solo puede contener letras (incluyendo tildes y ñ), números, espacios, guiones (-) y guiones bajos (_)")
 
 # ============================================================================
 # 1. Identificador del Aggregate Root

@@ -12,7 +12,10 @@ Refactorizar el caso de uso `SyncSystemLayoutUseCase` para cumplir con principio
 
 - **Nombres descriptivos**: Variables, métodos y clases deben ser autoexplicativos
 - **Funciones pequeñas**: Cada función debe hacer una sola cosa
-- **Mínimos comentarios**: El código debe ser autoexplicativo. Solo comentar pasos clave o lógica compleja no obvia
+- **MÍNIMOS comentarios**: El código debe ser tan limpio que se autoexplique. Los comentarios son una admisión de que el código no es lo suficientemente claro. Solo comentar:
+  - Lógica de negocio compleja no obvia (ej: reglas FA1, FA2, etc.)
+  - Decisiones arquitectónicas importantes (ej: "Se libera antes de reasignar para permitir intercambios")
+  - **NO comentar**: lo que el código ya dice (ej: `# Mapear ID temporal -> ID real` cuando el código es `id_map[dto.id] = new_silo.id`)
 - **Evitar duplicación**: DRY (Don't Repeat Yourself)
 - **Bajo nivel de anidación**: Máximo 2-3 niveles
 
@@ -121,9 +124,21 @@ id_map[dto.id] = new_silo.id
 id_map[dto.id] = new_silo.id
 ```
 
-**Mantener solo**: Comentarios de fases principales y lógica de negocio no obvia
+**Mantener solo**:
 
-**Criterio de éxito**: Comentarios solo en pasos clave, código autoexplicativo
+- Comentarios de fases principales (ej: `# FASE 1: CÁLCULO DE DELTA`)
+- Lógica de negocio no obvia (ej: `# FA3: Validar que la jaula no esté asignada a otra línea`)
+- Decisiones arquitectónicas importantes (ej: `# Se libera antes de reasignar para permitir intercambios`)
+
+**Eliminar**:
+
+- Comentarios que repiten el código (ej: `# Mapear ID temporal -> ID real`)
+- Comentarios obvios (ej: `# Crear silo` antes de `new_silo = Silo(...)`)
+- Comentarios de implementación (ej: `# Iterar sobre DTOs`)
+
+**Filosofía**: "El código limpio no necesita comentarios. Si necesitas un comentario, probablemente el código no es lo suficientemente claro."
+
+**Criterio de éxito**: Comentarios solo en pasos clave, código autoexplicativo, máximo 10-15 líneas de comentarios en todo el archivo
 
 ---
 
@@ -366,23 +381,31 @@ async def _execute_deletions(self, delta: Delta) -> None:
 
 **Archivo**: `src/application/use_cases/sync_system_layout.py`
 
-**Acción**: Crear método `_execute_creations(delta: Delta, id_map: Dict) -> None`
+**Acción**: Crear método `_execute_creations(delta: Delta, id_map: Dict, request: SystemLayoutDTO) -> None`
 
 **Contenido**:
 
 ```python
-async def _execute_creations(self, delta: Delta, id_map: Dict[str, Any]) -> None:
+async def _execute_creations(self, delta: Delta, id_map: Dict[str, Any], request: SystemLayoutDTO) -> None:
     """Crea nuevos agregados y mapea IDs temporales a reales."""
     await self._create_silos(delta.silos_to_create, id_map)
     await self._create_cages(delta.cages_to_create, id_map)
-    await self._create_feeding_lines(delta.lines_to_create, id_map)
+    await self._create_feeding_lines(delta.lines_to_create, id_map, request)
 ```
 
 **Sub-métodos**:
 
-- `_create_silos()`
-- `_create_cages()`
-- `_create_feeding_lines()`
+- `_create_silos(silos_dtos, id_map)`
+- `_create_cages(cages_dtos, id_map)`
+- `_create_feeding_lines(lines_dtos, id_map, request)` - Necesita `request` para guardar `presentation_metadata`
+
+**Nota importante**: `_create_feeding_lines()` debe:
+
+1. Crear la línea
+2. Mapear IDs de componentes (blower, selector, sensors, dosers)
+3. Extraer `presentation_data` de esa línea desde `request`
+4. Reemplazar IDs temporales por reales usando `_replace_temp_ids_in_presentation()`
+5. Guardar en `line.set_presentation_metadata()`
 
 **Criterio de éxito**: Fase 3 dividida en métodos pequeños
 
@@ -392,23 +415,30 @@ async def _execute_creations(self, delta: Delta, id_map: Dict[str, Any]) -> None
 
 **Archivo**: `src/application/use_cases/sync_system_layout.py`
 
-**Acción**: Crear método `_execute_updates(delta: Delta, id_map: Dict) -> None`
+**Acción**: Crear método `_execute_updates(delta: Delta, id_map: Dict, request: SystemLayoutDTO) -> None`
 
 **Contenido**:
 
 ```python
-async def _execute_updates(self, delta: Delta, id_map: Dict[str, Any]) -> None:
+async def _execute_updates(self, delta: Delta, id_map: Dict[str, Any], request: SystemLayoutDTO) -> None:
     """Actualiza agregados existentes."""
     await self._update_silos(delta.silos_to_update)
     await self._update_cages(delta.cages_to_update)
-    await self._update_feeding_lines(delta.lines_to_update, id_map)
+    await self._update_feeding_lines(delta.lines_to_update, id_map, request)
 ```
 
 **Sub-métodos**:
 
-- `_update_silos()`
-- `_update_cages()`
-- `_update_feeding_lines()` (incluye Fase 4.3a y 4.3b)
+- `_update_silos(silos_map)`
+- `_update_cages(cages_map)`
+- `_update_feeding_lines(lines_map, id_map, request)` - Necesita `request` para guardar `presentation_metadata`
+
+**Nota importante**: `_update_feeding_lines()` debe incluir:
+
+- Fase 4.3a: Liberar recursos (usar `ResourceReleaser`)
+- Fase 4.3b: Actualizar componentes y reasignar recursos
+- Mapear IDs de componentes actualizados
+- Guardar `presentation_metadata` actualizado
 
 **Criterio de éxito**: Fase 4 dividida en métodos pequeños
 
@@ -418,16 +448,25 @@ async def _execute_updates(self, delta: Delta, id_map: Dict[str, Any]) -> None:
 
 **Archivo**: `src/application/use_cases/sync_system_layout.py`
 
-**Acción**: Crear método `_rebuild_layout(presentation_data: Dict) -> SystemLayoutDTO`
+**Acción**: Crear método `_rebuild_layout() -> SystemLayoutDTO`
 
 **Contenido**:
 
 ```python
-async def _rebuild_layout(self, presentation_data: Dict[str, Any]) -> SystemLayoutDTO:
+async def _rebuild_layout(self) -> SystemLayoutDTO:
     """Reconstruye el layout completo con IDs reales desde BD."""
     all_silos = await self.silo_repo.get_all()
     all_cages = await self.cage_repo.get_all()
     all_lines = await self.line_repo.get_all()
+
+    # Reconstruir presentation_data desde metadatos guardados en cada línea
+    presentation_data = {
+        "lines": {
+            str(line.id): line.presentation_metadata
+            for line in all_lines
+            if line.presentation_metadata is not None
+        }
+    }
 
     return SystemLayoutDTO(
         silos=[DomainToDTOMapper.silo_to_dto(s) for s in all_silos],
@@ -437,7 +476,9 @@ async def _rebuild_layout(self, presentation_data: Dict[str, Any]) -> SystemLayo
     )
 ```
 
-**Criterio de éxito**: Fase 5 en método dedicado
+**Nota importante**: El `presentation_data` se reconstruye desde `line.presentation_metadata` (guardado en BD), NO desde el request.
+
+**Criterio de éxito**: Fase 5 en método dedicado, presentation_data reconstruido desde BD
 
 ---
 
@@ -459,11 +500,16 @@ async def execute(self, request: SystemLayoutDTO) -> SystemLayoutDTO:
     )
 
     await self._execute_deletions(delta)
-    await self._execute_creations(delta, id_map)
-    await self._execute_updates(delta, id_map)
+    await self._execute_creations(delta, id_map, request)
+    await self._execute_updates(delta, id_map, request)
 
-    return await self._rebuild_layout(request.presentation_data)
+    return await self._rebuild_layout()
 ```
+
+**Nota importante**:
+
+- `_execute_creations()` y `_execute_updates()` necesitan `request` para acceder a `request.presentation_data`
+- `_rebuild_layout()` NO necesita parámetros, reconstruye desde BD
 
 **Criterio de éxito**: Método execute() de ~15 líneas, altamente legible
 
@@ -605,3 +651,32 @@ Un caso de uso que:
 - No renombrar nada que rompa mappers o DTOs
 - Mantener la lógica de negocio intacta
 - Priorizar legibilidad sobre brevedad
+
+---
+
+## 🎨 Manejo de presentation_metadata (Implementado)
+
+El caso de uso ahora maneja `presentation_metadata` para persistir el layout visual del canvas:
+
+### Flujo actual:
+
+1. **Request**: Frontend envía `presentation_data` con IDs temporales
+2. **Creación/Actualización**:
+   - Se mapean IDs temporales → IDs reales en `id_map`
+   - Se extrae `presentation_data` de cada línea desde `request`
+   - Se reemplazan IDs usando `_replace_temp_ids_in_presentation()`
+   - Se guarda en `line.set_presentation_metadata()`
+3. **Response**: Se reconstruye `presentation_data` desde `line.presentation_metadata` (con IDs reales)
+
+### Métodos involucrados:
+
+- `_replace_temp_ids_in_presentation()`: Reemplaza IDs en nodes y edges
+- `FeedingLine.set_presentation_metadata()`: Guarda metadatos en la línea
+- `FeedingLine.presentation_metadata`: Lee metadatos guardados
+
+### Importante durante la refactorización:
+
+- ✅ Mantener el mapeo de IDs de componentes (blower, selector, sensors, dosers)
+- ✅ Llamar a `_replace_temp_ids_in_presentation()` DESPUÉS de mapear todos los IDs
+- ✅ Guardar `presentation_metadata` ANTES de persistir la línea
+- ✅ Reconstruir `presentation_data` desde BD en `_rebuild_layout()`

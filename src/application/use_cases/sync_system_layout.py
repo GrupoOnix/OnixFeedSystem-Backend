@@ -189,10 +189,28 @@ class SyncSystemLayoutUseCase:
                 
                 new_line.assign_cage_to_slot(slot_dto.slot_number, cage_id)
             
-            await self.line_repo.save(new_line)
-            
-            # Mapear ID temporal -> ID real
+            # Mapear ID temporal de la línea -> ID real
             id_map[dto.id] = new_line.id
+            
+            # Mapear IDs temporales de componentes -> IDs reales
+            id_map[dto.blower_config.id] = new_line.blower.id
+            id_map[dto.selector_config.id] = new_line.selector.id
+            
+            for i, sensor in enumerate(new_line.sensors):
+                id_map[dto.sensors_config[i].id] = sensor.id
+            
+            for i, doser in enumerate(new_line.dosers):
+                id_map[dto.dosers_config[i].id] = doser.id
+            
+            # Guardar presentation_metadata de esta línea (si existe)
+            line_presentation = request.presentation_data.get("lines", {}).get(dto.id, None)
+            if line_presentation:
+                updated_presentation = self._replace_temp_ids_in_presentation(
+                    line_presentation, id_map
+                )
+                new_line.set_presentation_metadata(updated_presentation)
+            
+            await self.line_repo.save(new_line)
         
         # ====================================================================
         # FASE 4: EJECUTAR ACTUALIZACIONES
@@ -309,6 +327,24 @@ class SyncSystemLayoutUseCase:
             
             line.update_assignments(new_assignments)
             
+            # Mapear IDs de componentes (los componentes se regeneran en cada update)
+            id_map[dto.blower_config.id] = line.blower.id
+            id_map[dto.selector_config.id] = line.selector.id
+            
+            for i, sensor in enumerate(line.sensors):
+                id_map[dto.sensors_config[i].id] = sensor.id
+            
+            for i, doser in enumerate(line.dosers):
+                id_map[dto.dosers_config[i].id] = doser.id
+            
+            # Guardar presentation_metadata de esta línea (si existe)
+            line_presentation = request.presentation_data.get("lines", {}).get(dto.id, None)
+            if line_presentation:
+                updated_presentation = self._replace_temp_ids_in_presentation(
+                    line_presentation, id_map
+                )
+                line.set_presentation_metadata(updated_presentation)
+            
             await self.line_repo.save(line)
         
         # ====================================================================
@@ -336,11 +372,20 @@ class SyncSystemLayoutUseCase:
             for line in all_lines
         ]
         
+        # Reconstruir presentation_data desde los metadatos guardados en cada línea
+        presentation_data = {
+            "lines": {
+                str(line.id): line.presentation_metadata
+                for line in all_lines
+                if line.presentation_metadata is not None
+            }
+        }
+        
         return SystemLayoutDTO(
             silos=silos_dtos,
             cages=cages_dtos,
             feeding_lines=lines_dtos,
-            presentation_data=request.presentation_data
+            presentation_data=presentation_data
         )
 
     # ========================================================================
@@ -475,3 +520,54 @@ class SyncSystemLayoutUseCase:
             return cage_id
         
         raise ValueError(f"La jaula con ID temporal '{cage_id_str}' no fue creada")
+
+    def _replace_temp_ids_in_presentation(
+        self,
+        presentation_metadata: Optional[Dict[str, Any]],
+        id_map: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Reemplaza IDs temporales por IDs reales en los metadatos de presentación.
+        
+        Recorre la estructura de presentation_metadata (nodes, edges) y reemplaza
+        cualquier ID temporal que esté en el id_map por su ID real correspondiente.
+        
+        Args:
+            presentation_metadata: Diccionario con estructura de presentación (nodes, edges)
+            id_map: Mapeo de IDs temporales a IDs reales
+            
+        Returns:
+            Diccionario con IDs actualizados, o None si presentation_metadata es None
+        """
+        if not presentation_metadata:
+            return None
+        
+        # Crear copia profunda para no mutar el original
+        import copy
+        updated_metadata = copy.deepcopy(presentation_metadata)
+        
+        # Reemplazar IDs en nodes
+        if "nodes" in updated_metadata and isinstance(updated_metadata["nodes"], list):
+            for node in updated_metadata["nodes"]:
+                if isinstance(node, dict) and "id" in node:
+                    node_id = node["id"]
+                    if node_id in id_map:
+                        node["id"] = str(id_map[node_id])
+        
+        # Reemplazar IDs en edges
+        if "edges" in updated_metadata and isinstance(updated_metadata["edges"], list):
+            for edge in updated_metadata["edges"]:
+                if isinstance(edge, dict):
+                    # Reemplazar edge.id
+                    if "id" in edge and edge["id"] in id_map:
+                        edge["id"] = str(id_map[edge["id"]])
+                    
+                    # Reemplazar edge.source
+                    if "source" in edge and edge["source"] in id_map:
+                        edge["source"] = str(id_map[edge["source"]])
+                    
+                    # Reemplazar edge.target
+                    if "target" in edge and edge["target"] in id_map:
+                        edge["target"] = str(id_map[edge["target"]])
+        
+        return updated_metadata

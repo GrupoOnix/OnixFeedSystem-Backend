@@ -1,0 +1,398 @@
+{
+  "silos": [
+    {
+      "id": "silo-1",
+      "name": "silo 1",
+      "capacity": 5000
+    },
+    {
+      "id": "silo-2",
+      "name": "silo 2",
+      "capacity": 5000
+    },
+    {
+      "id": "silo-3",
+      "name": "silo 3",
+      "capacity": 5000
+    },
+    {
+      "id": "silo-4",
+      "name": "silo 4",
+      "capacity": 5000
+    }
+  ],
+  "cages": [
+    {
+      "id": "cage-2",
+      "name": "Jaula 102"
+    },
+    {
+      "id": "cage-1",
+      "name": "Jaula 101"
+    },
+    {
+      "id": "cage-3",
+      "name": "Jaula 103"
+    },
+    {
+      "id": "cage-5",
+      "name": "Jaula 105"
+    },
+    {
+      "id": "cage-4",
+      "name": "Jaula 104"
+    },
+    {
+      "id": "cage-6",
+      "name": "Jaula 106"
+    },
+    {
+      "id": "cage-11",
+      "name": "Jaula 111"
+    },
+    {
+      "id": "cage-7",
+      "name": "Jaula 107"
+    },
+    {
+      "id": "cage-10",
+      "name": "Jaula 110"
+    },
+    {
+      "id": "cage-8",
+      "name": "Jaula 108"
+    },
+    {
+      "id": "cage-9",
+      "name": "Jaula 109"
+    }
+  ],
+  "feeding_lines": [
+    {
+      "id": "line-1",
+      "line_name": "Linea de Alimentacion 1",
+      "blower_config": {
+        "id": "line-1-blower-1",
+        "name": "Soplador 1",
+        "non_feeding_power": 30,
+        "blow_before_time": 5,
+        "blow_after_time": 10
+      },
+      "sensors_config": [],
+      "dosers_config": [
+        {
+          "id": "line-1-doser-1",
+          "name": "Dosificador 1",
+          "assigned_silo_id": "silo-1",
+          "doser_type": "volumetric",
+          "min_rate": 10,
+          "max_rate": 100,
+          "current_rate": 50
+        }
+      ],
+      "selector_config": {
+        "id": "line-1-selector-1",
+        "name": "Selectora 1",
+        "capacity": 12,
+        "fast_speed": 80,
+        "slow_speed": 20
+      },
+      "slot_assignments": [
+        {
+          "slot_number": 1,
+          "cage_id": "cage-1"
+        },
+        {
+          "slot_number": 2,
+          "cage_id": "cage-2"
+        }
+      ]
+    },
+    {
+      "id": "line-2",
+      "line_name": "Linea de Alimentacion 2",
+      "blower_config": {
+        "id": "line-2-blower-1",
+        "name": "Soplador 2",
+        "non_feeding_power": 30,
+        "blow_before_time": 5,
+        "blow_after_time": 10
+      },
+      "sensors_config": [
+        {
+          "id": "line-2-sensor-1",
+          "name": "Sensor de Presion",
+          "sensor_type": "PRESSURE"
+        },
+        {
+          "id": "line-2-sensor-2",
+          "name": "Sensor de Temperatura",
+          "sensor_type": "TEMPERATURE"
+        }
+      ],
+      "dosers_config": [
+        {
+          "id": "line-2-doser-1",
+          "name": "Dosificador 2",
+          "assigned_silo_id": "silo-2",
+          "doser_type": "volumetric",
+          "min_rate": 10,
+          "max_rate": 100,
+          "current_rate": 50
+        },
+        {
+          "id": "line-2-doser-2",
+          "name": "Dosificador 3",
+          "assigned_silo_id": "silo-3",
+          "doser_type": "volumetric",
+          "min_rate": 10,
+          "max_rate": 100,
+          "current_rate": 50
+        }
+      ],
+      "selector_config": {
+        "id": "line-2-selector-1",
+        "name": "Selectora 2",
+        "capacity": 12,
+        "fast_speed": 80,
+        "slow_speed": 20
+      },
+      "slot_assignments": [
+        {
+          "slot_number": 1,
+          "cage_id": "cage-3"
+        },
+        {
+          "slot_number": 2,
+          "cage_id": "cage-4"
+        },
+        {
+          "slot_number": 3,
+          "cage_id": "cage-6"
+        },
+        {
+          "slot_number": 4,
+          "cage_id": "cage-5"
+        }
+      ]
+    },
+    {
+      "id": "line-3",
+      "line_name": "Linea de Alimentacion 3",
+      "blower_config": {
+        "id": "line-3-blower-1",
+        "name": "Soplador 3",
+        "non_feeding_power": 30,
+        "blow_before_time": 5,
+        "blow_after_time": 10
+      },
+      "sensors_config": [
+        {
+          "id": "line-3-sensor-1",
+          "name": "Sensor de Flujo",
+          "sensor_type": "FLOW"
+        }
+      ],
+      "dosers_config": [
+        {
+          "id": "line-3-doser-1",
+          "name": "Dosificador 4",
+          "assigned_silo_id": "silo-4",
+          "doser_type": "volumetric",
+          "min_rate": 10,
+          "max_rate": 100,
+          "current_rate": 50
+        }
+      ],
+      "selector_config": {
+        "id": "line-3-selector-1",
+        "name": "Selectora 3",
+        "capacity": 12,
+        "fast_speed": 80,
+        "slow_speed": 20
+      },
+      "slot_assignments": [
+        {
+          "slot_number": 1,
+          "cage_id": "cage-11"
+        },
+        {
+          "slot_number": 2,
+          "cage_id": "cage-7"
+        },
+        {
+          "slot_number": 3,
+          "cage_id": "cage-8"
+        },
+        {
+          "slot_number": 4,
+          "cage_id": "cage-10"
+        },
+        {
+          "slot_number": 5,
+          "cage_id": "cage-9"
+        }
+      ]
+    }
+  ],
+  "presentation_data": {
+    "lines": {
+      "line-1": {
+        "nodes": [
+          {
+            "id": "line-1-blower-1",
+            "type": "blower"
+          },
+          {
+            "id": "silo-1",
+            "type": "silo"
+          },
+          {
+            "id": "line-1-doser-1",
+            "type": "doser"
+          },
+          {
+            "id": "line-1-selector-1",
+            "type": "selector"
+          }
+        ],
+        "edges": [
+          {
+            "id": "silo-1-line-1-doser-1",
+            "source": "silo-1",
+            "target": "line-1-doser-1"
+          },
+          {
+            "id": "line-1-blower-1-line-1-doser-1",
+            "source": "line-1-blower-1",
+            "target": "line-1-doser-1"
+          },
+          {
+            "id": "line-1-doser-1-line-1-selector-1",
+            "source": "line-1-doser-1",
+            "target": "line-1-selector-1"
+          }
+        ]
+      },
+      "line-2": {
+        "nodes": [
+          {
+            "id": "line-2-blower-1",
+            "type": "blower"
+          },
+          {
+            "id": "line-2-doser-1",
+            "type": "doser"
+          },
+          {
+            "id": "line-2-doser-2",
+            "type": "doser"
+          },
+          {
+            "id": "silo-2",
+            "type": "silo"
+          },
+          {
+            "id": "line-2-sensor-1",
+            "type": "sensor"
+          },
+          {
+            "id": "line-2-sensor-2",
+            "type": "sensor"
+          },
+          {
+            "id": "silo-3",
+            "type": "silo"
+          },
+          {
+            "id": "line-2-selector-1",
+            "type": "selector"
+          }
+        ],
+        "edges": [
+          {
+            "id": "silo-2-line-2-doser-1",
+            "source": "silo-2",
+            "target": "line-2-doser-1"
+          },
+          {
+            "id": "line-2-blower-1-line-2-sensor-1",
+            "source": "line-2-blower-1",
+            "target": "line-2-sensor-1"
+          },
+          {
+            "id": "line-2-sensor-1-line-2-sensor-2",
+            "source": "line-2-sensor-1",
+            "target": "line-2-sensor-2"
+          },
+          {
+            "id": "line-2-sensor-2-line-2-doser-1",
+            "source": "line-2-sensor-2",
+            "target": "line-2-doser-1"
+          },
+          {
+            "id": "line-2-doser-1-line-2-doser-2",
+            "source": "line-2-doser-1",
+            "target": "line-2-doser-2"
+          },
+          {
+            "id": "silo-3-line-2-doser-2",
+            "source": "silo-3",
+            "target": "line-2-doser-2"
+          },
+          {
+            "id": "line-2-doser-2-line-2-selector-1",
+            "source": "line-2-doser-2",
+            "target": "line-2-selector-1"
+          }
+        ]
+      },
+      "line-3": {
+        "nodes": [
+          {
+            "id": "line-3-blower-1",
+            "type": "blower"
+          },
+          {
+            "id": "line-3-doser-1",
+            "type": "doser"
+          },
+          {
+            "id": "line-3-sensor-1",
+            "type": "sensor"
+          },
+          {
+            "id": "silo-4",
+            "type": "silo"
+          },
+          {
+            "id": "line-3-selector-1",
+            "type": "selector"
+          }
+        ],
+        "edges": [
+          {
+            "id": "line-3-blower-1-line-3-sensor-1",
+            "source": "line-3-blower-1",
+            "target": "line-3-sensor-1"
+          },
+          {
+            "id": "line-3-sensor-1-line-3-doser-1",
+            "source": "line-3-sensor-1",
+            "target": "line-3-doser-1"
+          },
+          {
+            "id": "silo-4-line-3-doser-1",
+            "source": "silo-4",
+            "target": "line-3-doser-1"
+          },
+          {
+            "id": "line-3-doser-1-line-3-selector-1",
+            "source": "line-3-doser-1",
+            "target": "line-3-selector-1"
+          }
+        ]
+      }
+    }
+  }
+}
