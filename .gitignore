@@ -7,3 +7,9 @@ __pycache__/
 
 # Caches de Pytest
 .pytest_cache/
+
+# Variables de Entorno
+.env
+
+# Archivos
+docs/
