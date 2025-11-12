@@ -2,19 +2,10 @@
 fastapi[standard]==0.121.0
 
 # Database
-sqlalchemy[asyncio]==2.0.36
-asyncpg==0.30.0
-
-# Data validation and serialization
-pydantic==2.10.3
+sqlmodel==0.0.27
 
 # UUID support
 uuid==1.30
-
-#Testing
-httpx==0.28.1
-pytest==8.4.2
-pytest-asyncio==0.25.0
 
 #Linting
 mypy==1.18.2

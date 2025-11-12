@@ -12,6 +12,7 @@ class Silo:
         self._name = name
         self._capacity = capacity
         self._stock_level = stock_level
+        self._is_assigned = False  # FA4: Control de asignación 1-a-1
         self._created_at = datetime.utcnow()
 
     @property
@@ -27,10 +28,45 @@ class Silo:
         self._name = new_name
 
     @property
-    def capacity_kg(self) -> Weight: 
+    def capacity(self) -> Weight: 
         return self._capacity
     
+    @capacity.setter
+    def capacity(self, new_capacity: Weight) -> None:
+        """
+        Actualiza la capacidad del silo.
+        
+        Regla de negocio: La nueva capacidad no puede ser menor al stock actual.
+        """
+        if new_capacity < self._stock_level:
+            raise ValueError(
+                f"La nueva capacidad ({new_capacity}) no puede ser menor "
+                f"al stock actual ({self._stock_level})"
+            )
+        self._capacity = new_capacity
+    
     @property
-    def stock_level_kg(self) -> Weight: 
+    def stock_level(self) -> Weight: 
         return self._stock_level
+    
+    @property
+    def is_assigned(self) -> bool:
+        """Indica si el silo ya está asignado a un dosificador."""
+        return self._is_assigned
+
+    def assign_to_doser(self) -> None:
+        """
+        Marca el silo como asignado a un dosificador.
+        
+        Regla FA4: Un silo solo puede estar asignado a un dosificador a la vez.
+        """
+        if self._is_assigned:
+            raise ValueError(
+                f"El silo '{self.name}' ya está asignado a otro dosificador"
+            )
+        self._is_assigned = True
+
+    def release_from_doser(self) -> None:
+        """Libera el silo para que pueda ser asignado a otro dosificador."""
+        self._is_assigned = False
     

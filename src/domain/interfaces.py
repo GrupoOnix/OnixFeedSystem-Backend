@@ -172,7 +172,7 @@ class ISensor(ABC):
 
     @property
     @abstractmethod
-    def sensor_type(self) -> str: ...
+    def sensor_type(self) -> "SensorType": ...
 
 
     

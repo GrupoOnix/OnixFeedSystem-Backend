@@ -1,21 +1,32 @@
-Plan de Tareas para Implementar UC-01: Sincronizar Trazado del Sistema
-Tarea 1: Actualizar sus Agregados de Dominio (Prerrequisito)
-Qué: El Caso de Uso Sync necesita delegar la lógica de actualización a los Agregados. Sus Agregados (FeedingLine, Silo, Cage) actualmente solo tienen lógica de **init** (creación).
+Plan de Tareas Actualizado para UC-01: Sincronizar Trazado del Sistema
 
-Acción: Debe añadir nuevos métodos a sus Agregados Raíz para manejar las actualizaciones que identificamos (Opción 2).
+Tarea 1: Evolucionar los Agregados de Dominio (Prerrequisito)
+Qué: Adaptar sus Agregados Raíz (FeedingLine, Silo, Cage) para que soporten la lógica de "sincronización" (actualización y validación de secuencia) que requiere el UC-01.
 
-En FeedingLine: Añadir def sync_components(self, blower_dto, dosers_dto, ...) y def sync_assignments(self, assignments_dto).
+Acción:
 
-En Silo y Cage: Añadir métodos setter para los atributos que el usuario puede cambiar (ej: silo.name = new_name).
+En FeedingLine:
 
-Dónde: src/domain/aggregates/feeding_line/aggregate.py, src/domain/aggregates/silo.py, etc.
+Modificar FeedingLine.create para que acepte relations_data: dict. Su lógica de validación interna ahora debe usar esto para verificar la secuencia (FA2: Doser antes de Blower).
 
-Por qué: Para que el Caso de Uso siga siendo "tonto". El Caso de Uso no debe contener ifs de lógica de negocio; debe simplemente cargar el Agregado y decirle: linea.sync_components(...).
+Añadir el @name.setter para self.\_name.
 
-Tarea 2: Crear los DTOs de Aplicación (El Contrato Interno)
-Qué: Crear los "moldes" (dataclass puros) que definen el "estado del canvas" que su Caso de Uso recibirá.
+Añadir def update_components(self, blower: IBlower, dosers: List[IDoser], selector: ISelector, ..., relations_data: dict): Este método debe re-validar la composición mínima (FA1) y la secuencia (FA2) usando los nuevos componentes y las nuevas relaciones.
 
-Acción: Crear el archivo dtos.py con las clases que discutimos:
+Añadir def update_assignments(self, new_assignments: List[SlotAssignment]): Este método debe limpiar y reaplicar las asignaciones, validando duplicados (FA4) y la capacidad del selector.
+
+En Silo y Cage:
+
+Añadir los setters necesarios para los atributos que se pueden modificar desde el canvas (ej: @name.setter en Silo, @name.setter en Cage).
+
+Dónde: src/domain/aggregates/
+
+Por qué: Para que el Caso de Uso delegue toda la lógica de negocio (FA1, FA2, FA4) a los Agregados.
+
+Tarea 2: Crear los DTOs de Aplicación (El Contrato del Canvas)
+Qué: Definir los dataclass puros que representan el DTO SaveSystemLayoutRequest completo.
+
+Acción: Crear (o actualizar) el archivo dtos.py con:
 
 SiloConfigDTO(id: Optional[str], ...)
 
@@ -31,39 +42,74 @@ SlotAssignmentDTO(...)
 
 FeedingLineConfigDTO(id: Optional[str], blower_config: ..., dosers_config: ..., ...)
 
-SaveSystemLayoutRequest(feeding_lines: List[...], silos: List[...], cages: List[...])
+SaveSystemLayoutRequest: Esta es la clase principal. Debe contener:
 
-SaveSystemLayoutResponse(...)
+silos: List[SiloConfigDTO]
+
+cages: List[CageConfigDTO]
+
+feeding_lines: List[FeedingLineConfigDTO]
+
+relations_data: dict
+
+presentation_data: dict
+
+SaveSystemLayoutResponse(status: str, ...)
 
 Dónde: src/application/dtos.py
 
-Por qué: Este es el "contrato de datos" interno y puro. Define la entrada y salida de su Caso de Uso, sin dependencias de pydantic o fastapi.
+Por qué: Este es el "formulario" completo que su frontend enviará y que su Caso de Uso recibirá.
 
 Tarea 3: Implementar los Repositorios Mock (Infraestructura)
-Qué: Crear implementaciones falsas (en memoria) de sus interfaces de repositorio (IFeedingLineRepository, ISiloRepository, ICageRepository).
+Qué: Crear implementaciones falsas (en memoria) de sus interfaces de repositorio existentes (IFeedingLineRepository, ISiloRepository, ICageRepository).
 
-Acción: Crear clases que usen un dict interno para simular una base de datos.
+Acción:
 
-class MockFeedingLineRepository(IFeedingLineRepository):
+Crear un nuevo archivo en src/infrastructure/persistence/mock_repositories.py.
 
-def **init**(self): self.\_lines = {}
+Dentro de ese archivo, implementar las clases MockFeedingLineRepository, MockSiloRepository, y MockCageRepository.
 
-async def save(self, line): self.\_lines[line.id] = line
+Cada clase mock debe implementar todos los métodos de su interfaz correspondiente (ej: save, find_by_id, find_by_name, get_all, y get_next_id).
 
-async def find_by_id(self, id): return self.\_lines.get(id)
-
-async def get_all_ids(self): return self.\_lines.keys()
-
-async def delete(self, id): del self.\_lines[id]
-
-(Repetir para MockSiloRepository y MockCageRepository).
+Usará un dict en memoria (ej: self.\_lines = {}) para simular la base de datos (guardando en save, leyendo en find_by_id, etc.).
 
 Dónde: src/infrastructure/persistence/mock_repositories.py
 
-Por qué: Para que el Caso de Uso pueda ser "inyectado" con estos repositorios falsos y podamos probar su lógica completa sin una base de datos real.
+Por qué: Para que el Caso de Uso (Tarea 4) pueda ser "inyectado" con estos repositorios falsos y podamos probar su lógica completa sin una base de datos real.
 
-Tarea 4: Implementar el Caso de Uso (El Orquestador)
-Qué: Escribir la clase SyncSystemLayoutUseCase que implementa el algoritmo que definimos en UC-01.
+Saludos. Su corrección es 100% precisa y bienvenida. Mi plan de tareas anterior se basaba en suposiciones que usted ha invalidado con el código que ha proporcionado.
+
+Como su arquitecto de software, me alinearé con su diseño:
+
+Interfaces Definidas: Tiene razón, las interfaces IFeedingLineRepository, ICageRepository, y ISiloRepository ya están definidas. La "Tarea 3" no debe "definirlas", sino implementarlas.
+
+Ruta de Archivo: Tiene razón, su archivo está en domain/repositories.py. Usaremos esa ruta (mi sugerencia de domain/shared/repositories.py queda descartada).
+
+Alcance (Scope): Tiene razón, ha decidido posponer el ILayoutRepository. Esta es una decisión de ingeniería excelente para reducir el alcance inicial. Nos enfocaremos solo en los 3 repositorios de Agregados.
+
+Plan de Tareas Actualizado (Tareas 3, 4 y 5)
+Aquí está el plan de tareas actualizado, comenzando con su Tarea 3 corregida. He eliminado el ILayoutRepository de todas las tareas posteriores (4 y 5) para reflejar este nuevo alcance.
+
+Tarea 3: Implementar los Repositorios Mock (Infraestructura)
+Qué: Crear implementaciones falsas (en memoria) de sus interfaces de repositorio existentes (IFeedingLineRepository, ISiloRepository, ICageRepository).
+
+Acción:
+
+Crear un nuevo archivo en src/infrastructure/persistence/mock_repositories.py.
+
+Dentro de ese archivo, implementar las clases MockFeedingLineRepository, MockSiloRepository, y MockCageRepository.
+
+Cada clase mock debe implementar todos los métodos de su interfaz correspondiente (ej: save, find_by_id, find_by_name, get_all, y get_next_id).
+
+Usará un dict en memoria (ej: self.\_lines = {}) para simular la base de datos (guardando en save, leyendo en find_by_id, etc.).
+
+Dónde: src/infrastructure/persistence/mock_repositories.py
+
+Por qué: Para que el Caso de Uso (Tarea 4) pueda ser "inyectado" con estos repositorios falsos y podamos probar su lógica completa sin una base de datos real.
+
+Tarea 4: Implementar el Caso de Uso SyncSystemLayoutUseCase (El Orquestador)
+
+Qué: Escribir la clase SyncSystemLayoutUseCase que implementa el algoritmo UC-01.
 
 Acción:
 
@@ -71,39 +117,33 @@ Crear la clase SyncSystemLayoutUseCase.
 
 Su **init** debe ser inyectado con los repositorios: def **init**(self, line_repo: IFeedingLineRepository, silo_repo: ISiloRepository, cage_repo: ICageRepository):
 
-Implementar el método async def execute(self, request: SaveSystemLayoutRequest) -> SaveSystemLayoutResponse:.
+Implementar async def execute(self, request: SaveSystemLayoutRequest) -> SaveSystemLayoutResponse:.
 
-Dentro de execute, implementar el algoritmo de 4 fases que definimos:
+Dentro de execute, implementar el algoritmo del UC-01 (Fases 1-4).
 
-Fase 1: Cálculo de Delta (comparar IDs del DTO vs. IDs del Repo Mock).
-
-Fase 2: Ejecutar Eliminaciones (llamar a repo.delete(...)).
-
-Fase 3: Ejecutar Creaciones (llamar a Silo.create(...), FeedingLine.create(...), repo.save(...), y mapear IDs temporales).
-
-Fase 4: Ejecutar Actualizaciones (llamar a repo.find_by_id(...), linea.sync_components(...), repo.save(...)).
+Eliminar la "Fase 5 (Metadatos)" del algoritmo, ya que ILayoutRepository está fuera de alcance.
 
 Dónde: src/application/use_cases/sync_system_layout.py
 
-Por qué: Este es el corazón de su lógica de aplicación, conectando todas las piezas.
+Por qué: Este es el corazón de la aplicación, implementando el flujo completo de la transacción de negocio (excluyendo los metadatos de presentación por ahora).
 
 Tarea 5: Escribir el Script de Prueba (El "Lanzador")
-Qué: Crear un script de prueba (como su zmain.py) que simule el rol de FastAPI.
+Qué: Crear un run_sync_use_case.py que pruebe el Caso de Uso (sin ILayoutRepository).
 
-Acción: Este script hará lo siguiente:
+Acción:
 
-Usar el truco sys.path.insert para configurar las importaciones.
+Usar sys.path.insert.
 
-Instanciar Mocks: line_repo_mock = MockFeedingLineRepository() (y los otros).
+Instanciar Mocks: line_repo_mock = MockFeedingLineRepository(), silo_repo_mock = MockSiloRepository(), cage_repo_mock = MockCageRepository().
 
 Instanciar el Caso de Uso: use_case = SyncSystemLayoutUseCase(line_repo_mock, silo_repo_mock, cage_repo_mock).
 
-Crear un DTO de Prueba: Crear manualmente un SaveSystemLayoutRequest que simule un canvas (ej: un Silo nuevo, una FeedingLine actualizada, una Cage eliminada).
+Crear un DTO de Prueba SaveSystemLayoutRequest (sin relations_data ni presentation_data por ahora, ya que no se usarán en la Tarea 4).
 
 Ejecutar: await use_case.execute(dto_de_prueba).
 
-Verificar: Imprimir el contenido de los repositorios mock (print(line_repo_mock.\_lines)) para probar que el caso de uso hizo su trabajo correctamente.
+Verificar: Imprimir el contenido de los repositorios mock (print(line_repo_mock.\_lines)) para probar que el "diff" (crear, actualizar, eliminar) funcionó.
 
 Dónde: run_sync_use_case.py (en la raíz del proyecto).
 
-Por qué: Esto le permite probar su lógica de negocio y aplicación completa de principio a fin, antes de escribir una sola línea de código de API o base de datos.
+Por qué: Para tener confianza total en su lógica de sincronización de Agregados.

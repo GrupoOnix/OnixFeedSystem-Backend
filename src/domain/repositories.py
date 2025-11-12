@@ -22,6 +22,9 @@ class IFeedingLineRepository(ABC):
     @abstractmethod
     async def get_all(self) -> list[FeedingLine]: ...
 
+    @abstractmethod
+    async def delete(self, line_id: LineId) -> None: ...
+
 
 class ICageRepository(ABC):
 
@@ -40,6 +43,9 @@ class ICageRepository(ABC):
     @abstractmethod
     async def get_next_id(self) -> CageId: ...
 
+    @abstractmethod
+    async def delete(self, cage_id: CageId) -> None: ...
+
 
 class ISiloRepository(ABC):
 
@@ -57,4 +63,7 @@ class ISiloRepository(ABC):
 
     @abstractmethod
     async def get_next_id(self) -> SiloId: ...
+
+    @abstractmethod
+    async def delete(self, silo_id: SiloId) -> None: ...
     

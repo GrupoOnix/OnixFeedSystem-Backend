@@ -1,0 +1,278 @@
+###
+# Feeding System API - Ejemplos de Requests
+# 
+# Puedes usar estos ejemplos con:
+# - VS Code REST Client extension
+# - IntelliJ HTTP Client
+# - curl
+# - Postman
+#
+# NOTA: La API usa validación ESTRICTA (extra='forbid'):
+# - Todos los campos son OBLIGATORIOS (pueden estar vacíos)
+# - Campos extra NO permitidos (error 422)
+# - Esto garantiza un contrato claro entre frontend y backend
+###
+
+@baseUrl = http://localhost:8000
+@apiUrl = {{baseUrl}}/api
+
+### Health Check
+GET {{baseUrl}}/
+Content-Type: application/json
+
+### Health Check (alternativo)
+GET {{baseUrl}}/health
+Content-Type: application/json
+
+### Ver estado del sistema
+GET {{apiUrl}}/system-layout/status
+Content-Type: application/json
+
+### ============================================================================
+### UC-01: Sincronizar Layout del Sistema - Crear desde cero
+### ============================================================================
+
+POST {{apiUrl}}/system-layout
+Content-Type: application/json
+
+{
+  "silos": [
+    {
+      "id": "temp_silo_1",
+      "name": "Silo A",
+      "capacity": 1000.0
+    },
+    {
+      "id": "temp_silo_2",
+      "name": "Silo B",
+      "capacity": 2000.0
+    }
+  ],
+  "cages": [
+    {
+      "id": "temp_cage_1",
+      "name": "Jaula 1"
+    },
+    {
+      "id": "temp_cage_2",
+      "name": "Jaula 2"
+    },
+    {
+      "id": "temp_cage_3",
+      "name": "Jaula 3"
+    }
+  ],
+  "feeding_lines": [
+    {
+      "id": "temp_line_1",
+      "line_name": "Linea Principal",
+      "blower_config": {
+        "id": "temp_blower_1",
+        "name": "Soplador Principal",
+        "non_feeding_power": 50.0,
+        "blow_before_time": 5,
+        "blow_after_time": 3
+      },
+      "dosers_config": [
+        {
+          "id": "temp_doser_1",
+          "name": "Dosificador 1",
+          "assigned_silo_id": "temp_silo_1",
+          "doser_type": "volumetric",
+          "min_rate": 10.0,
+          "max_rate": 100.0,
+          "current_rate": 50.0
+        },
+        {
+          "id": "temp_doser_2",
+          "name": "Dosificador 2",
+          "assigned_silo_id": "temp_silo_2",
+          "doser_type": "gravimetric",
+          "min_rate": 15.0,
+          "max_rate": 120.0,
+          "current_rate": 60.0
+        }
+      ],
+      "selector_config": {
+        "id": "temp_selector_1",
+        "name": "Selector Principal",
+        "capacity": 4,
+        "fast_speed": 80.0,
+        "slow_speed": 20.0
+      },
+      "slot_assignments": [
+        {
+          "slot_number": 1,
+          "cage_id": "temp_cage_1"
+        },
+        {
+          "slot_number": 2,
+          "cage_id": "temp_cage_2"
+        }
+      ]
+    }
+  ],
+  "relations_data": {},
+  "presentation_data": {}
+}
+
+### ============================================================================
+### UC-01: Actualizar Layout Existente
+### ============================================================================
+### NOTA: Primero ejecuta el request anterior para crear agregados,
+###       luego copia los UUIDs reales del response de /status
+###       y reemplaza los IDs temporales aquí
+
+POST {{apiUrl}}/system-layout
+Content-Type: application/json
+
+{
+  "silos": [
+    {
+      "id": "REEMPLAZAR_CON_UUID_REAL",
+      "name": "Silo A Actualizado",
+      "capacity": 1000.0
+    }
+  ],
+  "cages": [
+    {
+      "id": "REEMPLAZAR_CON_UUID_REAL",
+      "name": "Jaula 1 Actualizada"
+    }
+  ],
+  "feeding_lines": [
+    {
+      "id": "REEMPLAZAR_CON_UUID_REAL",
+      "line_name": "Linea Principal Actualizada",
+      "blower_config": {
+        "id": "temp_blower_new",
+        "name": "Soplador Actualizado",
+        "non_feeding_power": 60.0,
+        "blow_before_time": 7,
+        "blow_after_time": 4
+      },
+      "dosers_config": [
+        {
+          "id": "temp_doser_new",
+          "name": "Dosificador Actualizado",
+          "assigned_silo_id": "REEMPLAZAR_CON_UUID_REAL",
+          "doser_type": "volumetric",
+          "min_rate": 20.0,
+          "max_rate": 150.0,
+          "current_rate": 75.0
+        }
+      ],
+      "selector_config": {
+        "id": "temp_selector_new",
+        "name": "Selector Actualizado",
+        "capacity": 6,
+        "fast_speed": 85.0,
+        "slow_speed": 25.0
+      },
+      "slot_assignments": [
+        {
+          "slot_number": 1,
+          "cage_id": "REEMPLAZAR_CON_UUID_REAL"
+        }
+      ]
+    }
+  ],
+  "relations_data": {},
+  "presentation_data": {}
+}
+
+### ============================================================================
+### Casos de Error - Validación de Negocio
+### ============================================================================
+
+### Error: Nombre duplicado
+POST {{apiUrl}}/system-layout
+Content-Type: application/json
+
+{
+  "silos": [
+    {
+      "id": "temp_silo_1",
+      "name": "Silo Duplicado",
+      "capacity": 1000.0
+    },
+    {
+      "id": "temp_silo_2",
+      "name": "Silo Duplicado",
+      "capacity": 2000.0
+    }
+  ],
+  "cages": [],
+  "feeding_lines": [],
+  "relations_data": {},
+  "presentation_data": {}
+}
+
+### Error: Capacidad negativa (validación Pydantic)
+POST {{apiUrl}}/system-layout
+Content-Type: application/json
+
+{
+  "silos": [
+    {
+      "id": "temp_silo_1",
+      "name": "Silo Invalido",
+      "capacity": -100.0
+    }
+  ],
+  "cages": [],
+  "feeding_lines": [],
+  "relations_data": {},
+  "presentation_data": {}
+}
+
+### Error: Referencia a silo inexistente
+POST {{apiUrl}}/system-layout
+Content-Type: application/json
+
+{
+  "silos": [],
+  "cages": [],
+  "feeding_lines": [
+    {
+      "id": "temp_line_1",
+      "line_name": "Linea con Error",
+      "blower_config": {
+        "id": "temp_blower_1",
+        "name": "Soplador",
+        "non_feeding_power": 50.0,
+        "blow_before_time": 5,
+        "blow_after_time": 3
+      },
+      "dosers_config": [
+        {
+          "id": "temp_doser_1",
+          "name": "Dosificador",
+          "assigned_silo_id": "silo_inexistente",
+          "doser_type": "volumetric",
+          "min_rate": 10.0,
+          "max_rate": 100.0,
+          "current_rate": 50.0
+        }
+      ],
+      "selector_config": {
+        "id": "temp_selector_1",
+        "name": "Selector",
+        "capacity": 4,
+        "fast_speed": 80.0,
+        "slow_speed": 20.0
+      },
+      "slot_assignments": []
+    }
+  ],
+  "relations_data": {},
+  "presentation_data": {}
+}
+
+### ============================================================================
+### Utilidades
+### ============================================================================
+
+### Resetear sistema (limpiar todos los datos)
+DELETE {{apiUrl}}/system-layout/reset
+Content-Type: application/json

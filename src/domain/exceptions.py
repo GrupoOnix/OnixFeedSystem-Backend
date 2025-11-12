@@ -118,3 +118,13 @@ class AggregateInvariantViolationException(DomainException):
     to ensure the aggregate remains in a valid state.
     """
     pass
+
+
+class DuplicateSensorTypeException(DomainException):
+    """Raised when attempting to add multiple sensors of the same type to a feeding line.
+    
+    Business rule (FA7):
+    - A feeding line can only have one sensor of each type (TEMPERATURE, PRESSURE, FLOW)
+    - Sensors are optional, but if present, must be unique by type
+    """
+    pass
