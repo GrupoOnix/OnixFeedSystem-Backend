@@ -98,4 +98,3 @@ class SystemLayoutDTO:
     silos: List[SiloConfigDTO]
     cages: List[CageConfigDTO]
     feeding_lines: List[FeedingLineConfigDTO]
-    presentation_data: Dict[str, Any]

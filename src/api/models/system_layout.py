@@ -350,17 +350,6 @@ class FeedingLineConfigModel(BaseModel):
     )
 
 
-class PresentationDataModel(BaseModel):
-    """Datos de presentación del canvas (estructura de nodos y edges por línea)."""
-    
-    model_config = ConfigDict(extra='allow')  # Permitir campos dinámicos
-    
-    lines: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Diccionario con datos de presentación por línea (nodes, edges, etc.)"
-    )
-
-
 class SystemLayoutModel(BaseModel):
     """
     Modelo del layout completo del sistema.
@@ -413,10 +402,7 @@ class SystemLayoutModel(BaseModel):
                             {"slot_number": 1, "cage_id": "temp_cage_1"}
                         ]
                     }
-                ],
-                "presentation_data": {
-                    "lines": {}
-                }
+                ]
             }
         }
     )
@@ -432,10 +418,6 @@ class SystemLayoutModel(BaseModel):
     feeding_lines: List[FeedingLineConfigModel] = Field(
         ...,
         description="Lista de líneas de alimentación (obligatorio, puede estar vacío [])"
-    )
-    presentation_data: PresentationDataModel = Field(
-        ...,
-        description="Datos de presentación del canvas (nodos, edges, posiciones)"
     )
 
 

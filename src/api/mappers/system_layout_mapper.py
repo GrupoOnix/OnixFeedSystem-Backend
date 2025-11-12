@@ -41,8 +41,7 @@ class SystemLayoutMapper:
             feeding_lines=[
                 SystemLayoutMapper._to_feeding_line_dto(line)
                 for line in api_model.feeding_lines
-            ],
-            presentation_data=api_model.presentation_data.model_dump()
+            ]
         )
     
     @staticmethod
@@ -140,8 +139,6 @@ class SystemLayoutMapper:
     @staticmethod
     def to_api_model(app_dto: SystemLayoutDTO) -> SystemLayoutModel:
         """Convierte DTO de aplicación a modelo API."""
-        from api.models.system_layout import PresentationDataModel
-        
         return SystemLayoutModel(
             silos=[
                 SiloConfigModel(
@@ -161,8 +158,7 @@ class SystemLayoutMapper:
             feeding_lines=[
                 SystemLayoutMapper._to_feeding_line_model(line)
                 for line in app_dto.feeding_lines
-            ],
-            presentation_data=PresentationDataModel(**app_dto.presentation_data)
+            ]
         )
     
     @staticmethod

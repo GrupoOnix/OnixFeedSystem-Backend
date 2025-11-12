@@ -60,18 +60,8 @@ class GetSystemLayoutUseCase:
             for line in all_lines
         ]
         
-        # Reconstruir presentation_data desde los metadatos guardados en cada línea
-        presentation_data = {
-            "lines": {
-                str(line.id): line.presentation_metadata
-                for line in all_lines
-                if line.presentation_metadata is not None
-            }
-        }
-        
         return SystemLayoutDTO(
             silos=silos_dtos,
             cages=cages_dtos,
-            feeding_lines=lines_dtos,
-            presentation_data=presentation_data
+            feeding_lines=lines_dtos
         )

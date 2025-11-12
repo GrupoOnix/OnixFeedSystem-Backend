@@ -24,9 +24,6 @@ from .system_layout import (
     
     # Value Objects
     SlotAssignmentModel,
-    
-    # Presentation
-    PresentationDataModel,
 )
 
 __all__ = [
@@ -46,7 +43,4 @@ __all__ = [
     
     # Value Objects
     'SlotAssignmentModel',
-    
-    # Presentation
-    'PresentationDataModel',
 ]

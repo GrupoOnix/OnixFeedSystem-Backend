@@ -13,6 +13,7 @@ from application.dtos import (
     SlotAssignmentDTO
 )
 from application.mappers import DomainToDTOMapper
+from application.services import NameValidator, ResourceReleaser
 from domain.repositories import (
     IFeedingLineRepository,
     ISiloRepository,
@@ -123,11 +124,9 @@ class SyncSystemLayoutUseCase:
         
         # 3.1 Crear Agregados Independientes: Silos
         for dto in silos_to_create_dtos:
-            existing_silo = await self.silo_repo.find_by_name(SiloName(dto.name))
-            if existing_silo:
-                raise DuplicateLineNameException(
-                    f"Ya existe un silo con el nombre '{dto.name}'"
-                )
+            await NameValidator.validate_unique_silo_name(
+                dto.name, exclude_id=None, repo=self.silo_repo
+            )
             
             name = SiloName(dto.name)
             capacity = Weight.from_kg(dto.capacity)
@@ -136,17 +135,13 @@ class SyncSystemLayoutUseCase:
             new_silo = Silo(name=name, capacity=capacity, stock_level=stock_level)
             
             await self.silo_repo.save(new_silo)
-            
-            # Mapear ID temporal -> ID real
             id_map[dto.id] = new_silo.id
         
         # 3.2 Crear Agregados Independientes: Cages
         for dto in cages_to_create_dtos:
-            existing_cage = await self.cage_repo.find_by_name(CageName(dto.name))
-            if existing_cage:
-                raise DuplicateLineNameException(
-                    f"Ya existe una jaula con el nombre '{dto.name}'"
-                )
+            await NameValidator.validate_unique_cage_name(
+                dto.name, exclude_id=None, repo=self.cage_repo
+            )
             
             name = CageName(dto.name)
             
@@ -158,11 +153,9 @@ class SyncSystemLayoutUseCase:
 
         # 3.3 Crear Agregados Dependientes: FeedingLines
         for dto in lines_to_create_dtos:
-            existing_line = await self.line_repo.find_by_name(LineName(dto.line_name))
-            if existing_line:
-                raise DuplicateLineNameException(
-                    f"Ya existe una línea con el nombre '{dto.line_name}'"
-                )
+            await NameValidator.validate_unique_line_name(
+                dto.line_name, exclude_id=None, repo=self.line_repo
+            )
             
             blower = self._build_blower_from_dto(dto.blower_config)
             sensors = self._build_sensors_from_dto(dto.sensors_config)
@@ -177,40 +170,18 @@ class SyncSystemLayoutUseCase:
                 sensors=sensors
             )
             
-            # Validar y asignar slots (Jaula no debe estar en uso por otra línea)
             for slot_dto in dto.slot_assignments:
                 cage_id = await self._resolve_cage_id(slot_dto.cage_id, id_map)
                 
-                # Validar que la jaula no esté asignada a otra línea
                 cage = await self.cage_repo.find_by_id(cage_id)
                 if cage:
-                    cage.assign_to_line()  # Lanza excepción si ya está en uso
-                    await self.cage_repo.save(cage)  # Persistir cambio de estado
+                    cage.assign_to_line()
+                    await self.cage_repo.save(cage)
                 
                 new_line.assign_cage_to_slot(slot_dto.slot_number, cage_id)
             
-            # Mapear ID temporal de la línea -> ID real
-            id_map[dto.id] = new_line.id
-            
-            # Mapear IDs temporales de componentes -> IDs reales
-            id_map[dto.blower_config.id] = new_line.blower.id
-            id_map[dto.selector_config.id] = new_line.selector.id
-            
-            for i, sensor in enumerate(new_line.sensors):
-                id_map[dto.sensors_config[i].id] = sensor.id
-            
-            for i, doser in enumerate(new_line.dosers):
-                id_map[dto.dosers_config[i].id] = doser.id
-            
-            # Guardar presentation_metadata de esta línea (si existe)
-            line_presentation = request.presentation_data.get("lines", {}).get(dto.id, None)
-            if line_presentation:
-                updated_presentation = self._replace_temp_ids_in_presentation(
-                    line_presentation, id_map
-                )
-                new_line.set_presentation_metadata(updated_presentation)
-            
             await self.line_repo.save(new_line)
+            id_map[dto.id] = new_line.id
         
         # ====================================================================
         # FASE 4: EJECUTAR ACTUALIZACIONES
@@ -224,14 +195,11 @@ class SyncSystemLayoutUseCase:
             
             # Validar FA2: Nombre duplicado (solo si cambió el nombre)
             if str(silo.name) != dto.name:
-                existing_silo = await self.silo_repo.find_by_name(SiloName(dto.name))
-                if existing_silo and existing_silo.id != silo_id:
-                    raise DuplicateLineNameException(
-                        f"Ya existe un silo con el nombre '{dto.name}'"
-                    )
+                await NameValidator.validate_unique_silo_name(
+                    dto.name, exclude_id=silo_id, repo=self.silo_repo
+                )
                 silo.name = SiloName(dto.name)
             
-            # Actualizar capacidad (valida automáticamente vs stock_level en el setter)
             silo.capacity = Weight.from_kg(dto.capacity)
             
             await self.silo_repo.save(silo)
@@ -240,15 +208,13 @@ class SyncSystemLayoutUseCase:
         for cage_id, dto in cages_to_update_dto_map.items():
             cage = await self.cage_repo.find_by_id(cage_id)
             if not cage:
-                continue  # Skip si no existe
+                continue
             
             # Validar FA2: Nombre duplicado (solo si cambió el nombre)
             if str(cage.name) != dto.name:
-                existing_cage = await self.cage_repo.find_by_name(CageName(dto.name))
-                if existing_cage and existing_cage.id != cage_id:
-                    raise DuplicateLineNameException(
-                        f"Ya existe una jaula con el nombre '{dto.name}'"
-                    )
+                await NameValidator.validate_unique_cage_name(
+                    dto.name, exclude_id=cage_id, repo=self.cage_repo
+                )
                 cage.name = CageName(dto.name)
             
             await self.cage_repo.save(cage)
@@ -263,46 +229,31 @@ class SyncSystemLayoutUseCase:
         # Esto permite intercambios entre líneas (ej: Line1→Silo1, Line2→Silo2 
         # puede cambiar a Line1→Silo2, Line2→Silo1)
         
-        for line_id, dto in lines_to_update_dto_map.items():
+        lines_to_release = []
+        for line_id in lines_to_update_dto_map.keys():
             line = await self.line_repo.find_by_id(line_id)
-            if not line:
-                continue
-            
-            # Liberar jaulas antiguas
-            old_assignments = line.get_slot_assignments()
-            for old_assignment in old_assignments:
-                old_cage = await self.cage_repo.find_by_id(old_assignment.cage_id)
-                if old_cage:
-                    old_cage.release_from_line()
-                    await self.cage_repo.save(old_cage)
-            
-            # Liberar silos antiguos
-            for old_doser in line.dosers:
-                old_silo = await self.silo_repo.find_by_id(old_doser.assigned_silo_id)
-                if old_silo:
-                    old_silo.release_from_doser()
-                    await self.silo_repo.save(old_silo)
+            if line:
+                lines_to_release.append(line)
+        
+        await ResourceReleaser.release_all_from_lines(
+            lines_to_release, self.silo_repo, self.cage_repo
+        )
         
         # ====================================================================
         # FASE 4.3b: REASIGNAR TODOS LOS RECURSOS
         # ====================================================================
-        # Ahora que todos los recursos están libres, podemos reasignarlos
         
         for line_id, dto in lines_to_update_dto_map.items():
             line = await self.line_repo.find_by_id(line_id)
             if not line:
                 continue
             
-            # Validar nombre duplicado (solo si cambió el nombre)
             if str(line.name) != dto.line_name:
-                existing_line = await self.line_repo.find_by_name(LineName(dto.line_name))
-                if existing_line and existing_line.id != line_id:
-                    raise DuplicateLineNameException(
-                        f"Ya existe una línea con el nombre '{dto.line_name}'"
-                    )
+                await NameValidator.validate_unique_line_name(
+                    dto.line_name, exclude_id=line_id, repo=self.line_repo
+                )
                 line.name = LineName(dto.line_name)
             
-            # Construir componentes (asigna silos internamente)
             blower = self._build_blower_from_dto(dto.blower_config)
             sensors = self._build_sensors_from_dto(dto.sensors_config)
             dosers = await self._build_dosers_from_dto(dto.dosers_config, id_map)
@@ -310,12 +261,10 @@ class SyncSystemLayoutUseCase:
             
             line.update_components(blower, dosers, selector, sensors)
             
-            # Ensamblar y asignar jaulas
             new_assignments: List[SlotAssignment] = []
             for slot_dto in dto.slot_assignments:
                 cage_id = await self._resolve_cage_id(slot_dto.cage_id, id_map)
                 
-                # Asignar jaula (ahora están todas libres)
                 cage = await self.cage_repo.find_by_id(cage_id)
                 if cage:
                     cage.assign_to_line()
@@ -327,36 +276,16 @@ class SyncSystemLayoutUseCase:
             
             line.update_assignments(new_assignments)
             
-            # Mapear IDs de componentes (los componentes se regeneran en cada update)
-            id_map[dto.blower_config.id] = line.blower.id
-            id_map[dto.selector_config.id] = line.selector.id
-            
-            for i, sensor in enumerate(line.sensors):
-                id_map[dto.sensors_config[i].id] = sensor.id
-            
-            for i, doser in enumerate(line.dosers):
-                id_map[dto.dosers_config[i].id] = doser.id
-            
-            # Guardar presentation_metadata de esta línea (si existe)
-            line_presentation = request.presentation_data.get("lines", {}).get(dto.id, None)
-            if line_presentation:
-                updated_presentation = self._replace_temp_ids_in_presentation(
-                    line_presentation, id_map
-                )
-                line.set_presentation_metadata(updated_presentation)
-            
             await self.line_repo.save(line)
         
         # ====================================================================
         # FASE 5: RECONSTRUIR LAYOUT CON IDs REALES
         # ====================================================================
         
-        # Cargar todos los agregados desde BD
         all_silos = await self.silo_repo.get_all()
         all_cages = await self.cage_repo.get_all()
         all_lines = await self.line_repo.get_all()
         
-        # Convertir entidades de dominio a DTOs usando el mapper
         silos_dtos = [
             DomainToDTOMapper.silo_to_dto(silo)
             for silo in all_silos
@@ -372,20 +301,10 @@ class SyncSystemLayoutUseCase:
             for line in all_lines
         ]
         
-        # Reconstruir presentation_data desde los metadatos guardados en cada línea
-        presentation_data = {
-            "lines": {
-                str(line.id): line.presentation_metadata
-                for line in all_lines
-                if line.presentation_metadata is not None
-            }
-        }
-        
         return SystemLayoutDTO(
             silos=silos_dtos,
             cages=cages_dtos,
-            feeding_lines=lines_dtos,
-            presentation_data=presentation_data
+            feeding_lines=lines_dtos
         )
 
     # ========================================================================
@@ -521,53 +440,3 @@ class SyncSystemLayoutUseCase:
         
         raise ValueError(f"La jaula con ID temporal '{cage_id_str}' no fue creada")
 
-    def _replace_temp_ids_in_presentation(
-        self,
-        presentation_metadata: Optional[Dict[str, Any]],
-        id_map: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
-        """
-        Reemplaza IDs temporales por IDs reales en los metadatos de presentación.
-        
-        Recorre la estructura de presentation_metadata (nodes, edges) y reemplaza
-        cualquier ID temporal que esté en el id_map por su ID real correspondiente.
-        
-        Args:
-            presentation_metadata: Diccionario con estructura de presentación (nodes, edges)
-            id_map: Mapeo de IDs temporales a IDs reales
-            
-        Returns:
-            Diccionario con IDs actualizados, o None si presentation_metadata es None
-        """
-        if not presentation_metadata:
-            return None
-        
-        # Crear copia profunda para no mutar el original
-        import copy
-        updated_metadata = copy.deepcopy(presentation_metadata)
-        
-        # Reemplazar IDs en nodes
-        if "nodes" in updated_metadata and isinstance(updated_metadata["nodes"], list):
-            for node in updated_metadata["nodes"]:
-                if isinstance(node, dict) and "id" in node:
-                    node_id = node["id"]
-                    if node_id in id_map:
-                        node["id"] = str(id_map[node_id])
-        
-        # Reemplazar IDs en edges
-        if "edges" in updated_metadata and isinstance(updated_metadata["edges"], list):
-            for edge in updated_metadata["edges"]:
-                if isinstance(edge, dict):
-                    # Reemplazar edge.id
-                    if "id" in edge and edge["id"] in id_map:
-                        edge["id"] = str(id_map[edge["id"]])
-                    
-                    # Reemplazar edge.source
-                    if "source" in edge and edge["source"] in id_map:
-                        edge["source"] = str(id_map[edge["source"]])
-                    
-                    # Reemplazar edge.target
-                    if "target" in edge and edge["target"] in id_map:
-                        edge["target"] = str(id_map[edge["target"]])
-        
-        return updated_metadata

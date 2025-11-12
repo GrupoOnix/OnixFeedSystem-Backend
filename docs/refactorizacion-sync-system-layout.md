@@ -56,7 +56,7 @@ Refactorizar el caso de uso `SyncSystemLayoutUseCase` para cumplir con principio
 
 ### Fase 1: Limpieza básica (Quick wins)
 
-#### [ ] Tarea 1.1: Eliminar comentarios TODO obsoletos
+#### [X] Tarea 1.1: Eliminar comentarios TODO obsoletos
 
 **Archivo**: `src/application/use_cases/sync_system_layout.py`
 
@@ -68,7 +68,7 @@ Refactorizar el caso de uso `SyncSystemLayoutUseCase` para cumplir con principio
 
 ---
 
-#### [ ] Tarea 1.2: Simplificar docstrings excesivos
+#### [X] Tarea 1.2: Simplificar docstrings excesivos
 
 **Archivo**: `src/application/use_cases/sync_system_layout.py`
 
@@ -107,7 +107,7 @@ def _build_sensors_from_dto(self, sensors_dto: List[SensorConfigDTO]) -> List[Se
 
 ---
 
-#### [ ] Tarea 1.3: Reducir comentarios innecesarios
+#### [X] Tarea 1.3: Reducir comentarios innecesarios
 
 **Archivo**: `src/application/use_cases/sync_system_layout.py`
 
@@ -144,7 +144,7 @@ id_map[dto.id] = new_silo.id
 
 ### Fase 2: Extraer validaciones duplicadas
 
-#### [ ] Tarea 2.1: Crear NameValidator service
+#### [X] Tarea 2.1: Crear NameValidator service
 
 **Archivo nuevo**: `src/application/services/__init__.py`
 **Archivo nuevo**: `src/application/services/name_validator.py`
@@ -177,7 +177,7 @@ class NameValidator:
 
 ---
 
-#### [ ] Tarea 2.2: Usar NameValidator en el caso de uso
+#### [X] Tarea 2.2: Usar NameValidator en el caso de uso
 
 **Archivo**: `src/application/use_cases/sync_system_layout.py`
 
@@ -205,7 +205,7 @@ await NameValidator.validate_unique_silo_name(
 
 ### Fase 3: Extraer lógica de liberación de recursos
 
-#### [ ] Tarea 3.1: Crear ResourceReleaser service
+#### [X] Tarea 3.1: Crear ResourceReleaser service
 
 **Archivo nuevo**: `src/application/services/resource_releaser.py`
 
@@ -241,7 +241,7 @@ class ResourceReleaser:
 
 ---
 
-#### [ ] Tarea 3.2: Usar ResourceReleaser en Fase 4.3a
+#### [X] Tarea 3.2: Usar ResourceReleaser en Fase 4.3a
 
 **Archivo**: `src/application/use_cases/sync_system_layout.py`
 
@@ -381,31 +381,23 @@ async def _execute_deletions(self, delta: Delta) -> None:
 
 **Archivo**: `src/application/use_cases/sync_system_layout.py`
 
-**Acción**: Crear método `_execute_creations(delta: Delta, id_map: Dict, request: SystemLayoutDTO) -> None`
+**Acción**: Crear método `_execute_creations(delta: Delta, id_map: Dict) -> None`
 
 **Contenido**:
 
 ```python
-async def _execute_creations(self, delta: Delta, id_map: Dict[str, Any], request: SystemLayoutDTO) -> None:
+async def _execute_creations(self, delta: Delta, id_map: Dict[str, Any]) -> None:
     """Crea nuevos agregados y mapea IDs temporales a reales."""
     await self._create_silos(delta.silos_to_create, id_map)
     await self._create_cages(delta.cages_to_create, id_map)
-    await self._create_feeding_lines(delta.lines_to_create, id_map, request)
+    await self._create_feeding_lines(delta.lines_to_create, id_map)
 ```
 
 **Sub-métodos**:
 
-- `_create_silos(silos_dtos, id_map)`
-- `_create_cages(cages_dtos, id_map)`
-- `_create_feeding_lines(lines_dtos, id_map, request)` - Necesita `request` para guardar `presentation_metadata`
-
-**Nota importante**: `_create_feeding_lines()` debe:
-
-1. Crear la línea
-2. Mapear IDs de componentes (blower, selector, sensors, dosers)
-3. Extraer `presentation_data` de esa línea desde `request`
-4. Reemplazar IDs temporales por reales usando `_replace_temp_ids_in_presentation()`
-5. Guardar en `line.set_presentation_metadata()`
+- `_create_silos()`
+- `_create_cages()`
+- `_create_feeding_lines()`
 
 **Criterio de éxito**: Fase 3 dividida en métodos pequeños
 
@@ -415,30 +407,23 @@ async def _execute_creations(self, delta: Delta, id_map: Dict[str, Any], request
 
 **Archivo**: `src/application/use_cases/sync_system_layout.py`
 
-**Acción**: Crear método `_execute_updates(delta: Delta, id_map: Dict, request: SystemLayoutDTO) -> None`
+**Acción**: Crear método `_execute_updates(delta: Delta, id_map: Dict) -> None`
 
 **Contenido**:
 
 ```python
-async def _execute_updates(self, delta: Delta, id_map: Dict[str, Any], request: SystemLayoutDTO) -> None:
+async def _execute_updates(self, delta: Delta, id_map: Dict[str, Any]) -> None:
     """Actualiza agregados existentes."""
     await self._update_silos(delta.silos_to_update)
     await self._update_cages(delta.cages_to_update)
-    await self._update_feeding_lines(delta.lines_to_update, id_map, request)
+    await self._update_feeding_lines(delta.lines_to_update, id_map)
 ```
 
 **Sub-métodos**:
 
-- `_update_silos(silos_map)`
-- `_update_cages(cages_map)`
-- `_update_feeding_lines(lines_map, id_map, request)` - Necesita `request` para guardar `presentation_metadata`
-
-**Nota importante**: `_update_feeding_lines()` debe incluir:
-
-- Fase 4.3a: Liberar recursos (usar `ResourceReleaser`)
-- Fase 4.3b: Actualizar componentes y reasignar recursos
-- Mapear IDs de componentes actualizados
-- Guardar `presentation_metadata` actualizado
+- `_update_silos()`
+- `_update_cages()`
+- `_update_feeding_lines()` (incluye Fase 4.3a y 4.3b)
 
 **Criterio de éxito**: Fase 4 dividida en métodos pequeños
 
@@ -448,25 +433,16 @@ async def _execute_updates(self, delta: Delta, id_map: Dict[str, Any], request: 
 
 **Archivo**: `src/application/use_cases/sync_system_layout.py`
 
-**Acción**: Crear método `_rebuild_layout() -> SystemLayoutDTO`
+**Acción**: Crear método `_rebuild_layout(presentation_data: Dict) -> SystemLayoutDTO`
 
 **Contenido**:
 
 ```python
-async def _rebuild_layout(self) -> SystemLayoutDTO:
+async def _rebuild_layout(self, presentation_data: Dict[str, Any]) -> SystemLayoutDTO:
     """Reconstruye el layout completo con IDs reales desde BD."""
     all_silos = await self.silo_repo.get_all()
     all_cages = await self.cage_repo.get_all()
     all_lines = await self.line_repo.get_all()
-
-    # Reconstruir presentation_data desde metadatos guardados en cada línea
-    presentation_data = {
-        "lines": {
-            str(line.id): line.presentation_metadata
-            for line in all_lines
-            if line.presentation_metadata is not None
-        }
-    }
 
     return SystemLayoutDTO(
         silos=[DomainToDTOMapper.silo_to_dto(s) for s in all_silos],
@@ -476,9 +452,7 @@ async def _rebuild_layout(self) -> SystemLayoutDTO:
     )
 ```
 
-**Nota importante**: El `presentation_data` se reconstruye desde `line.presentation_metadata` (guardado en BD), NO desde el request.
-
-**Criterio de éxito**: Fase 5 en método dedicado, presentation_data reconstruido desde BD
+**Criterio de éxito**: Fase 5 en método dedicado
 
 ---
 
@@ -500,16 +474,11 @@ async def execute(self, request: SystemLayoutDTO) -> SystemLayoutDTO:
     )
 
     await self._execute_deletions(delta)
-    await self._execute_creations(delta, id_map, request)
-    await self._execute_updates(delta, id_map, request)
+    await self._execute_creations(delta, id_map)
+    await self._execute_updates(delta, id_map)
 
-    return await self._rebuild_layout()
+    return await self._rebuild_layout(request.presentation_data)
 ```
-
-**Nota importante**:
-
-- `_execute_creations()` y `_execute_updates()` necesitan `request` para acceder a `request.presentation_data`
-- `_rebuild_layout()` NO necesita parámetros, reconstruye desde BD
 
 **Criterio de éxito**: Método execute() de ~15 líneas, altamente legible
 
