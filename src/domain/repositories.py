@@ -39,9 +39,6 @@ class ICageRepository(ABC):
 
     @abstractmethod
     async def get_all(self) -> List[Cage]: ...
-    
-    @abstractmethod
-    async def get_next_id(self) -> CageId: ...
 
     @abstractmethod
     async def delete(self, cage_id: CageId) -> None: ...
@@ -60,9 +57,6 @@ class ISiloRepository(ABC):
 
     @abstractmethod
     async def get_all(self) -> List[Silo]: ...
-
-    @abstractmethod
-    async def get_next_id(self) -> SiloId: ...
 
     @abstractmethod
     async def delete(self, silo_id: SiloId) -> None: ...

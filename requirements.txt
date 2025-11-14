@@ -3,10 +3,18 @@ fastapi[standard]==0.121.0
 
 # Database
 sqlmodel==0.0.27
+asyncpg==0.30.0
+alembic==1.17.1
 
 # UUID support
 uuid==1.30
 
+# Testing
+pytest==8.4.2
+pytest-asyncio==1.3.0
+
 #Linting
 mypy==1.18.2
 ruff==0.14.3
+
+python-dotenv==1.2.1

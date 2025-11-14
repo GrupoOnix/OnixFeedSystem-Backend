@@ -19,10 +19,8 @@ from domain.exceptions import (
 router = APIRouter(prefix="/system-layout")
 
 
-# ============================================================================
 # DEPENDENCY INJECTION (Temporal - Mock Repositories)
-# ============================================================================
-# TODO: Reemplazar con repositorios reales cuando se implemente la BD
+# TODO - Reemplazar con repositorios reales cuando se implemente la BD
 
 # Repositorios singleton para mantener estado en memoria durante la sesión
 _line_repo = MockFeedingLineRepository()
@@ -31,12 +29,7 @@ _cage_repo = MockCageRepository()
 
 
 def get_sync_system_layout_use_case() -> SyncSystemLayoutUseCase:
-    """
-    Factory que crea una instancia del caso de uso con dependencias inyectadas.
-    
-    Returns:
-        Instancia configurada de SyncSystemLayoutUseCase
-    """
+
     return SyncSystemLayoutUseCase(
         line_repo=_line_repo,
         silo_repo=_silo_repo,
@@ -45,12 +38,7 @@ def get_sync_system_layout_use_case() -> SyncSystemLayoutUseCase:
 
 
 def get_get_system_layout_use_case() -> GetSystemLayoutUseCase:
-    """
-    Factory que crea una instancia del caso de uso con dependencias inyectadas.
-    
-    Returns:
-        Instancia configurada de GetSystemLayoutUseCase
-    """
+
     return GetSystemLayoutUseCase(
         line_repo=_line_repo,
         silo_repo=_silo_repo,

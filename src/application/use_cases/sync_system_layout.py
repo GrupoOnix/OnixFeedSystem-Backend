@@ -13,7 +13,7 @@ from application.dtos import (
     SlotAssignmentDTO
 )
 from application.mappers import DomainToDTOMapper
-from application.services import NameValidator, ResourceReleaser
+from application.services import NameValidator, ResourceReleaser, DeltaCalculator
 from domain.repositories import (
     IFeedingLineRepository,
     ISiloRepository,
@@ -55,257 +55,22 @@ class SyncSystemLayoutUseCase:
        
         id_map: Dict[str, Any] = {}
         
-        # ====================================================================
-        # FASE 1: CÁLCULO DE DELTA
-        # ====================================================================
+        # FASE 1: CÁLCULO DE DELTA        
+        delta = await DeltaCalculator.calculate(
+            request, self.line_repo, self.silo_repo, self.cage_repo
+        )
         
-        # 1.1 Cargar todos los IDs reales de la BD
-        db_lines = await self.line_repo.get_all()
-        db_silos = await self.silo_repo.get_all()
-        db_cages = await self.cage_repo.get_all()
-        
-        db_line_ids_set = {line.id for line in db_lines}
-        db_silo_ids_set = {silo.id for silo in db_silos}
-        db_cage_ids_set = {cage.id for cage in db_cages}
-        
-        # 1.2 Separar DTOs en "Crear" vs "Actualizar"
-        
-        silos_to_update_dto_map: Dict[SiloId, SiloConfigDTO] = {}
-        silos_to_create_dtos: List[SiloConfigDTO] = []
-        
-        for dto in request.silos:
-            if self._is_uuid(dto.id):
-                silo_id = SiloId.from_string(dto.id)
-                silos_to_update_dto_map[silo_id] = dto
-            else:
-                silos_to_create_dtos.append(dto)
-        
-        cages_to_update_dto_map: Dict[CageId, CageConfigDTO] = {}
-        cages_to_create_dtos: List[CageConfigDTO] = []
-        
-        for dto in request.cages:
-            if self._is_uuid(dto.id):
-                cage_id = CageId.from_string(dto.id)
-                cages_to_update_dto_map[cage_id] = dto
-            else:
-                cages_to_create_dtos.append(dto)
-        
-        lines_to_update_dto_map: Dict[LineId, FeedingLineConfigDTO] = {}
-        lines_to_create_dtos: List[FeedingLineConfigDTO] = []
-        
-        for dto in request.feeding_lines:
-            if self._is_uuid(dto.id):
-                line_id = LineId.from_string(dto.id)
-                lines_to_update_dto_map[line_id] = dto
-            else:
-                lines_to_create_dtos.append(dto)
-        
-        # 1.3 Calcular IDs a eliminar
-        silo_ids_to_delete = db_silo_ids_set - set(silos_to_update_dto_map.keys())
-        cage_ids_to_delete = db_cage_ids_set - set(cages_to_update_dto_map.keys())
-        line_ids_to_delete = db_line_ids_set - set(lines_to_update_dto_map.keys())
-        
-        # ====================================================================
-        # FASE 2: EJECUTAR ELIMINACIONES
-        # ====================================================================
-        
-        for line_id in line_ids_to_delete:
-            await self.line_repo.delete(line_id)
-        
-        for silo_id in silo_ids_to_delete:
-            await self.silo_repo.delete(silo_id)
-        
-        for cage_id in cage_ids_to_delete:
-            await self.cage_repo.delete(cage_id)
-        
-        # ====================================================================
-        # FASE 3: EJECUTAR CREACIONES (y Mapear IDs)
-        # ====================================================================
-        
-        # 3.1 Crear Agregados Independientes: Silos
-        for dto in silos_to_create_dtos:
-            await NameValidator.validate_unique_silo_name(
-                dto.name, exclude_id=None, repo=self.silo_repo
-            )
-            
-            name = SiloName(dto.name)
-            capacity = Weight.from_kg(dto.capacity)
-            stock_level = Weight.zero()
-            
-            new_silo = Silo(name=name, capacity=capacity, stock_level=stock_level)
-            
-            await self.silo_repo.save(new_silo)
-            id_map[dto.id] = new_silo.id
-        
-        # 3.2 Crear Agregados Independientes: Cages
-        for dto in cages_to_create_dtos:
-            await NameValidator.validate_unique_cage_name(
-                dto.name, exclude_id=None, repo=self.cage_repo
-            )
-            
-            name = CageName(dto.name)
-            
-            new_cage = Cage(name=name)
-            
-            await self.cage_repo.save(new_cage)
-            
-            id_map[dto.id] = new_cage.id
+        # FASE 2: EJECUTAR ELIMINACIONES        
+        await self._execute_deletions(delta)
 
-        # 3.3 Crear Agregados Dependientes: FeedingLines
-        for dto in lines_to_create_dtos:
-            await NameValidator.validate_unique_line_name(
-                dto.line_name, exclude_id=None, repo=self.line_repo
-            )
-            
-            blower = self._build_blower_from_dto(dto.blower_config)
-            sensors = self._build_sensors_from_dto(dto.sensors_config)
-            dosers = await self._build_dosers_from_dto(dto.dosers_config, id_map)
-            selector = self._build_selector_from_dto(dto.selector_config)
-            
-            new_line = FeedingLine.create(
-                name=LineName(dto.line_name),
-                blower=blower,
-                dosers=dosers,
-                selector=selector,
-                sensors=sensors
-            )
-            
-            for slot_dto in dto.slot_assignments:
-                cage_id = await self._resolve_cage_id(slot_dto.cage_id, id_map)
-                
-                cage = await self.cage_repo.find_by_id(cage_id)
-                if cage:
-                    cage.assign_to_line()
-                    await self.cage_repo.save(cage)
-                
-                new_line.assign_cage_to_slot(slot_dto.slot_number, cage_id)
-            
-            await self.line_repo.save(new_line)
-            id_map[dto.id] = new_line.id
-        
-        # ====================================================================
+        # FASE 3: EJECUTAR CREACIONES (y Mapear IDs)
+        await self._execute_creations(delta, id_map)
+
         # FASE 4: EJECUTAR ACTUALIZACIONES
-        # ====================================================================
+        await self._execute_updates(delta, id_map)
         
-        # 4.1 Actualizar Agregados Independientes: Silos
-        for silo_id, dto in silos_to_update_dto_map.items():
-            silo = await self.silo_repo.find_by_id(silo_id)
-            if not silo:
-                continue  # Skip si no existe
-            
-            # Validar FA2: Nombre duplicado (solo si cambió el nombre)
-            if str(silo.name) != dto.name:
-                await NameValidator.validate_unique_silo_name(
-                    dto.name, exclude_id=silo_id, repo=self.silo_repo
-                )
-                silo.name = SiloName(dto.name)
-            
-            silo.capacity = Weight.from_kg(dto.capacity)
-            
-            await self.silo_repo.save(silo)
-        
-        # 4.2 Actualizar Agregados Independientes: Cages
-        for cage_id, dto in cages_to_update_dto_map.items():
-            cage = await self.cage_repo.find_by_id(cage_id)
-            if not cage:
-                continue
-            
-            # Validar FA2: Nombre duplicado (solo si cambió el nombre)
-            if str(cage.name) != dto.name:
-                await NameValidator.validate_unique_cage_name(
-                    dto.name, exclude_id=cage_id, repo=self.cage_repo
-                )
-                cage.name = CageName(dto.name)
-            
-            await self.cage_repo.save(cage)
-        
-        # 4.3 Actualizar Agregados Dependientes: FeedingLines
-        # Patrón "Release All → Assign All" para evitar conflictos en intercambios
-        
-        # ====================================================================
-        # FASE 4.3a: LIBERAR TODOS LOS RECURSOS COMPARTIDOS
-        # ====================================================================
-        # Liberar TODAS las jaulas y silos de TODAS las líneas antes de reasignar
-        # Esto permite intercambios entre líneas (ej: Line1→Silo1, Line2→Silo2 
-        # puede cambiar a Line1→Silo2, Line2→Silo1)
-        
-        lines_to_release = []
-        for line_id in lines_to_update_dto_map.keys():
-            line = await self.line_repo.find_by_id(line_id)
-            if line:
-                lines_to_release.append(line)
-        
-        await ResourceReleaser.release_all_from_lines(
-            lines_to_release, self.silo_repo, self.cage_repo
-        )
-        
-        # ====================================================================
-        # FASE 4.3b: REASIGNAR TODOS LOS RECURSOS
-        # ====================================================================
-        
-        for line_id, dto in lines_to_update_dto_map.items():
-            line = await self.line_repo.find_by_id(line_id)
-            if not line:
-                continue
-            
-            if str(line.name) != dto.line_name:
-                await NameValidator.validate_unique_line_name(
-                    dto.line_name, exclude_id=line_id, repo=self.line_repo
-                )
-                line.name = LineName(dto.line_name)
-            
-            blower = self._build_blower_from_dto(dto.blower_config)
-            sensors = self._build_sensors_from_dto(dto.sensors_config)
-            dosers = await self._build_dosers_from_dto(dto.dosers_config, id_map)
-            selector = self._build_selector_from_dto(dto.selector_config)
-            
-            line.update_components(blower, dosers, selector, sensors)
-            
-            new_assignments: List[SlotAssignment] = []
-            for slot_dto in dto.slot_assignments:
-                cage_id = await self._resolve_cage_id(slot_dto.cage_id, id_map)
-                
-                cage = await self.cage_repo.find_by_id(cage_id)
-                if cage:
-                    cage.assign_to_line()
-                    await self.cage_repo.save(cage)
-                
-                slot_number = SlotNumber(slot_dto.slot_number)
-                assignment = SlotAssignment(slot_number, cage_id)
-                new_assignments.append(assignment)
-            
-            line.update_assignments(new_assignments)
-            
-            await self.line_repo.save(line)
-        
-        # ====================================================================
-        # FASE 5: RECONSTRUIR LAYOUT CON IDs REALES
-        # ====================================================================
-        
-        all_silos = await self.silo_repo.get_all()
-        all_cages = await self.cage_repo.get_all()
-        all_lines = await self.line_repo.get_all()
-        
-        silos_dtos = [
-            DomainToDTOMapper.silo_to_dto(silo)
-            for silo in all_silos
-        ]
-        
-        cages_dtos = [
-            DomainToDTOMapper.cage_to_dto(cage)
-            for cage in all_cages
-        ]
-        
-        lines_dtos = [
-            DomainToDTOMapper.feeding_line_to_dto(line)
-            for line in all_lines
-        ]
-        
-        return SystemLayoutDTO(
-            silos=silos_dtos,
-            cages=cages_dtos,
-            feeding_lines=lines_dtos
-        )
+        # FASE 5: RECONSTRUIR LAYOUT CON IDs REALES        
+        return await self._rebuild_layout()
 
     # ========================================================================
     # MÉTODOS HELPER PRIVADOS
@@ -440,3 +205,203 @@ class SyncSystemLayoutUseCase:
         
         raise ValueError(f"La jaula con ID temporal '{cage_id_str}' no fue creada")
 
+
+    # ========================================================================
+    # MÉTODOS DE ORQUESTACIÓN DE FASES
+    # ========================================================================
+
+    async def _execute_deletions(self, delta) -> None:
+        """Elimina agregados que no están en el request."""
+        for line_id in delta.lines_to_delete:
+            await self.line_repo.delete(line_id)
+        
+        for silo_id in delta.silos_to_delete:
+            await self.silo_repo.delete(silo_id)
+        
+        for cage_id in delta.cages_to_delete:
+            await self.cage_repo.delete(cage_id)
+
+
+    async def _execute_creations(self, delta, id_map: Dict[str, Any]) -> None:
+        """Crea nuevos agregados y mapea IDs temporales a reales."""
+        await self._create_silos(delta.silos_to_create, id_map)
+        await self._create_cages(delta.cages_to_create, id_map)
+        await self._create_feeding_lines(delta.lines_to_create, id_map)
+
+    async def _create_silos(self, silos_dtos, id_map: Dict[str, Any]) -> None:
+        """Crea silos y mapea sus IDs."""
+        for dto in silos_dtos:
+            await NameValidator.validate_unique_silo_name(
+                dto.name, exclude_id=None, repo=self.silo_repo
+            )
+            
+            name = SiloName(dto.name)
+            capacity = Weight.from_kg(dto.capacity)
+            stock_level = Weight.zero()
+            
+            new_silo = Silo(name=name, capacity=capacity, stock_level=stock_level)
+            
+            await self.silo_repo.save(new_silo)
+            id_map[dto.id] = new_silo.id
+
+    async def _create_cages(self, cages_dtos, id_map: Dict[str, Any]) -> None:
+        """Crea jaulas y mapea sus IDs."""
+        for dto in cages_dtos:
+            await NameValidator.validate_unique_cage_name(
+                dto.name, exclude_id=None, repo=self.cage_repo
+            )
+            
+            name = CageName(dto.name)
+            new_cage = Cage(name=name)
+            
+            await self.cage_repo.save(new_cage)
+            id_map[dto.id] = new_cage.id
+
+    async def _create_feeding_lines(self, lines_dtos, id_map: Dict[str, Any]) -> None:
+        """Crea líneas de alimentación y mapea sus IDs."""
+        for dto in lines_dtos:
+            await NameValidator.validate_unique_line_name(
+                dto.line_name, exclude_id=None, repo=self.line_repo
+            )
+            
+            blower = self._build_blower_from_dto(dto.blower_config)
+            sensors = self._build_sensors_from_dto(dto.sensors_config)
+            dosers = await self._build_dosers_from_dto(dto.dosers_config, id_map)
+            selector = self._build_selector_from_dto(dto.selector_config)
+            
+            new_line = FeedingLine.create(
+                name=LineName(dto.line_name),
+                blower=blower,
+                dosers=dosers,
+                selector=selector,
+                sensors=sensors
+            )
+            
+            for slot_dto in dto.slot_assignments:
+                cage_id = await self._resolve_cage_id(slot_dto.cage_id, id_map)
+                
+                cage = await self.cage_repo.find_by_id(cage_id)
+                if cage:
+                    cage.assign_to_line()
+                    await self.cage_repo.save(cage)
+                
+                new_line.assign_cage_to_slot(slot_dto.slot_number, cage_id)
+            
+            await self.line_repo.save(new_line)
+            id_map[dto.id] = new_line.id
+
+
+    async def _execute_updates(self, delta, id_map: Dict[str, Any]) -> None:
+        """Actualiza agregados existentes."""
+        await self._update_silos(delta.silos_to_update)
+        await self._update_cages(delta.cages_to_update)
+        await self._update_feeding_lines(delta.lines_to_update, id_map)
+
+    async def _update_silos(self, silos_to_update) -> None:
+        """Actualiza silos existentes."""
+        for silo_id, dto in silos_to_update.items():
+            silo = await self.silo_repo.find_by_id(silo_id)
+            if not silo:
+                continue
+            
+            # Validar FA2: Nombre duplicado (solo si cambió el nombre)
+            if str(silo.name) != dto.name:
+                await NameValidator.validate_unique_silo_name(
+                    dto.name, exclude_id=silo_id, repo=self.silo_repo
+                )
+                silo.name = SiloName(dto.name)
+            
+            silo.capacity = Weight.from_kg(dto.capacity)
+            await self.silo_repo.save(silo)
+
+    async def _update_cages(self, cages_to_update) -> None:
+        """Actualiza jaulas existentes."""
+        for cage_id, dto in cages_to_update.items():
+            cage = await self.cage_repo.find_by_id(cage_id)
+            if not cage:
+                continue
+            
+            # Validar FA2: Nombre duplicado (solo si cambió el nombre)
+            if str(cage.name) != dto.name:
+                await NameValidator.validate_unique_cage_name(
+                    dto.name, exclude_id=cage_id, repo=self.cage_repo
+                )
+                cage.name = CageName(dto.name)
+            
+            await self.cage_repo.save(cage)
+
+    async def _update_feeding_lines(self, lines_to_update, id_map: Dict[str, Any]) -> None:
+        """Actualiza líneas de alimentación existentes."""
+        # Fase 4.3a: Liberar recursos
+        lines_to_release = []
+        for line_id in lines_to_update.keys():
+            line = await self.line_repo.find_by_id(line_id)
+            if line:
+                lines_to_release.append(line)
+        
+        await ResourceReleaser.release_all_from_lines(
+            lines_to_release, self.silo_repo, self.cage_repo
+        )
+        
+        # Fase 4.3b: Reasignar recursos
+        for line_id, dto in lines_to_update.items():
+            line = await self.line_repo.find_by_id(line_id)
+            if not line:
+                continue
+            
+            if str(line.name) != dto.line_name:
+                await NameValidator.validate_unique_line_name(
+                    dto.line_name, exclude_id=line_id, repo=self.line_repo
+                )
+                line.name = LineName(dto.line_name)
+            
+            blower = self._build_blower_from_dto(dto.blower_config)
+            sensors = self._build_sensors_from_dto(dto.sensors_config)
+            dosers = await self._build_dosers_from_dto(dto.dosers_config, id_map)
+            selector = self._build_selector_from_dto(dto.selector_config)
+            
+            line.update_components(blower, dosers, selector, sensors)
+            
+            new_assignments: List[SlotAssignment] = []
+            for slot_dto in dto.slot_assignments:
+                cage_id = await self._resolve_cage_id(slot_dto.cage_id, id_map)
+                
+                cage = await self.cage_repo.find_by_id(cage_id)
+                if cage:
+                    cage.assign_to_line()
+                    await self.cage_repo.save(cage)
+                
+                slot_number = SlotNumber(slot_dto.slot_number)
+                assignment = SlotAssignment(slot_number, cage_id)
+                new_assignments.append(assignment)
+            
+            line.update_assignments(new_assignments)
+            await self.line_repo.save(line)
+
+
+    async def _rebuild_layout(self) -> SystemLayoutDTO:
+        """Reconstruye el layout completo con IDs reales desde BD."""
+        all_silos = await self.silo_repo.get_all()
+        all_cages = await self.cage_repo.get_all()
+        all_lines = await self.line_repo.get_all()
+        
+        silos_dtos = [
+            DomainToDTOMapper.silo_to_dto(silo)
+            for silo in all_silos
+        ]
+        
+        cages_dtos = [
+            DomainToDTOMapper.cage_to_dto(cage)
+            for cage in all_cages
+        ]
+        
+        lines_dtos = [
+            DomainToDTOMapper.feeding_line_to_dto(line)
+            for line in all_lines
+        ]
+        
+        return SystemLayoutDTO(
+            silos=silos_dtos,
+            cages=cages_dtos,
+            feeding_lines=lines_dtos
+        )

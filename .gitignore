@@ -11,5 +11,7 @@ __pycache__/
 # Variables de Entorno
 .env
 
-# Archivos
-docs/
+# Alembic - Solo ignorar __pycache__ dentro de alembic
+alembic/__pycache__/
+alembic/versions/__pycache__/
+

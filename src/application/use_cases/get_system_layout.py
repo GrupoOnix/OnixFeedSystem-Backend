@@ -40,6 +40,7 @@ class GetSystemLayoutUseCase:
             SystemLayoutDTO con todos los agregados del sistema
         """
         # Cargar todos los agregados desde BD
+        #TODO: Esto puede ser ejecutado en paralelo en caso de lentitud
         all_silos = await self.silo_repo.get_all()
         all_cages = await self.cage_repo.get_all()
         all_lines = await self.line_repo.get_all()
