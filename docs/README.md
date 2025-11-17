@@ -107,12 +107,15 @@ Resumen completo de la cobertura de tests del sistema.
 ### Flujo de una Operación
 
 ```
-1. Usuario → API Endpoint
-2. API → Use Case (UC-01, UC-02, etc.)
-3. Use Case → Domain (valida reglas FA1-FA7)
-4. Domain → Repository (persiste)
-5. Repository → Base de Datos
-6. Respuesta ← Usuario
+1. Usuario → API Endpoint (Pydantic valida entrada)
+2. API → Use Case (recibe Pydantic Models)
+3. Use Case → ComponentFactory (crea componentes con polimorfismo)
+4. Use Case → Domain (valida reglas FA1-FA7)
+5. Domain → Repository (persiste)
+6. Repository → Base de Datos
+7. Use Case → Entidades (retorna dominio puro)
+8. API → ResponseMapper (convierte entidades a Pydantic)
+9. Respuesta ← Usuario
 ```
 
 ---
@@ -199,6 +202,7 @@ src/
 - **Jaula**: [Cage](02-dominio/aggregates/cage.md)
 - **Peso**: [Weight](02-dominio/value-objects/weight.md)
 - **Dosificación**: [Dosing](02-dominio/value-objects/dosing.md)
+- **Component Factory**: [Factories](02-dominio/factories.md)
 
 ### Por Caso de Uso
 

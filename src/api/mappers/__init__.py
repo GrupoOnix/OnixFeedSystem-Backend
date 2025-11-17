@@ -5,6 +5,6 @@ Estos mappers mantienen la separación de capas:
 - API Layer (Pydantic) ← → Application Layer (DTOs)
 """
 
-from .system_layout_mapper import SystemLayoutMapper
+from .response_mapper import ResponseMapper
 
-__all__ = ['SystemLayoutMapper']
+__all__ = ['ResponseMapper']

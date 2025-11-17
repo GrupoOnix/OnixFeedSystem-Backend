@@ -1,9 +1,8 @@
 """Calculador de diferencias entre estado deseado y actual."""
 
 from dataclasses import dataclass
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Any
 
-from application.dtos import SystemLayoutDTO, SiloConfigDTO, CageConfigDTO, FeedingLineConfigDTO
 from domain.repositories import IFeedingLineRepository, ISiloRepository, ICageRepository
 from domain.value_objects import SiloId, CageId, LineId
 
@@ -11,16 +10,16 @@ from domain.value_objects import SiloId, CageId, LineId
 @dataclass
 class Delta:
     """Representa las diferencias entre el estado deseado y el actual."""
-    silos_to_create: List[SiloConfigDTO]
-    silos_to_update: Dict[SiloId, SiloConfigDTO]
+    silos_to_create: List[Any]
+    silos_to_update: Dict[SiloId, Any]
     silos_to_delete: Set[SiloId]
 
-    cages_to_create: List[CageConfigDTO]
-    cages_to_update: Dict[CageId, CageConfigDTO]
+    cages_to_create: List[Any]
+    cages_to_update: Dict[CageId, Any]
     cages_to_delete: Set[CageId]
 
-    lines_to_create: List[FeedingLineConfigDTO]
-    lines_to_update: Dict[LineId, FeedingLineConfigDTO]
+    lines_to_create: List[Any]
+    lines_to_update: Dict[LineId, Any]
     lines_to_delete: Set[LineId]
 
 
@@ -29,7 +28,7 @@ class DeltaCalculator:
 
     @staticmethod
     async def calculate(
-        request: SystemLayoutDTO,
+        request: Any,
         line_repo: IFeedingLineRepository,
         silo_repo: ISiloRepository,
         cage_repo: ICageRepository
@@ -45,36 +44,36 @@ class DeltaCalculator:
         db_silo_ids_set = {silo.id for silo in db_silos}
         db_cage_ids_set = {cage.id for cage in db_cages}
         
-        # Separar DTOs en "Crear" vs "Actualizar"
-        silos_to_update: Dict[SiloId, SiloConfigDTO] = {}
-        silos_to_create: List[SiloConfigDTO] = []
+        # Separar objetos en "Crear" vs "Actualizar"
+        silos_to_update: Dict[SiloId, Any] = {}
+        silos_to_create: List[Any] = []
         
-        for dto in request.silos:
-            if DeltaCalculator._is_uuid(dto.id):
-                silo_id = SiloId.from_string(dto.id)
-                silos_to_update[silo_id] = dto
+        for item in request.silos:
+            if DeltaCalculator._is_uuid(item.id):
+                silo_id = SiloId.from_string(item.id)
+                silos_to_update[silo_id] = item
             else:
-                silos_to_create.append(dto)
+                silos_to_create.append(item)
         
-        cages_to_update: Dict[CageId, CageConfigDTO] = {}
-        cages_to_create: List[CageConfigDTO] = []
+        cages_to_update: Dict[CageId, Any] = {}
+        cages_to_create: List[Any] = []
         
-        for dto in request.cages:
-            if DeltaCalculator._is_uuid(dto.id):
-                cage_id = CageId.from_string(dto.id)
-                cages_to_update[cage_id] = dto
+        for item in request.cages:
+            if DeltaCalculator._is_uuid(item.id):
+                cage_id = CageId.from_string(item.id)
+                cages_to_update[cage_id] = item
             else:
-                cages_to_create.append(dto)
+                cages_to_create.append(item)
         
-        lines_to_update: Dict[LineId, FeedingLineConfigDTO] = {}
-        lines_to_create: List[FeedingLineConfigDTO] = []
+        lines_to_update: Dict[LineId, Any] = {}
+        lines_to_create: List[Any] = []
         
-        for dto in request.feeding_lines:
-            if DeltaCalculator._is_uuid(dto.id):
-                line_id = LineId.from_string(dto.id)
-                lines_to_update[line_id] = dto
+        for item in request.feeding_lines:
+            if DeltaCalculator._is_uuid(item.id):
+                line_id = LineId.from_string(item.id)
+                lines_to_update[line_id] = item
             else:
-                lines_to_create.append(dto)
+                lines_to_create.append(item)
         
         # Calcular IDs a eliminar
         silo_ids_to_delete = db_silo_ids_set - set(silos_to_update.keys())

@@ -1,18 +1,17 @@
 import uuid
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 
-from application.dtos import (
-    SystemLayoutDTO,
-    SiloConfigDTO,
-    CageConfigDTO,
-    FeedingLineConfigDTO,
-    BlowerConfigDTO,
-    SensorConfigDTO,
-    DoserConfigDTO,
-    SelectorConfigDTO,
-    SlotAssignmentDTO
+from api.models.system_layout import (
+    SystemLayoutModel,
+    SiloConfigModel,
+    CageConfigModel,
+    FeedingLineConfigModel,
+    BlowerConfigModel,
+    SensorConfigModel,
+    DoserConfigModel,
+    SelectorConfigModel,
+    SlotAssignmentModel
 )
-from application.mappers import DomainToDTOMapper
 from application.services import NameValidator, ResourceReleaser, DeltaCalculator
 from domain.repositories import (
     IFeedingLineRepository,
@@ -22,10 +21,8 @@ from domain.repositories import (
 from domain.aggregates.silo import Silo
 from domain.aggregates.cage import Cage
 from domain.aggregates.feeding_line.feeding_line import FeedingLine
-from domain.aggregates.feeding_line.blower import Blower
-from domain.aggregates.feeding_line.doser import Doser
-from domain.aggregates.feeding_line.selector import Selector
-from domain.aggregates.feeding_line.sensor import Sensor
+from domain.interfaces import IBlower, IDoser, ISelector, ISensor
+from domain.factories import ComponentFactory
 from domain.value_objects import (
     LineId, LineName,
     SiloId, SiloName, Weight,
@@ -45,13 +42,15 @@ class SyncSystemLayoutUseCase:
     def __init__(self,
                  line_repo: IFeedingLineRepository,
                  silo_repo: ISiloRepository,
-                 cage_repo: ICageRepository):
+                 cage_repo: ICageRepository,
+                 component_factory: ComponentFactory):
 
         self.line_repo = line_repo
         self.silo_repo = silo_repo
         self.cage_repo = cage_repo
+        self.component_factory = component_factory
 
-    async def execute(self, request: SystemLayoutDTO) -> SystemLayoutDTO:
+    async def execute(self, request: SystemLayoutModel) -> Tuple[List[Silo], List[Cage], List[FeedingLine]]:
        
         id_map: Dict[str, Any] = {}
         
@@ -59,6 +58,8 @@ class SyncSystemLayoutUseCase:
         delta = await DeltaCalculator.calculate(
             request, self.line_repo, self.silo_repo, self.cage_repo
         )
+
+        print("delta: ", delta)
         
         # FASE 2: EJECUTAR ELIMINACIONES        
         await self._execute_deletions(delta)
@@ -83,66 +84,64 @@ class SyncSystemLayoutUseCase:
         except ValueError:
             return False
 
-    def _build_blower_from_dto(self, dto: BlowerConfigDTO) -> Blower:
-        name = BlowerName(dto.name)
-        non_feeding_power = BlowerPowerPercentage(dto.non_feeding_power)
-        blow_before_time = BlowDurationInSeconds(dto.blow_before_time)
-        blow_after_time = BlowDurationInSeconds(dto.blow_after_time)
+    def _build_blower_from_model(self, model: BlowerConfigModel) -> IBlower:
+        name = BlowerName(model.name)
+        non_feeding_power = BlowerPowerPercentage(model.non_feeding_power)
+        blow_before_time = BlowDurationInSeconds(model.blow_before_time)
+        blow_after_time = BlowDurationInSeconds(model.blow_after_time)
         
-        return Blower(
+        return self.component_factory.create_blower(
+            blower_type=model.blower_type,
             name=name,
             non_feeding_power=non_feeding_power,
             blow_before_time=blow_before_time,
             blow_after_time=blow_after_time
         )
 
-    def _build_sensors_from_dto(self, sensors_dto: List[SensorConfigDTO]) -> List[Sensor]:
-   
+    def _build_sensors_from_model(self, sensors_model: List[SensorConfigModel]) -> List[ISensor]:
         sensors = []
         
-        for dto in sensors_dto:
+        for model in sensors_model:
             try:
-                sensor_type = SensorType[dto.sensor_type]
+                sensor_type = SensorType[model.sensor_type]
             except KeyError:
                 raise ValueError(
-                    f"Tipo de sensor inválido: '{dto.sensor_type}'. "
+                    f"Tipo de sensor inválido: '{model.sensor_type}'. "
                     f"Valores válidos: {[t.name for t in SensorType]}"
                 )
             
-            name = SensorName(dto.name)
+            name = SensorName(model.name)
             
-            sensor = Sensor(
-                name=name,
-                sensor_type=sensor_type
+            sensor = self.component_factory.create_sensor(
+                sensor_type=sensor_type,
+                name=name
             )
             
             sensors.append(sensor)
         
         return sensors
 
-    async def _build_dosers_from_dto(
+    async def _build_dosers_from_model(
         self,
-        dosers_dto: List[DoserConfigDTO],
+        dosers_model: List[DoserConfigModel],
         id_map: Dict[str, Any]
-    ) -> List[Doser]:
-
+    ) -> List[IDoser]:
         dosers = []
         
-        for dto in dosers_dto:
- 
-            silo_id = await self._resolve_and_assign_silo(dto.assigned_silo_id, id_map)
+        for model in dosers_model:
+            silo_id = await self._resolve_and_assign_silo(model.assigned_silo_id, id_map)
             
-            name = DoserName(dto.name)
+            name = DoserName(model.name)
             dosing_range = DosingRange(
-                min_rate=dto.min_rate,
-                max_rate=dto.max_rate
+                min_rate=model.min_rate,
+                max_rate=model.max_rate
             )
-            current_rate = DosingRate(dto.current_rate)
+            current_rate = DosingRate(model.current_rate)
             
-            doser = Doser(
+            doser = self.component_factory.create_doser(
+                doser_type=model.doser_type,
                 name=name,
                 assigned_silo_id=silo_id,
-                doser_type=dto.doser_type,
                 dosing_range=dosing_range,
                 current_rate=current_rate
             )
@@ -151,15 +150,16 @@ class SyncSystemLayoutUseCase:
         
         return dosers
 
-    def _build_selector_from_dto(self, dto: SelectorConfigDTO) -> Selector:
-        name = SelectorName(dto.name)
-        capacity = SelectorCapacity(dto.capacity)
+    def _build_selector_from_model(self, model: SelectorConfigModel) -> ISelector:
+        name = SelectorName(model.name)
+        capacity = SelectorCapacity(model.capacity)
         speed_profile = SelectorSpeedProfile(
-            fast_speed=BlowerPowerPercentage(dto.fast_speed),
-            slow_speed=BlowerPowerPercentage(dto.slow_speed)
+            fast_speed=BlowerPowerPercentage(model.fast_speed),
+            slow_speed=BlowerPowerPercentage(model.slow_speed)
         )
         
-        return Selector(
+        return self.component_factory.create_selector(
+            selector_type=model.selector_type,
             name=name,
             capacity=capacity,
             speed_profile=speed_profile
@@ -264,10 +264,10 @@ class SyncSystemLayoutUseCase:
                 dto.line_name, exclude_id=None, repo=self.line_repo
             )
             
-            blower = self._build_blower_from_dto(dto.blower_config)
-            sensors = self._build_sensors_from_dto(dto.sensors_config)
-            dosers = await self._build_dosers_from_dto(dto.dosers_config, id_map)
-            selector = self._build_selector_from_dto(dto.selector_config)
+            blower = self._build_blower_from_model(dto.blower_config)
+            sensors = self._build_sensors_from_model(dto.sensors_config)
+            dosers = await self._build_dosers_from_model(dto.dosers_config, id_map)
+            selector = self._build_selector_from_model(dto.selector_config)
             
             new_line = FeedingLine.create(
                 name=LineName(dto.line_name),
@@ -355,10 +355,10 @@ class SyncSystemLayoutUseCase:
                 )
                 line.name = LineName(dto.line_name)
             
-            blower = self._build_blower_from_dto(dto.blower_config)
-            sensors = self._build_sensors_from_dto(dto.sensors_config)
-            dosers = await self._build_dosers_from_dto(dto.dosers_config, id_map)
-            selector = self._build_selector_from_dto(dto.selector_config)
+            blower = self._build_blower_from_model(dto.blower_config)
+            sensors = self._build_sensors_from_model(dto.sensors_config)
+            dosers = await self._build_dosers_from_model(dto.dosers_config, id_map)
+            selector = self._build_selector_from_model(dto.selector_config)
             
             line.update_components(blower, dosers, selector, sensors)
             
@@ -379,29 +379,10 @@ class SyncSystemLayoutUseCase:
             await self.line_repo.save(line)
 
 
-    async def _rebuild_layout(self) -> SystemLayoutDTO:
+    async def _rebuild_layout(self) -> Tuple[List[Silo], List[Cage], List[FeedingLine]]:
         """Reconstruye el layout completo con IDs reales desde BD."""
         all_silos = await self.silo_repo.get_all()
         all_cages = await self.cage_repo.get_all()
         all_lines = await self.line_repo.get_all()
         
-        silos_dtos = [
-            DomainToDTOMapper.silo_to_dto(silo)
-            for silo in all_silos
-        ]
-        
-        cages_dtos = [
-            DomainToDTOMapper.cage_to_dto(cage)
-            for cage in all_cages
-        ]
-        
-        lines_dtos = [
-            DomainToDTOMapper.feeding_line_to_dto(line)
-            for line in all_lines
-        ]
-        
-        return SystemLayoutDTO(
-            silos=silos_dtos,
-            cages=cages_dtos,
-            feeding_lines=lines_dtos
-        )
+        return (all_silos, all_cages, all_lines)

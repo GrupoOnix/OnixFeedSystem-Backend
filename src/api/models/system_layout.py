@@ -75,6 +75,7 @@ class BlowerConfigModel(BaseModel):
             "example": {
                 "id": "temp_blower_1",
                 "name": "Soplador Principal",
+                "blower_type": "standard",
                 "non_feeding_power": 50.0,
                 "blow_before_time": 5,
                 "blow_after_time": 3
@@ -91,6 +92,11 @@ class BlowerConfigModel(BaseModel):
         min_length=1,
         max_length=100,
         description="Nombre del soplador"
+    )
+    blower_type: str = Field(
+        default="standard",
+        description="Tipo de soplador",
+        examples=["standard", "turbo"]
     )
     non_feeding_power: float = Field(
         ...,
@@ -176,6 +182,7 @@ class SelectorConfigModel(BaseModel):
             "example": {
                 "id": "temp_selector_1",
                 "name": "Selector Principal",
+                "selector_type": "standard",
                 "capacity": 4,
                 "fast_speed": 80.0,
                 "slow_speed": 20.0
@@ -192,6 +199,11 @@ class SelectorConfigModel(BaseModel):
         min_length=1,
         max_length=100,
         description="Nombre del selector"
+    )
+    selector_type: str = Field(
+        default="standard",
+        description="Tipo de selector",
+        examples=["standard"]
     )
     capacity: int = Field(
         ...,
@@ -280,6 +292,7 @@ class FeedingLineConfigModel(BaseModel):
                 "blower_config": {
                     "id": "temp_blower_1",
                     "name": "Soplador 1",
+                    "blower_type": "standard",
                     "non_feeding_power": 50.0,
                     "blow_before_time": 5,
                     "blow_after_time": 3
@@ -305,6 +318,7 @@ class FeedingLineConfigModel(BaseModel):
                 "selector_config": {
                     "id": "temp_selector_1",
                     "name": "Selector 1",
+                    "selector_type": "standard",
                     "capacity": 4,
                     "fast_speed": 80.0,
                     "slow_speed": 20.0

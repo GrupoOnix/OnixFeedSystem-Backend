@@ -124,9 +124,35 @@ Sincroniza el estado completo del canvas de trazado (frontend) con la base de da
   - Asignaciones de slots actualizadas
   - Referencias correctas a silos y jaulas
 
+## Tipos de Componentes Soportados
+
+El sistema soporta diferentes tipos de componentes para las líneas de alimentación:
+
+### Blowers (Sopladores)
+
+- **standard**: Soplador estándar con configuración básica
+
+### Dosers (Dosificadores)
+
+- **standard**: Dosificador estándar
+- Extensible para soportar: VariDoser, PulseDoser, ScrewDoser
+
+### Selectors (Selectoras)
+
+- **standard**: Selectora estándar con capacidad configurable
+
+### Sensors (Sensores)
+
+- **TEMPERATURE**: Sensor de temperatura
+- **PRESSURE**: Sensor de presión
+- **FLOW**: Sensor de flujo
+
+El sistema usa polimorfismo para permitir agregar nuevos tipos de componentes sin modificar el caso de uso.
+
 ## Notas importantes
 
 - **Operación atómica**: Todo se guarda o nada se guarda (transaccional)
 - **Sincronización declarativa**: El canvas define el estado deseado completo
 - **Mapeo automático de IDs**: El sistema resuelve IDs temporales automáticamente
 - **Validación exhaustiva**: Todas las reglas FA1-FA7 se validan antes de persistir
+- **Polimorfismo de componentes**: Los componentes se crean mediante ComponentFactory según su tipo

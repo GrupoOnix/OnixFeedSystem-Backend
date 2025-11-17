@@ -2,8 +2,9 @@ from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
 
 from api.models.system_layout import SystemLayoutModel
-from api.mappers import SystemLayoutMapper
+from api.mappers import ResponseMapper
 from application.use_cases import SyncSystemLayoutUseCase, GetSystemLayoutUseCase
+from domain.factories import ComponentFactory
 from infrastructure.persistence.mock_repositories import (
     MockFeedingLineRepository,
     MockSiloRepository,
@@ -33,7 +34,8 @@ def get_sync_system_layout_use_case() -> SyncSystemLayoutUseCase:
     return SyncSystemLayoutUseCase(
         line_repo=_line_repo,
         silo_repo=_silo_repo,
-        cage_repo=_cage_repo
+        cage_repo=_cage_repo,
+        component_factory=ComponentFactory()
     )
 
 
@@ -139,19 +141,16 @@ async def save_system_layout(
         HTTPException 500: Si hay errores internos
     """
     try:
-        # 1. Convertir modelo Pydantic a DTO de aplicación
-        app_dto = SystemLayoutMapper.to_app_dto(request)
-        
-        # 2. Obtener instancia del caso de uso
+        # 1. Obtener instancia del caso de uso con Factory
         use_case = get_sync_system_layout_use_case()
         
-        # 3. Ejecutar el caso de uso (retorna layout con IDs reales)
-        result_dto = await use_case.execute(app_dto)
+        # 2. Ejecutar caso de uso (recibe Pydantic, retorna entidades)
+        silos, cages, lines = await use_case.execute(request)
         
-        # 4. Convertir DTO de aplicación a modelo Pydantic
-        api_response = SystemLayoutMapper.to_api_model(result_dto)
+        # 3. Convertir entidades a Pydantic
+        response = ResponseMapper.to_system_layout_model(silos, cages, lines)
         
-        return api_response
+        return response
         
     except DuplicateLineNameException as e:
         # Error de negocio: Nombre duplicado
@@ -256,6 +255,6 @@ async def export_system() -> SystemLayoutModel:
     Retorna todos los agregados (silos, jaulas, líneas) con sus IDs reales.
     """
     use_case = get_get_system_layout_use_case()
-    result_dto = await use_case.execute()
-    api_response = SystemLayoutMapper.to_api_model(result_dto)
-    return api_response
+    silos, cages, lines = await use_case.execute()
+    response = ResponseMapper.to_system_layout_model(silos, cages, lines)
+    return response
