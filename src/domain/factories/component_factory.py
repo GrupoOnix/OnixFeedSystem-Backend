@@ -9,7 +9,7 @@ from ..value_objects import (
     SelectorName, SelectorCapacity, SelectorSpeedProfile,
     SensorName
 )
-from ..enums import SensorType
+from ..enums import SensorType, DoserType
 from ..aggregates.feeding_line.blower import Blower
 from ..aggregates.feeding_line.doser import Doser
 from ..aggregates.feeding_line.selector import Selector
@@ -51,9 +51,9 @@ class ComponentFactory:
         current_rate: DosingRate
     ) -> IDoser:
         
-        doser_type_lower = doser_type.lower()
-        
-        if doser_type_lower in ["standard", "doser"]:
+        # Verificar si el tipo está en los valores del enum
+        valid_types = [dt.value for dt in DoserType]
+        if doser_type in valid_types:
             return Doser(
                 name=name,
                 assigned_silo_id=assigned_silo_id,
