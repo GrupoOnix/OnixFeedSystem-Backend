@@ -1,5 +1,3 @@
-"""Configuración de base de datos con AsyncEngine y SQLModel."""
-
 import os
 from typing import AsyncGenerator
 
@@ -9,7 +7,7 @@ from sqlmodel import SQLModel
 
 
 def _get_required_env(key: str) -> str:
-    """Obtiene variable de entorno requerida o lanza error."""
+
     value = os.getenv(key)
     if value is None:
         raise ValueError(
@@ -51,14 +49,16 @@ async_session_maker = sessionmaker(
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    """Generador de sesiones async para dependency injection en FastAPI."""
+
     async with async_session_maker() as session:
         try:
             yield session
-        finally:
-            await session.close()
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
 
 
 async def close_db_connection() -> None:
-    """Cierra todas las conexiones del engine."""
+
     await async_engine.dispose()

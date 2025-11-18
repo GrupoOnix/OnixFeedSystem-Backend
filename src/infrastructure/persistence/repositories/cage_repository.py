@@ -26,8 +26,8 @@ class CageRepository(ICageRepository):
         else:
             cage_model = CageModel.from_domain(cage)
             self.session.add(cage_model)
-
-        await self.session.commit()
+        
+        await self.session.flush()
 
     async def find_by_id(self, cage_id: CageId) -> Optional[Cage]:
         """Busca una jaula por su ID."""
@@ -53,4 +53,4 @@ class CageRepository(ICageRepository):
         cage_model = await self.session.get(CageModel, cage_id.value)
         if cage_model:
             await self.session.delete(cage_model)
-            await self.session.commit()
+            await self.session.flush()

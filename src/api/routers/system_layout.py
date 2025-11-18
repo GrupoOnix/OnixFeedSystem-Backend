@@ -1,51 +1,14 @@
 from fastapi import APIRouter, HTTPException, status
-from fastapi.responses import JSONResponse
 
 from api.models.system_layout import SystemLayoutModel
 from api.mappers import ResponseMapper
-from application.use_cases import SyncSystemLayoutUseCase, GetSystemLayoutUseCase
-from domain.factories import ComponentFactory
-from infrastructure.persistence.mock_repositories import (
-    MockFeedingLineRepository,
-    MockSiloRepository,
-    MockCageRepository
-)
+from api.dependencies import SyncUseCaseDep, GetUseCaseDep
 from domain.exceptions import (
     DuplicateLineNameException,
     DomainException
 )
 
-
-# Crear router con prefijo
 router = APIRouter(prefix="/system-layout")
-
-
-# DEPENDENCY INJECTION (Temporal - Mock Repositories)
-# TODO - Reemplazar con repositorios reales cuando se implemente la BD
-
-# Repositorios singleton para mantener estado en memoria durante la sesión
-_line_repo = MockFeedingLineRepository()
-_silo_repo = MockSiloRepository()
-_cage_repo = MockCageRepository()
-
-
-def get_sync_system_layout_use_case() -> SyncSystemLayoutUseCase:
-
-    return SyncSystemLayoutUseCase(
-        line_repo=_line_repo,
-        silo_repo=_silo_repo,
-        cage_repo=_cage_repo,
-        component_factory=ComponentFactory()
-    )
-
-
-def get_get_system_layout_use_case() -> GetSystemLayoutUseCase:
-
-    return GetSystemLayoutUseCase(
-        line_repo=_line_repo,
-        silo_repo=_silo_repo,
-        cage_repo=_cage_repo
-    )
 
 
 # ============================================================================
@@ -125,13 +88,15 @@ def get_get_system_layout_use_case() -> GetSystemLayoutUseCase:
     tags=["System Layout"]
 )
 async def save_system_layout(
-    request: SystemLayoutModel
+    request: SystemLayoutModel,
+    use_case: SyncUseCaseDep
 ) -> SystemLayoutModel:
     """
     Endpoint principal para sincronizar el layout del sistema.
     
     Args:
         request: Configuración completa del sistema (validada por Pydantic)
+        use_case: Caso de uso inyectado por FastAPI DI
         
     Returns:
         Respuesta con el resultado de la sincronización
@@ -141,16 +106,8 @@ async def save_system_layout(
         HTTPException 500: Si hay errores internos
     """
     try:
-        # 1. Obtener instancia del caso de uso con Factory
-        use_case = get_sync_system_layout_use_case()
-        
-        # 2. Ejecutar caso de uso (recibe Pydantic, retorna entidades)
         silos, cages, lines = await use_case.execute(request)
-        
-        # 3. Convertir entidades a Pydantic
-        response = ResponseMapper.to_system_layout_model(silos, cages, lines)
-        
-        return response
+        return ResponseMapper.to_system_layout_model(silos, cages, lines)
         
     except DuplicateLineNameException as e:
         # Error de negocio: Nombre duplicado
@@ -181,66 +138,6 @@ async def save_system_layout(
         )
 
 
-# ============================================================================
-# ENDPOINTS AUXILIARES (Opcional - Para debugging/testing)
-# ============================================================================
-
-@router.get(
-    "/status",
-    summary="Estado del sistema",
-    description="Obtiene el estado actual del sistema (número de agregados en memoria)",
-    tags=["System Layout"]
-)
-async def get_system_status():
-    """
-    Endpoint auxiliar para verificar el estado del sistema.
-    
-    Útil para debugging y testing.
-    """
-    lines = await _line_repo.get_all()
-    silos = await _silo_repo.get_all()
-    cages = await _cage_repo.get_all()
-    
-    return {
-        "status": "ok",
-        "aggregates": {
-            "feeding_lines": len(lines),
-            "silos": len(silos),
-            "cages": len(cages)
-        },
-        "details": {
-            "lines": [{"id": str(line.id), "name": str(line.name)} for line in lines],
-            "silos": [{"id": str(silo.id), "name": str(silo.name)} for silo in silos],
-            "cages": [{"id": str(cage.id), "name": str(cage.name)} for cage in cages]
-        }
-    }
-
-
-@router.delete(
-    "/reset",
-    summary="Resetear sistema",
-    description="Elimina todos los agregados del sistema (solo para testing)",
-    tags=["System Layout"]
-)
-async def reset_system():
-    """
-    Endpoint auxiliar para limpiar el sistema.
-    
-    ⚠️ SOLO PARA DESARROLLO/TESTING - Eliminar en producción.
-    """
-    global _line_repo, _silo_repo, _cage_repo
-    
-    # Recrear repositorios vacíos
-    _line_repo = MockFeedingLineRepository()
-    _silo_repo = MockSiloRepository()
-    _cage_repo = MockCageRepository()
-    
-    return {
-        "status": "Sistema reseteado",
-        "message": "Todos los agregados han sido eliminados"
-    }
-
-
 @router.get(
     "/export",
     response_model=SystemLayoutModel,
@@ -248,13 +145,11 @@ async def reset_system():
     description="Obtiene el layout completo del sistema desde la base de datos",
     tags=["System Layout"]
 )
-async def export_system() -> SystemLayoutModel:
+async def export_system(use_case: GetUseCaseDep) -> SystemLayoutModel:
     """
     Endpoint para obtener el layout completo del sistema.
     
     Retorna todos los agregados (silos, jaulas, líneas) con sus IDs reales.
     """
-    use_case = get_get_system_layout_use_case()
     silos, cages, lines = await use_case.execute()
-    response = ResponseMapper.to_system_layout_model(silos, cages, lines)
-    return response
+    return ResponseMapper.to_system_layout_model(silos, cages, lines)

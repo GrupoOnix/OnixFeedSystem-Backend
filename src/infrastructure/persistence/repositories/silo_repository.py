@@ -28,8 +28,8 @@ class SiloRepository(ISiloRepository):
         else:
             silo_model = SiloModel.from_domain(silo)
             self.session.add(silo_model)
-
-        await self.session.commit()
+        
+        await self.session.flush()
 
     async def find_by_id(self, silo_id: SiloId) -> Optional[Silo]:
         """Busca un silo por su ID."""
@@ -55,4 +55,4 @@ class SiloRepository(ISiloRepository):
         silo_model = await self.session.get(SiloModel, silo_id.value)
         if silo_model:
             await self.session.delete(silo_model)
-            await self.session.commit()
+            await self.session.flush()

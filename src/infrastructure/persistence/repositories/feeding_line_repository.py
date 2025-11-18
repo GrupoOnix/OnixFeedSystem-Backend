@@ -17,16 +17,24 @@ class FeedingLineRepository(IFeedingLineRepository):
         self.session = session
 
     async def save(self, feeding_line: FeedingLine) -> None:
-        """Guarda o actualiza una línea de alimentación completa."""
-        existing = await self.session.get(FeedingLineModel, feeding_line.id.value)
-
-        if existing:
-            await self.session.delete(existing)
-            await self.session.flush()
-
+        """
+        Guarda o actualiza una línea de alimentación completa.
+        
+        Usa merge() de SQLAlchemy para:
+        - INSERT si la línea no existe (por PK)
+        - UPDATE si la línea existe (mantiene el ID)
+        - Sincronizar componentes hijos automáticamente:
+          - UPDATE componentes con mismo ID
+          - DELETE componentes que ya no están
+          - INSERT componentes nuevos
+        
+        Nota: Los componentes que cambian de configuración tienen nuevos IDs
+        (generados en el dominio), por lo que se eliminan los viejos y se
+        insertan los nuevos. Esto es correcto y esperado.
+        """
         line_model = FeedingLineModel.from_domain(feeding_line)
-        self.session.add(line_model)
-        await self.session.commit()
+        await self.session.merge(line_model)
+        await self.session.flush()
 
     async def find_by_id(self, line_id: LineId) -> Optional[FeedingLine]:
         """Busca una línea por su ID con eager loading de relaciones."""
@@ -83,4 +91,4 @@ class FeedingLineRepository(IFeedingLineRepository):
         line_model = await self.session.get(FeedingLineModel, line_id.value)
         if line_model:
             await self.session.delete(line_model)
-            await self.session.commit()
+            await self.session.flush()

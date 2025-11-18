@@ -1,11 +1,15 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 import sys
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Cargar variables de entorno ANTES de cualquier import
+load_dotenv()
 
 # Agregar src al path para imports
 sys.path.insert(0, str(Path(__file__).parent))
 
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from api.routers import api_router
 
 # ============================================================================

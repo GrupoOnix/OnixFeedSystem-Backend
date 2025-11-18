@@ -1,5 +1,6 @@
 from datetime import datetime
 from uuid import UUID
+from sqlalchemy import BigInteger
 from sqlmodel import Field, SQLModel
 from domain.aggregates.silo import Silo
 from domain.value_objects import SiloId, SiloName, Weight
@@ -10,8 +11,8 @@ class SiloModel(SQLModel, table=True):
 
     id: UUID = Field(primary_key=True)
     name: str = Field(unique=True, max_length=100)
-    capacity_mg: int
-    stock_level_mg: int
+    capacity_mg: int = Field(sa_type=BigInteger())
+    stock_level_mg: int = Field(sa_type=BigInteger())
     is_assigned: bool
     created_at: datetime
 

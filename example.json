@@ -84,7 +84,7 @@
           "id": "line-1-doser-1",
           "name": "Dosificador 1",
           "assigned_silo_id": "silo-1",
-          "doser_type": "volumetric",
+          "doser_type": "doser",
           "min_rate": 10,
           "max_rate": 100,
           "current_rate": 50
@@ -110,7 +110,7 @@
     },
     {
       "id": "line-2",
-      "line_name": "Linea de Alimentacion 2",
+      "line_name": "Linea de Alimentación 2",
       "blower_config": {
         "id": "line-2-blower-1",
         "name": "Soplador 2",
@@ -135,7 +135,7 @@
           "id": "line-2-doser-1",
           "name": "Dosificador 2",
           "assigned_silo_id": "silo-2",
-          "doser_type": "volumetric",
+          "doser_type": "doser",
           "min_rate": 10,
           "max_rate": 100,
           "current_rate": 50
@@ -144,7 +144,7 @@
           "id": "line-2-doser-2",
           "name": "Dosificador 3",
           "assigned_silo_id": "silo-3",
-          "doser_type": "volumetric",
+          "doser_type": "doser",
           "min_rate": 10,
           "max_rate": 100,
           "current_rate": 50
@@ -198,7 +198,7 @@
           "id": "line-3-doser-1",
           "name": "Dosificador 4",
           "assigned_silo_id": "silo-4",
-          "doser_type": "volumetric",
+          "doser_type": "doser",
           "min_rate": 10,
           "max_rate": 100,
           "current_rate": 50
