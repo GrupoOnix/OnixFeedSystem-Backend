@@ -276,3 +276,15 @@ Content-Type: application/json
 ### Resetear sistema (limpiar todos los datos)
 DELETE {{apiUrl}}/system-layout/reset
 Content-Type: application/json
+
+### ============================================================================
+### Gestión de Jaulas
+### ============================================================================
+
+### Listar todas las jaulas
+GET {{apiUrl}}/cages
+Content-Type: application/json
+
+### Listar jaulas filtradas por línea de alimentación
+GET {{apiUrl}}/cages?line_id=REEMPLAZAR_CON_UUID_REAL
+Content-Type: application/json

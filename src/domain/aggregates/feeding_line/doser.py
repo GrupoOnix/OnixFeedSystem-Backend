@@ -1,6 +1,7 @@
 from typing import Any, Dict
 
 from domain.interfaces import IDoser
+from domain.enums import DoserType
 from domain.value_objects import (
     DoserId, DoserName, SiloId, DosingRange, DosingRate
 )
@@ -10,7 +11,7 @@ class Doser(IDoser):
     def __init__(self,
                  name: DoserName,
                  assigned_silo_id: SiloId,
-                 doser_type: str,
+                 doser_type: DoserType,
                  dosing_range: DosingRange,
                  current_rate: DosingRate):
         
@@ -50,7 +51,7 @@ class Doser(IDoser):
         self._assigned_silo_id = new_silo_id
         
     @property
-    def doser_type(self) -> str:
+    def doser_type(self) -> DoserType:
         return self._doser_type
         
     @property

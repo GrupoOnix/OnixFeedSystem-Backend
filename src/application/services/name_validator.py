@@ -1,5 +1,3 @@
-"""Validador de nombres únicos para agregados."""
-
 from typing import Optional
 
 from domain.repositories import ISiloRepository, ICageRepository, IFeedingLineRepository

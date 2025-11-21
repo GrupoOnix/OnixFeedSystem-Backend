@@ -51,20 +51,21 @@ class ComponentFactory:
         current_rate: DosingRate
     ) -> IDoser:
         
-        # Verificar si el tipo está en los valores del enum
+        # Validar y convertir string a enum
         valid_types = [dt.value for dt in DoserType]
-        if doser_type in valid_types:
-            return Doser(
-                name=name,
-                assigned_silo_id=assigned_silo_id,
-                doser_type=doser_type,
-                dosing_range=dosing_range,
-                current_rate=current_rate
-            )
+        if doser_type not in valid_types:
+            raise ValueError(f"Tipo de doser no soportado: '{doser_type}'")
         
-        # TODO: Extender con VariDoser, PulseDoser, ScrewDoser
+        # Convertir string a enum
+        doser_type_enum = DoserType(doser_type)
         
-        raise ValueError(f"Tipo de doser no soportado: '{doser_type}'")
+        return Doser(
+            name=name,
+            assigned_silo_id=assigned_silo_id,
+            doser_type=doser_type_enum,
+            dosing_range=dosing_range,
+            current_rate=current_rate
+        )
 
     @staticmethod
     def create_selector(

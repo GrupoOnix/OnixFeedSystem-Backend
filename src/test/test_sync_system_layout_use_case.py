@@ -119,7 +119,7 @@ async def test_create_simple_system_layout(use_case):
     
     # Verificar que los agregados fueron creados
     all_silos = await use_case.silo_repo.get_all()
-    all_cages = await use_case.cage_repo.get_all()
+    all_cages = await use_case.cage_repo.list()
     all_lines = await use_case.line_repo.get_all()
     
     assert len(all_silos) == 1

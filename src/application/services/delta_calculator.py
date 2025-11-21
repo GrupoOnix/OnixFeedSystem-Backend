@@ -1,8 +1,5 @@
-"""Calculador de diferencias entre estado deseado y actual."""
-
 from dataclasses import dataclass
 from typing import Dict, List, Set, Any
-
 from domain.repositories import IFeedingLineRepository, ISiloRepository, ICageRepository
 from domain.value_objects import SiloId, CageId, LineId
 
@@ -38,7 +35,7 @@ class DeltaCalculator:
         # Cargar todos los IDs reales de la BD
         db_lines = await line_repo.get_all()
         db_silos = await silo_repo.get_all()
-        db_cages = await cage_repo.get_all()
+        db_cages = await cage_repo.list()
         
         db_line_ids_set = {line.id for line in db_lines}
         db_silo_ids_set = {silo.id for silo in db_silos}

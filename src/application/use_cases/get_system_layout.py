@@ -42,7 +42,7 @@ class GetSystemLayoutUseCase:
         """
         # Cargar todos los agregados desde BD
         all_silos = await self.silo_repo.get_all()
-        all_cages = await self.cage_repo.get_all()
+        all_cages = await self.cage_repo.list()
         all_lines = await self.line_repo.get_all()
         
         return (all_silos, all_cages, all_lines)

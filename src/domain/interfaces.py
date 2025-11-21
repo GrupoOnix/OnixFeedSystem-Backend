@@ -83,7 +83,7 @@ class IDoser(ABC):
         
     @property
     @abstractmethod
-    def doser_type(self) -> str: ...
+    def doser_type(self) -> "DoserType": ...
         
     @property
     @abstractmethod

@@ -1,7 +1,4 @@
-"""Liberador de recursos compartidos (silos y jaulas)."""
-
 from typing import List
-
 from domain.aggregates.feeding_line.feeding_line import FeedingLine
 from domain.repositories import ISiloRepository, ICageRepository
 
@@ -30,7 +27,10 @@ class ResourceReleaser:
         for old_assignment in old_assignments:
             old_cage = await cage_repo.find_by_id(old_assignment.cage_id)
             if old_cage:
-                old_cage.release_from_line()
+                # Cambiar estado a AVAILABLE
+                # Las referencias line_id y slot_number se limpian en el repositorio
+                from domain.enums import CageStatus
+                old_cage.status = CageStatus.AVAILABLE
                 await cage_repo.save(old_cage)
 
     @staticmethod

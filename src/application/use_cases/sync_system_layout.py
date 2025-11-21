@@ -282,7 +282,15 @@ class SyncSystemLayoutUseCase:
                 
                 cage = await self.cage_repo.find_by_id(cage_id)
                 if cage:
-                    cage.assign_to_line()
+                    # Validar que la jaula esté disponible
+                    from domain.enums import CageStatus
+                    from domain.exceptions import CageNotAvailableException
+                    if cage.status != CageStatus.AVAILABLE:
+                        raise CageNotAvailableException(
+                            f"La jaula '{cage.name}' no está disponible (estado: {cage.status.value})"
+                        )
+                    # Cambiar estado a IN_USE
+                    cage.status = CageStatus.IN_USE
                     await self.cage_repo.save(cage)
                 
                 new_line.assign_cage_to_slot(slot_dto.slot_number, cage_id)
@@ -368,7 +376,15 @@ class SyncSystemLayoutUseCase:
                 
                 cage = await self.cage_repo.find_by_id(cage_id)
                 if cage:
-                    cage.assign_to_line()
+                    # Validar que la jaula esté disponible
+                    from domain.enums import CageStatus
+                    from domain.exceptions import CageNotAvailableException
+                    if cage.status != CageStatus.AVAILABLE:
+                        raise CageNotAvailableException(
+                            f"La jaula '{cage.name}' no está disponible (estado: {cage.status.value})"
+                        )
+                    # Cambiar estado a IN_USE
+                    cage.status = CageStatus.IN_USE
                     await self.cage_repo.save(cage)
                 
                 slot_number = SlotNumber(slot_dto.slot_number)
@@ -382,7 +398,7 @@ class SyncSystemLayoutUseCase:
     async def _rebuild_layout(self) -> Tuple[List[Silo], List[Cage], List[FeedingLine]]:
         """Reconstruye el layout completo con IDs reales desde BD."""
         all_silos = await self.silo_repo.get_all()
-        all_cages = await self.cage_repo.get_all()
+        all_cages = await self.cage_repo.list()
         all_lines = await self.line_repo.get_all()
         
         return (all_silos, all_cages, all_lines)

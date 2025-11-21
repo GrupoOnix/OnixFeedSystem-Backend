@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from domain.aggregates.cage import Cage
 from domain.aggregates.silo import Silo
@@ -36,9 +36,12 @@ class ICageRepository(ABC):
     
     @abstractmethod
     async def find_by_name(self, name: CageName) -> Optional[Cage]: ...
+    
+    @abstractmethod
+    async def list(self) -> List[Cage]: ...
 
     @abstractmethod
-    async def get_all(self) -> List[Cage]: ...
+    async def list_with_line_info(self, line_id: Optional['LineId'] = None) -> List[Tuple[Cage, Optional[str]]]: ...
 
     @abstractmethod
     async def delete(self, cage_id: CageId) -> None: ...

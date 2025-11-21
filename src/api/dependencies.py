@@ -14,6 +14,7 @@ from application.use_cases import (
     SyncSystemLayoutUseCase,
     GetSystemLayoutUseCase
 )
+from application.use_cases.cage import ListCagesUseCase
 from domain.factories import ComponentFactory
 
 
@@ -71,6 +72,12 @@ async def get_get_use_case(
         silo_repo=silo_repo,
         cage_repo=cage_repo
     )
+
+
+async def get_list_cages_use_case(
+    cage_repo: CageRepository = Depends(get_cage_repo)
+) -> ListCagesUseCase:
+    return ListCagesUseCase(cage_repository=cage_repo)
 
 
 # ============================================================================

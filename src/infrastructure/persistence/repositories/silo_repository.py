@@ -1,5 +1,3 @@
-"""Implementación de repositorio para Silo con SQLModel."""
-
 from typing import List, Optional
 
 from sqlalchemy import select
@@ -16,7 +14,6 @@ class SiloRepository(ISiloRepository):
         self.session = session
 
     async def save(self, silo: Silo) -> None:
-        """Guarda o actualiza un silo."""
         existing = await self.session.get(SiloModel, silo.id.value)
 
         if existing:
@@ -32,12 +29,10 @@ class SiloRepository(ISiloRepository):
         await self.session.flush()
 
     async def find_by_id(self, silo_id: SiloId) -> Optional[Silo]:
-        """Busca un silo por su ID."""
         silo_model = await self.session.get(SiloModel, silo_id.value)
         return silo_model.to_domain() if silo_model else None
 
     async def find_by_name(self, name: SiloName) -> Optional[Silo]:
-        """Busca un silo por su nombre."""
         result = await self.session.execute(
             select(SiloModel).where(SiloModel.name == str(name))
         )
@@ -45,13 +40,11 @@ class SiloRepository(ISiloRepository):
         return silo_model.to_domain() if silo_model else None
 
     async def get_all(self) -> List[Silo]:
-        """Obtiene todos los silos."""
         result = await self.session.execute(select(SiloModel))
         silo_models = result.scalars().all()
         return [model.to_domain() for model in silo_models]
 
     async def delete(self, silo_id: SiloId) -> None:
-        """Elimina un silo por su ID."""
         silo_model = await self.session.get(SiloModel, silo_id.value)
         if silo_model:
             await self.session.delete(silo_model)

@@ -1,5 +1,3 @@
-"""Mapper para convertir entidades de dominio a modelos Pydantic."""
-
 from typing import List
 
 from api.models.system_layout import (
@@ -91,7 +89,7 @@ class ResponseMapper:
             id=str(doser.id),
             name=str(doser.name),
             assigned_silo_id=str(doser.assigned_silo_id),
-            doser_type=doser.doser_type,
+            doser_type=doser.doser_type.value,
             min_rate=doser.dosing_range.min_rate,
             max_rate=doser.dosing_range.max_rate,
             current_rate=doser.current_rate.value

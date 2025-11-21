@@ -3,6 +3,7 @@ from uuid import UUID
 from sqlmodel import Field, Relationship, SQLModel
 from domain.aggregates.feeding_line.doser import Doser
 from domain.interfaces import IDoser
+from domain.enums import DoserType
 from domain.value_objects import (
     DoserId,
     DoserName,
@@ -36,7 +37,7 @@ class DoserModel(SQLModel, table=True):
             line_id=line_id,
             name=str(doser.name),
             silo_id=doser.assigned_silo_id.value,
-            doser_type=doser.doser_type,
+            doser_type=doser.doser_type.value,
             dosing_rate_value=doser.current_rate.value,
             dosing_rate_unit=doser.current_rate.unit,
             min_rate_value=doser.dosing_range.min_rate,
@@ -52,7 +53,7 @@ class DoserModel(SQLModel, table=True):
         doser = Doser(
             name=DoserName(self.name),
             assigned_silo_id=SiloId(self.silo_id),
-            doser_type=self.doser_type,
+            doser_type=DoserType(self.doser_type),
             dosing_range=DosingRange(
                 min_rate=self.min_rate_value,
                 max_rate=self.max_rate_value,
