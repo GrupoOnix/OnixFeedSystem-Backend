@@ -22,10 +22,9 @@ class CageRepository(ICageRepository):
             # Básicos
             existing.name = str(cage.name)
             existing.status = cage.status.value
-            existing.created_at = cage._created_at
+            existing.created_at = cage.created_at
             
             # Población
-            existing.initial_fish_count = cage.initial_fish_count.value if cage.initial_fish_count else None
             existing.current_fish_count = cage.current_fish_count.value if cage.current_fish_count else None
             
             # Biometría (convertir a miligramos)

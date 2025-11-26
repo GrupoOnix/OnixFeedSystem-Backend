@@ -33,13 +33,31 @@ Domain (Cage) → Use Cases → API Endpoints
 
 **Output:**
 
-- Lista de jaulas con datos básicos
+- Lista de jaulas con datos básicos y configuración
 
 **Lógica:**
 
 1. Consultar repositorio con filtros
 2. Mapear entidades a DTOs
 3. Retornar lista
+
+**Campos de Respuesta:**
+
+- `cage_id`: Identificador único de la jaula
+- `name`: Nombre de la jaula
+- `line_id`: ID de la línea de alimentación (si está asignada)
+- `line_name`: Nombre de la línea de alimentación (si está asignada)
+- `slot_number`: Número de slot en la línea (si está asignada)
+- `current_fish_count`: Población actual
+- `biomass_kg`: Biomasa total calculada (current_fish_count \* avg_fish_weight)
+- `avg_fish_weight_g`: Peso promedio de los peces en gramos
+- `created_at`: Fecha de creación/siembra de la jaula
+- `volume_m3`: Volumen total de la jaula en metros cúbicos
+- `max_density_kg_m3`: Umbral máximo de densidad en kg/m³
+- `fcr`: Factor de Conversión de Alimento
+- `feeding_table_id`: ID de la tabla de alimentación asignada
+- `transport_time_seconds`: Tiempo de transporte del alimento en segundos
+- `status`: Estado actual de la jaula (AVAILABLE, FEEDING, etc.)
 
 **Endpoint:** `GET /api/cages?line_id={line_id}`
 
@@ -64,8 +82,6 @@ Domain (Cage) → Use Cases → API Endpoints
 
 1. Obtener Cage del repositorio
 2. Calcular estadísticas:
-   - `survival_rate = (current_fish_count / initial_fish_count) * 100`
-   - `mortality_count = initial_fish_count - current_fish_count`
    - `days_in_cycle = today - created_at`
 3. Consultar total de mortalidad registrada
 4. Obtener nombres relacionados (line_name, feeding_table_name) via joins
@@ -207,10 +223,32 @@ Domain (Cage) → Use Cases → API Endpoints
 
 ```json
 {
-  "new_average_weight_g": 550,
-  "sampled_fish_count": 100,
-  "sampling_date": "2024-01-15",
-  "note": "Muestreo sector norte"
+  "fish_count": 4500,
+  "average_weight_g": 550.5,
+  "sampling_date": "2025-11-21",
+  "note": "Muestreo realizado en sector norte"
+}
+```
+
+**Nota:** `fish_count` y `average_weight_g` son opcionales, pero al menos uno debe estar presente.
+
+**Ejemplos:**
+
+Solo actualizar conteo:
+
+```json
+{
+  "fish_count": 4500,
+  "sampling_date": "2025-11-21"
+}
+```
+
+Solo actualizar peso:
+
+```json
+{
+  "average_weight_g": 550.5,
+  "sampling_date": "2025-11-21"
 }
 ```
 
@@ -223,8 +261,8 @@ Domain (Cage) → Use Cases → API Endpoints
 **Input:**
 
 - `cage_id`: ID de la jaula
-- `initial_fish_count` (opcional): Población inicial (solo si no está establecida)
-- `initial_average_weight_g` (opcional): Peso inicial (solo si no está establecido)
+- `current_fish_count` (opcional): Población actual
+- `average_weight_g` (opcional): Peso promedio actual
 - `fcr` (opcional): Factor de conversión
 - `total_volume_m3` (opcional): Volumen
 - `max_density_kg_m3` (opcional): Densidad máxima
@@ -239,9 +277,8 @@ Domain (Cage) → Use Cases → API Endpoints
 **Lógica:**
 
 1. Obtener Cage del repositorio
-2. Si `initial_fish_count` e `initial_average_weight_g` están presentes:
-   - Validar que no estén ya establecidos
-   - Llamar a `cage.set_initial_population(fish_count, avg_weight)`
+2. Si `current_fish_count` y `average_weight_g` están presentes:
+   - Llamar a `cage.set_population(fish_count, avg_weight)`
 3. Actualizar parámetros de configuración usando setters:
    - `cage.fcr = new_fcr`
    - `cage.total_volume = new_volume`
@@ -257,8 +294,8 @@ Domain (Cage) → Use Cases → API Endpoints
 
 ```json
 {
-  "initial_fish_count": 5000,
-  "initial_average_weight_g": 500,
+  "current_fish_count": 5000,
+  "average_weight_g": 500,
   "fcr": 1.2,
   "total_volume_m3": 1500,
   "max_density_kg_m3": 20.0,
@@ -317,7 +354,6 @@ CREATE TABLE cages (
     status VARCHAR(20) NOT NULL,
 
     -- Población
-    initial_fish_count INT,
     current_fish_count INT,
 
     -- Biometría
@@ -410,8 +446,8 @@ class RegisterBiometryRequest:
 
 # PUT /api/cages/{cage_id}/config
 class UpdateCageConfigRequest:
-    initial_fish_count: Optional[int]
-    initial_average_weight_g: Optional[float]
+    current_fish_count: Optional[int]
+    average_weight_g: Optional[float]
     fcr: Optional[float]
     total_volume_m3: Optional[float]
     max_density_kg_m3: Optional[float]
@@ -432,11 +468,18 @@ class CageListItemResponse:
     cage_id: str
     name: str
     line_id: Optional[str]
+    line_name: Optional[str]
     slot_number: Optional[int]
-    initial_fish_count: Optional[int]
     current_fish_count: Optional[int]
     biomass_kg: float
     avg_fish_weight_g: Optional[float]
+    created_at: datetime
+    volume_m3: Optional[float]
+    max_density_kg_m3: Optional[float]
+    fcr: Optional[float]
+    feeding_table_id: Optional[str]
+    transport_time_seconds: Optional[int]
+    status: str
 
 # GET /api/cages/{cage_id}
 class CageDetailResponse:
@@ -446,7 +489,6 @@ class CageDetailResponse:
     line_id: Optional[str]
     line_name: Optional[str]
     slot_number: Optional[int]
-    initial_fish_count: Optional[int]
     current_fish_count: Optional[int]
     biomass_kg: float
     avg_fish_weight_g: Optional[float]
@@ -466,8 +508,6 @@ class CageConfigResponse:
 
 class CageStatisticsResponse:
     days_in_cycle: int
-    survival_rate: float
-    mortality_count: int
     total_mortality_registered: int  # Suma de mortality_log
 ```
 

@@ -26,7 +26,6 @@ class CageModel(SQLModel, table=True):
     created_at: datetime
 
     # Población
-    initial_fish_count: Optional[int] = Field(default=None)
     current_fish_count: Optional[int] = Field(default=None)
 
     # Biometría (Weight en miligramos)
@@ -46,9 +45,8 @@ class CageModel(SQLModel, table=True):
             id=cage.id.value,
             name=str(cage.name),
             status=cage.status.value,
-            created_at=cage._created_at,
+            created_at=cage.created_at,
             # Población
-            initial_fish_count=cage.initial_fish_count.value if cage.initial_fish_count else None,
             current_fish_count=cage.current_fish_count.value if cage.current_fish_count else None,
             # Biometría (convertir a miligramos)
             avg_fish_weight_mg=cage.avg_fish_weight.as_miligrams if cage.avg_fish_weight else None,
@@ -64,7 +62,6 @@ class CageModel(SQLModel, table=True):
         """Convierte modelo de persistencia a entidad de dominio."""
         cage = Cage(
             name=CageName(self.name),
-            initial_fish_count=FishCount(self.initial_fish_count) if self.initial_fish_count is not None else None,
             avg_fish_weight=Weight.from_miligrams(self.avg_fish_weight_mg) if self.avg_fish_weight_mg is not None else None,
             fcr=FCR(self.fcr) if self.fcr is not None else None,
             total_volume=Volume.from_cubic_meters(self.total_volume_m3) if self.total_volume_m3 is not None else None,

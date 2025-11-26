@@ -32,8 +32,14 @@ class ListCagesUseCase:
             line_id=str(cage.line_id) if cage.line_id else None,
             line_name=line_name,
             slot_number=cage.slot_number.value if cage.slot_number else None,
-            initial_fish_count=cage.initial_fish_count.value if cage.initial_fish_count else None,
             current_fish_count=cage.current_fish_count.value if cage.current_fish_count else None,
             biomass_kg=cage.biomass.as_kg,
-            avg_fish_weight_g=cage.avg_fish_weight.as_grams if cage.avg_fish_weight else None
+            avg_fish_weight_g=cage.avg_fish_weight.as_grams if cage.avg_fish_weight else None,
+            created_at=cage.created_at,
+            volume_m3=cage.total_volume.as_cubic_meters if cage.total_volume else None,
+            max_density_kg_m3=float(cage.max_density) if cage.max_density else None,
+            fcr=float(cage.fcr) if cage.fcr else None,
+            feeding_table_id=str(cage.feeding_table_id) if cage.feeding_table_id else None,
+            transport_time_seconds=cage.transport_time.value if cage.transport_time else None,
+            status=cage.status.value
         )

@@ -65,19 +65,25 @@ class SiloId:
 
 @dataclass(frozen=True)
 class FeedingTableId:
-    """Identificador único para una tabla de alimentación."""
-    value: UUID
+    """
+    Identificador para una tabla de alimentación.
+    Usa string simple en lugar de UUID para permitir IDs descriptivos
+    como 'table-premium-2024', 'winter-table', etc.
+    """
+    value: str
 
-    @classmethod
-    def generate(cls) -> FeedingTableId:
-        return cls(uuid4())
+    def __post_init__(self):
+        """Valida que el ID no esté vacío."""
+        if not self.value or not self.value.strip():
+            raise ValueError("FeedingTableId no puede estar vacío")
 
     @classmethod
     def from_string(cls, id_str: str) -> FeedingTableId:
-        return cls(UUID(id_str))
+        """Crea un FeedingTableId desde una cadena."""
+        return cls(id_str)
 
     def __str__(self) -> str:
-        return str(self.value)
+        return self.value
 
 
 # ============================================================================

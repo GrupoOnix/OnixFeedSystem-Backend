@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Optional, List
 
 
@@ -14,10 +15,16 @@ class CageListItemResponse:
     line_id: Optional[str]
     line_name: Optional[str]
     slot_number: Optional[int]
-    initial_fish_count: Optional[int]
     current_fish_count: Optional[int]
     biomass_kg: float
     avg_fish_weight_g: Optional[float]
+    created_at: datetime
+    volume_m3: Optional[float]
+    max_density_kg_m3: Optional[float]
+    fcr: Optional[float]
+    feeding_table_id: Optional[str]
+    transport_time_seconds: Optional[int]
+    status: str
 
 
 @dataclass

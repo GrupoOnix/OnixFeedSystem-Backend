@@ -21,7 +21,6 @@ class Cage:
     def __init__(
         self,
         name: CageName,
-        initial_fish_count: Optional[FishCount] = None,
         avg_fish_weight: Optional[Weight] = None,
         fcr: Optional[FCR] = None,
         total_volume: Optional[Volume] = None,
@@ -35,8 +34,7 @@ class Cage:
         self._created_at = datetime.utcnow()
 
         # Población
-        self._initial_fish_count = initial_fish_count
-        self._current_fish_count = initial_fish_count
+        self._current_fish_count: Optional[FishCount] = None
 
         # Biometría
         self._avg_fish_weight = avg_fish_weight
@@ -73,11 +71,11 @@ class Cage:
     def status(self, new_status: CageStatus) -> None:
         self._status = new_status
 
-    # Población
     @property
-    def initial_fish_count(self) -> Optional[FishCount]:
-        return self._initial_fish_count
+    def created_at(self) -> datetime:
+        return self._created_at
 
+    # Población
     @property
     def current_fish_count(self) -> Optional[FishCount]:
         return self._current_fish_count
@@ -147,25 +145,7 @@ class Cage:
         return self._slot_number
 
     # Propiedades calculadas
-    @property
-    def survival_rate(self) -> float:
-        """Tasa de supervivencia en porcentaje."""
-        if self._initial_fish_count is None or self._current_fish_count is None:
-            return 0.0
 
-        if self._initial_fish_count.value == 0:
-            return 0.0
-
-        return (self._current_fish_count.value / self._initial_fish_count.value) * 100
-
-    @property
-    def mortality_count(self) -> FishCount:
-        """Cantidad total de peces muertos desde la siembra."""
-        if self._initial_fish_count is None or self._current_fish_count is None:
-            return FishCount(0)
-
-        dead_count = self._initial_fish_count.value - self._current_fish_count.value
-        return FishCount(dead_count)
 
     @property
     def current_density(self) -> Optional[Density]:
@@ -202,9 +182,6 @@ class Cage:
         Actualiza el conteo de peces.
         El operador puede modificar esto libremente (recuento físico, ajustes, etc.)
         """
-        if self._initial_fish_count is None:
-            raise ValueError("No hay población establecida")
-
         if new_count.value < 0:
             raise ValueError("El conteo de peces no puede ser negativo")
 
@@ -217,18 +194,14 @@ class Cage:
 
         self._avg_fish_weight = new_avg_weight
 
-    def set_initial_population(self, fish_count: FishCount, avg_weight: Weight) -> None:
-        """Establece la población inicial de la jaula (siembra)."""
-        if self._initial_fish_count is not None:
-            raise ValueError("La población inicial ya fue establecida")
-
-        if fish_count.value <= 0:
-            raise ValueError("La cantidad de peces debe ser mayor a 0")
+    def set_population(self, fish_count: FishCount, avg_weight: Weight) -> None:
+        """Establece la población de la jaula."""
+        if fish_count.value < 0:
+            raise ValueError("La cantidad de peces no puede ser negativa")
 
         if avg_weight.as_grams <= 0:
             raise ValueError("El peso promedio debe ser mayor a 0")
 
-        self._initial_fish_count = fish_count
         self._current_fish_count = fish_count
         self._avg_fish_weight = avg_weight
         
