@@ -2,6 +2,10 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Dict, List
 
+from domain.dtos import MachineConfiguration, MachineStatus
+from domain.enums import DoserType, SensorType
+from domain.value_objects.identifiers import LineId
+
 from .value_objects import (
     BlowDurationInSeconds, BlowerId, BlowerName, BlowerPowerPercentage, DoserId, 
     DoserName, DosingRange, DosingRate, SelectorCapacity, SelectorId, SelectorName, 
@@ -175,4 +179,45 @@ class ISensor(ABC):
     def sensor_type(self) -> "SensorType": ...
 
 
-    
+class IFeedingMachine(ABC):
+    """
+    Puerto (Interface) para la comunicación con el hardware de alimentación.
+    La implementación puede ser un Simulador o un Cliente Modbus.
+    """
+
+    @abstractmethod
+    async def send_configuration(self, line_id: LineId, config: MachineConfiguration) -> None:
+        """
+        Envía una configuración completa al PLC.
+        Debe traducir el DTO lógico a registros/señales específicas.
+        """
+        pass
+
+    @abstractmethod
+    async def get_status(self, line_id: LineId) -> MachineStatus:
+        """
+        Lee el estado actual de la máquina.
+        Debe ser rápido (polling frecuente).
+        """
+        pass
+
+    @abstractmethod
+    async def pause(self, line_id: LineId) -> None:
+        """
+        Solicita una pausa explícita al PLC (congelar estado).
+        """
+        pass
+
+    @abstractmethod
+    async def resume(self, line_id: LineId) -> None:
+        """
+        Solicita reanudar la operación desde el estado pausado.
+        """
+        pass
+
+    @abstractmethod
+    async def stop(self, line_id: LineId) -> None:
+        """
+        Detiene totalmente la operación y resetea el ciclo.
+        """
+        pass

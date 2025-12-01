@@ -31,6 +31,8 @@ from src.infrastructure.persistence.models.slot_assignment_model import (
 from src.infrastructure.persistence.models.biometry_log_model import BiometryLogModel
 from src.infrastructure.persistence.models.mortality_log_model import MortalityLogModel
 from src.infrastructure.persistence.models.config_change_log_model import ConfigChangeLogModel
+from src.infrastructure.persistence.models.feeding_session_model import FeedingSessionModel
+from src.infrastructure.persistence.models.feeding_event_model import FeedingEventModel
 
 config = context.config
 

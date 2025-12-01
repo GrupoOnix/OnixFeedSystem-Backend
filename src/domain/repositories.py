@@ -1,16 +1,13 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
-
-from domain.aggregates.cage import Cage
-from domain.aggregates.silo import Silo
-
-from .aggregates.feeding_line.feeding_line import FeedingLine
-from .value_objects import CageId, CageName, LineId, LineName, SiloId, SiloName
-
-# Para type hints de los logs
 from uuid import UUID
 from datetime import date
 
+from domain.aggregates.cage import Cage
+from domain.aggregates.silo import Silo
+from domain.aggregates.feeding_session import FeedingSession
+from .aggregates.feeding_line.feeding_line import FeedingLine
+from .value_objects import CageId, CageName, LineId, LineName, SiloId, SiloName, SessionId
 
 class IFeedingLineRepository(ABC):
 
@@ -28,6 +25,9 @@ class IFeedingLineRepository(ABC):
 
     @abstractmethod
     async def delete(self, line_id: LineId) -> None: ...
+
+    @abstractmethod
+    async def get_slot_number(self, line_id: LineId, cage_id: CageId) -> Optional[int]: ...
 
 
 class ICageRepository(ABC):
@@ -67,6 +67,18 @@ class ISiloRepository(ABC):
 
     @abstractmethod
     async def delete(self, silo_id: SiloId) -> None: ...
+
+
+class IFeedingSessionRepository(ABC):
+    
+    @abstractmethod
+    async def save(self, session: FeedingSession) -> None: ...
+    
+    @abstractmethod
+    async def find_by_id(self, session_id: SessionId) -> Optional[FeedingSession]: ...
+    
+    @abstractmethod
+    async def find_active_by_line_id(self, line_id: LineId) -> Optional[FeedingSession]: ...
 
 
 class IBiometryLogRepository(ABC):
@@ -129,4 +141,3 @@ class IConfigChangeLogRepository(ABC):
     async def count_by_cage(self, cage_id: CageId) -> int:
         """Cuenta total de registros de cambios de configuración de una jaula."""
         ...
-    

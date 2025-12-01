@@ -17,6 +17,7 @@ from .identifiers import (
     SelectorId,
     SensorId,
     FeedingTableId,
+    SessionId,
 )
 
 # Names
@@ -69,6 +70,7 @@ __all__ = [
     "SelectorId",
     "SensorId",
     "FeedingTableId",
+    "SessionId",
     # Names
     "LineName",
     "CageName",

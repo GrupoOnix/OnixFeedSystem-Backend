@@ -164,3 +164,22 @@ class SensorId:
 
     def __str__(self) -> str:
         return str(self.value)
+
+
+@dataclass(frozen=True)
+class SessionId:
+    """Identificador único para una sesión de alimentación."""
+    value: UUID
+
+    @classmethod
+    def generate(cls) -> SessionId:
+        """Genera un nuevo SessionId único."""
+        return cls(uuid4())
+
+    @classmethod
+    def from_string(cls, id_str: str) -> SessionId:
+        """Crea un SessionId desde una representación de cadena."""
+        return cls(UUID(id_str))
+
+    def __str__(self) -> str:
+        return str(self.value)

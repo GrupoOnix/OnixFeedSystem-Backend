@@ -12,7 +12,7 @@ Futuros routers:
 """
 
 from fastapi import APIRouter
-from . import system_layout, cage_router
+from . import system_layout, cage_router, feeding_router
 
 # Router principal que agrupa todos los sub-routers
 api_router = APIRouter(prefix="/api")
@@ -20,5 +20,6 @@ api_router = APIRouter(prefix="/api")
 # Registrar routers por funcionalidad
 api_router.include_router(system_layout.router)
 api_router.include_router(cage_router.router)
+api_router.include_router(feeding_router.router)
 
 __all__ = ['api_router']
