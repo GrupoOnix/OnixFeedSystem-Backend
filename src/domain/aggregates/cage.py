@@ -13,7 +13,6 @@ from domain.value_objects import (
     FeedingTableId,
     BlowDurationInSeconds,
     LineId,
-    SlotNumber,
 )
 
 
@@ -21,6 +20,8 @@ class Cage:
     def __init__(
         self,
         name: CageName,
+        line_id: Optional[LineId] = None,
+        slot_number: Optional[int] = None,
         avg_fish_weight: Optional[Weight] = None,
         fcr: Optional[FCR] = None,
         total_volume: Optional[Volume] = None,
@@ -46,10 +47,9 @@ class Cage:
         self._feeding_table_id: Optional[FeedingTableId] = None
         self._transport_time = transport_time
 
-        # Relaciones (referencias de conveniencia, la verdad la tiene FeedingLine)
-        self._line_id: Optional[LineId] = None
-        self._slot_number: Optional[SlotNumber] = None
-        # TODO: Considerar agregar métodos privados _set_line_reference() y _clear_line_reference() para uso de repositorios
+        # Asignación a línea de alimentación
+        self._line_id: Optional[LineId] = line_id
+        self._slot_number: Optional[int] = slot_number
 
     @property
     def id(self) -> CageId:
@@ -141,7 +141,7 @@ class Cage:
         return self._line_id
 
     @property
-    def slot_number(self) -> Optional[SlotNumber]:
+    def slot_number(self) -> Optional[int]:
         return self._slot_number
 
     # Propiedades calculadas
@@ -204,4 +204,16 @@ class Cage:
 
         self._current_fish_count = fish_count
         self._avg_fish_weight = avg_weight
-        
+
+    def assign_to_line(self, line_id: LineId, slot_number: int) -> None:
+        """Asigna la jaula a una línea de alimentación en un slot específico."""
+        if slot_number < 1:
+            raise ValueError("El número de slot debe ser mayor o igual a 1")
+
+        self._line_id = line_id
+        self._slot_number = slot_number
+
+    def unassign_from_line(self) -> None:
+        """Desasigna la jaula de su línea de alimentación."""
+        self._line_id = None
+        self._slot_number = None

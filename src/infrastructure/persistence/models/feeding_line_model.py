@@ -29,7 +29,12 @@ class FeedingLineModel(SQLModel, table=True):
         back_populates="feeding_line",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
-    slot_assignments: List["SlotAssignmentModel"] = Relationship(
+    cages: List["CageModel"] = Relationship(
+        back_populates="feeding_line",
+        sa_relationship_kwargs={"cascade": "save-update"},
+    )
+
+    feeding_sessions: List["FeedingSessionModel"] = Relationship(
         back_populates="feeding_line",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
@@ -41,7 +46,6 @@ class FeedingLineModel(SQLModel, table=True):
         from .doser_model import DoserModel
         from .selector_model import SelectorModel
         from .sensor_model import SensorModel
-        from .slot_assignment_model import SlotAssignmentModel
 
         line_model = FeedingLineModel(
             id=line.id.value,
@@ -65,10 +69,8 @@ class FeedingLineModel(SQLModel, table=True):
             SensorModel.from_domain(sensor, line.id.value) for sensor in line._sensors
         ]
 
-        line_model.slot_assignments = [
-            SlotAssignmentModel.from_domain(assignment, line.id.value)
-            for assignment in line.get_slot_assignments()
-        ]
+        # Nota: Las asignaciones de cages a líneas se gestionan desde CageModel
+        # No se mapean aquí para evitar duplicación de responsabilidades
 
         return line_model
 
@@ -100,9 +102,7 @@ class FeedingLineModel(SQLModel, table=True):
         line._id = LineId(self.id)
         line._created_at = self.created_at
 
-        slot_assignments_domain = [
-            assignment.to_domain() for assignment in self.slot_assignments
-        ]
-        line.update_assignments(slot_assignments_domain)
+        # Nota: Las asignaciones de cages se consultan por CageRepository si es necesario
+        # No se cargan aquí para mantener agregates independientes
 
         return line

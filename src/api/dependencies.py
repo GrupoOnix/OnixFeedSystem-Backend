@@ -8,7 +8,8 @@ from infrastructure.persistence.database import get_session
 from infrastructure.persistence.repositories import (
     SiloRepository,
     CageRepository,
-    FeedingLineRepository
+    FeedingLineRepository,
+    FeedingOperationRepository
 )
 from infrastructure.persistence.repositories.biometry_log_repository import BiometryLogRepository
 from infrastructure.persistence.repositories.mortality_log_repository import MortalityLogRepository
@@ -84,6 +85,13 @@ async def get_feeding_session_repo(
 ) -> FeedingSessionRepository:
     """Crea instancia del repositorio de sesiones de alimentación."""
     return FeedingSessionRepository(session)
+
+
+async def get_feeding_operation_repo(
+    session: AsyncSession = Depends(get_session)
+) -> FeedingOperationRepository:
+    """Crea instancia del repositorio de operaciones de alimentación."""
+    return FeedingOperationRepository(session)
 
 # ============================================================================
 # Servicios de Infraestructura
@@ -212,6 +220,7 @@ async def get_list_config_changes_use_case(
 
 async def get_start_feeding_use_case(
     session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
+    operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),
     line_repo: FeedingLineRepository = Depends(get_line_repo),
     cage_repo: CageRepository = Depends(get_cage_repo),
     machine_service: IFeedingMachine = Depends(get_machine_service)
@@ -219,6 +228,7 @@ async def get_start_feeding_use_case(
     """Crea instancia del caso de uso de inicio de alimentación."""
     return StartFeedingSessionUseCase(
         session_repository=session_repo,
+        operation_repository=operation_repo,
         line_repository=line_repo,
         cage_repository=cage_repo,
         machine_service=machine_service
@@ -227,44 +237,52 @@ async def get_start_feeding_use_case(
 
 async def get_stop_feeding_use_case(
     session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
+    operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),
     machine_service: IFeedingMachine = Depends(get_machine_service)
 ) -> StopFeedingSessionUseCase:
     """Crea instancia del caso de uso de detención de alimentación."""
     return StopFeedingSessionUseCase(
         session_repository=session_repo,
+        operation_repository=operation_repo,
         machine_service=machine_service
     )
 
 
 async def get_pause_feeding_use_case(
     session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
+    operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),
     machine_service: IFeedingMachine = Depends(get_machine_service)
 ) -> PauseFeedingSessionUseCase:
     """Crea instancia del caso de uso de pausa de alimentación."""
     return PauseFeedingSessionUseCase(
         session_repository=session_repo,
+        operation_repository=operation_repo,
         machine_service=machine_service
     )
 
 
 async def get_resume_feeding_use_case(
     session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
+    operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),
     machine_service: IFeedingMachine = Depends(get_machine_service)
 ) -> ResumeFeedingSessionUseCase:
     """Crea instancia del caso de uso de reanudación de alimentación."""
     return ResumeFeedingSessionUseCase(
         session_repository=session_repo,
+        operation_repository=operation_repo,
         machine_service=machine_service
     )
 
 
 async def get_update_feeding_params_use_case(
     session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
+    operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),
     machine_service: IFeedingMachine = Depends(get_machine_service)
 ) -> UpdateFeedingParametersUseCase:
     """Crea instancia del caso de uso de actualización de parámetros de alimentación."""
     return UpdateFeedingParametersUseCase(
         session_repository=session_repo,
+        operation_repository=operation_repo,
         machine_service=machine_service
     )
 

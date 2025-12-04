@@ -17,7 +17,7 @@ class SiloModel(SQLModel, table=True):
     created_at: datetime
 
     @staticmethod
-    def from_domain(silo: Silo) -> "SiloModel":
+    def from_domain(silo: "Silo") -> "SiloModel":
         """Convierte entidad de dominio a modelo de persistencia."""
         return SiloModel(
             id=silo.id.value,
@@ -28,7 +28,7 @@ class SiloModel(SQLModel, table=True):
             created_at=silo._created_at,
         )
 
-    def to_domain(self) -> Silo:
+    def to_domain(self) -> "Silo":
         """Convierte modelo de persistencia a entidad de dominio."""
         silo = Silo(
             name=SiloName(self.name),

@@ -8,6 +8,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 if TYPE_CHECKING:
     from .feeding_event_model import FeedingEventModel
+    from .feeding_operation_model import FeedingOperationModel
 
 
 class FeedingSessionModel(SQLModel, table=True):
@@ -17,13 +18,13 @@ class FeedingSessionModel(SQLModel, table=True):
     id: UUID = Field(primary_key=True)
 
     # Foreign Keys & Indexes
-    line_id: UUID = Field(index=True, foreign_key="feeding_lines.id")
+    line_id: UUID = Field(index=True, foreign_key="feeding_lines.id", ondelete="CASCADE")
 
     # Temporal
     date: datetime = Field(default_factory=datetime.utcnow, index=True)
 
-    # Estado
-    status: str = Field(index=True)  # CREATED, RUNNING, PAUSED, COMPLETED, FAILED
+    # Estado (NOTA: valores cambiarán a ACTIVE/CLOSED en migración)
+    status: str = Field(index=True)
 
     # Acumuladores
     total_dispensed_kg: float = Field(default=0.0)
@@ -33,13 +34,16 @@ class FeedingSessionModel(SQLModel, table=True):
         default_factory=dict,
         sa_column=Column(JSONB)
     )
-    applied_strategy_config: Optional[Dict[str, Any]] = Field(
-        default=None,
-        sa_column=Column(JSONB)
-    )
+    # applied_strategy_config ELIMINADO (ahora está en FeedingOperation)
 
-    # Relationship
+    feeding_line: "FeedingLineModel" = Relationship(back_populates="feeding_sessions")
+
+    # Relationships
     events: List["FeedingEventModel"] = Relationship(
+        back_populates="session",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    operations: List["FeedingOperationModel"] = Relationship(
         back_populates="session",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )

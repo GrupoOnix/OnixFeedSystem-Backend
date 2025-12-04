@@ -769,9 +769,61 @@ Copiar la implementación completa de la sección "Solución Propuesta".
 
 ### Fase 2: Migración de Base de Datos
 
-#### 2.1. Crear Modelos de Persistencia
+#### Diagrama de Relaciones
 
-**Archivo**: `src/infrastructure/persistence/models/feeding_operation_model.py`
+```
+FeedingSessionModel (EXISTENTE - MODIFICAR)
+├── id: UUID (PK)
+├── line_id: UUID (FK → feeding_lines)
+├── status: str (ACTIVE/CLOSED)
+├── total_dispensed_kg: float
+├── dispensed_by_slot: JSONB
+├── applied_strategy_config: ELIMINADO ❌
+│
+├── events: List[FeedingEventModel] (1:N) ✅ YA EXISTE
+│   └── FeedingEventModel
+│       ├── id: int (PK)
+│       ├── session_id: UUID (FK → feeding_sessions) CASCADE
+│       ├── event_type: str (COMMAND, PARAM_CHANGE, SYSTEM_STATUS, ALARM)
+│       ├── timestamp: datetime
+│       ├── description: str
+│       └── details: JSONB
+│
+└── operations: List[FeedingOperationModel] (1:N) ⭐ NUEVO
+    └── FeedingOperationModel
+        ├── id: UUID (PK)
+        ├── session_id: UUID (FK → feeding_sessions) CASCADE
+        ├── cage_id: UUID (FK → cages)
+        ├── target_slot: int
+        ├── target_amount_kg: float
+        ├── dispensed_kg: float
+        ├── status: str (RUNNING, PAUSED, COMPLETED, STOPPED, FAILED)
+        ├── started_at: datetime
+        ├── ended_at: datetime?
+        ├── applied_config: JSONB
+        │
+        └── events: List[OperationEventModel] (1:N) ⭐ NUEVO
+            └── OperationEventModel
+                ├── id: UUID (PK)
+                ├── operation_id: UUID (FK → feeding_operations) CASCADE
+                ├── type: str (STARTED, PAUSED, RESUMED, PARAM_CHANGE, COMPLETED, STOPPED, FAILED)
+                ├── timestamp: datetime
+                ├── description: str
+                └── details: JSONB
+```
+
+**Resumen de Cambios:**
+
+- ✅ **FeedingEventModel**: Ya existe, NO se modifica
+- ❌ **FeedingSessionModel**: ELIMINAR `applied_strategy_config`, AGREGAR relationship `operations`
+- ⭐ **FeedingOperationModel**: CREAR nuevo modelo
+- ⭐ **OperationEventModel**: CREAR nuevo modelo
+
+---
+
+#### 2.1. Crear Modelo FeedingOperationModel (NUEVO)
+
+**Archivo**: `src/infrastructure/persistence/models/feeding_operation_model.py` (CREAR)
 
 ```python
 from datetime import datetime
@@ -787,16 +839,25 @@ if TYPE_CHECKING:
     from .operation_event_model import OperationEventModel
 
 class FeedingOperationModel(SQLModel, table=True):
+    """
+    Modelo de persistencia para operaciones de alimentación.
+    Una operación representa una visita a una jaula (de START a STOP).
+    """
     __tablename__ = "feeding_operations"
 
+    # Primary Key
     id: UUID = Field(primary_key=True)
-    session_id: UUID = Field(foreign_key="feeding_sessions.id", index=True)
-    cage_id: UUID = Field(foreign_key="cages.id")
+
+    # Foreign Keys
+    session_id: UUID = Field(foreign_key="feeding_sessions.id", index=True, ondelete="CASCADE")
+    cage_id: UUID = Field(foreign_key="cages.id", index=True)
+
+    # Datos de la operación
     target_slot: int
     target_amount_kg: float
     dispensed_kg: float = Field(default=0.0)
-    status: str
-    started_at: datetime
+    status: str = Field(index=True)  # RUNNING, PAUSED, COMPLETED, STOPPED, FAILED
+    started_at: datetime = Field(index=True)
     ended_at: Optional[datetime] = None
     applied_config: Dict[str, Any] = Field(sa_column=Column(JSONB))
 
@@ -806,13 +867,18 @@ class FeedingOperationModel(SQLModel, table=True):
         back_populates="operation",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
+
+    class Config:
+        arbitrary_types_allowed = True
 ```
 
-**Archivo**: `src/infrastructure/persistence/models/operation_event_model.py`
+#### 2.2. Crear Modelo OperationEventModel (NUEVO)
+
+**Archivo**: `src/infrastructure/persistence/models/operation_event_model.py` (CREAR)
 
 ```python
 from datetime import datetime
-from typing import Dict, Any, TYPE_CHECKING
+from typing import Dict, Any, Optional, TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from sqlmodel import Field, SQLModel, Relationship
@@ -823,50 +889,207 @@ if TYPE_CHECKING:
     from .feeding_operation_model import FeedingOperationModel
 
 class OperationEventModel(SQLModel, table=True):
+    """
+    Modelo de persistencia para eventos de operación.
+    Registra el ciclo de vida detallado de cada operación.
+    """
     __tablename__ = "operation_events"
 
+    # Primary Key
     id: UUID = Field(primary_key=True, default_factory=uuid4)
-    operation_id: UUID = Field(foreign_key="feeding_operations.id", index=True)
-    timestamp: datetime
-    type: str
-    description: str
+
+    # Foreign Key
+    operation_id: UUID = Field(
+        foreign_key="feeding_operations.id",
+        index=True,
+        ondelete="CASCADE"
+    )
+
+    # Datos del evento
+    timestamp: datetime = Field(default_factory=datetime.utcnow, index=True)
+    type: str = Field(max_length=50)  # STARTED, PAUSED, RESUMED, PARAM_CHANGE, COMPLETED, STOPPED, FAILED
+    description: str = Field(max_length=500)
     details: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
 
-    operation: "FeedingOperationModel" = Relationship(back_populates="events")
+    # Relationship
+    operation: Optional["FeedingOperationModel"] = Relationship(back_populates="events")
+
+    class Config:
+        arbitrary_types_allowed = True
 ```
 
-#### 2.2. Actualizar FeedingSessionModel
+#### 2.3. Actualizar FeedingSessionModel (MODIFICAR EXISTENTE)
 
 **Archivo**: `src/infrastructure/persistence/models/feeding_session_model.py`
 
-Agregar relationship:
+**Cambios a realizar:**
+
+1. **ELIMINAR** el campo `applied_strategy_config` (ya no se usa a nivel de sesión):
 
 ```python
-# Agregar al final de la clase
+# ELIMINAR estas líneas:
+applied_strategy_config: Optional[Dict[str, Any]] = Field(
+    default=None,
+    sa_column=Column(JSONB)
+)
+```
+
+2. **AGREGAR** el import de TYPE_CHECKING para FeedingOperationModel:
+
+```python
+if TYPE_CHECKING:
+    from .feeding_event_model import FeedingEventModel
+    from .feeding_operation_model import FeedingOperationModel  # AGREGAR
+```
+
+3. **AGREGAR** el relationship con operations al final de la clase:
+
+```python
+# Relationships (ACTUALIZAR)
+events: List["FeedingEventModel"] = Relationship(
+    back_populates="session",
+    sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+)
+
+# AGREGAR esta relación:
 operations: List["FeedingOperationModel"] = Relationship(
     back_populates="session",
     sa_relationship_kwargs={"cascade": "all, delete-orphan"}
 )
 ```
 
-Eliminar campo:
+**Resultado final de FeedingSessionModel:**
 
 ```python
-# ELIMINAR esta línea:
-applied_strategy_config: Optional[Dict[str, Any]] = Field(...)
+from datetime import datetime
+from typing import Optional, Dict, Any, List, TYPE_CHECKING
+from uuid import UUID
+
+from sqlmodel import Field, SQLModel, Relationship
+from sqlalchemy import Column
+from sqlalchemy.dialects.postgresql import JSONB
+
+if TYPE_CHECKING:
+    from .feeding_event_model import FeedingEventModel
+    from .feeding_operation_model import FeedingOperationModel
+
+class FeedingSessionModel(SQLModel, table=True):
+    __tablename__ = "feeding_sessions"
+
+    # Primary Key
+    id: UUID = Field(primary_key=True)
+
+    # Foreign Keys & Indexes
+    line_id: UUID = Field(index=True, foreign_key="feeding_lines.id")
+
+    # Temporal
+    date: datetime = Field(default_factory=datetime.utcnow, index=True)
+
+    # Estado (NOTA: valores cambiarán a ACTIVE/CLOSED en migración)
+    status: str = Field(index=True)
+
+    # Acumuladores
+    total_dispensed_kg: float = Field(default=0.0)
+
+    # JSON Fields (PostgreSQL JSONB)
+    dispensed_by_slot: Dict[str, float] = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB)
+    )
+    # applied_strategy_config ELIMINADO (ahora está en FeedingOperation)
+
+    # Relationships
+    events: List["FeedingEventModel"] = Relationship(
+        back_populates="session",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    operations: List["FeedingOperationModel"] = Relationship(
+        back_populates="session",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+
+    class Config:
+        arbitrary_types_allowed = True
 ```
 
-#### 2.3. Crear Migración de Alembic
+#### 2.4. Actualizar **init**.py de models
+
+**Archivo**: `src/infrastructure/persistence/models/__init__.py`
+
+Agregar los nuevos modelos:
+
+```python
+from .feeding_operation_model import FeedingOperationModel
+from .operation_event_model import OperationEventModel
+
+__all__ = [
+    # ... otros modelos existentes ...
+    "FeedingOperationModel",
+    "OperationEventModel",
+]
+```
+
+#### 2.5. Crear Migración de Alembic
 
 ```bash
 alembic revision --autogenerate -m "add_feeding_operations_and_operation_events"
 ```
 
-Revisar y aplicar:
+**Revisar la migración generada** para asegurarse de que:
+
+- Crea tabla `feeding_operations` con FK a `feeding_sessions` y `cages`
+- Crea tabla `operation_events` con FK a `feeding_operations`
+- Elimina columna `applied_strategy_config` de `feeding_sessions`
+- Agrega índices en `session_id`, `cage_id`, `status`, `started_at`, `timestamp`
+
+**Aplicar migración:**
 
 ```bash
 alembic upgrade head
 ```
+
+#### 2.6. Verificación de Relaciones
+
+Después de aplicar la migración, verificar que las relaciones estén correctas:
+
+**SQL para verificar estructura:**
+
+```sql
+-- Verificar tabla feeding_operations
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE table_name = 'feeding_operations';
+
+-- Verificar tabla operation_events
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE table_name = 'operation_events';
+
+-- Verificar FKs
+SELECT
+    tc.constraint_name,
+    tc.table_name,
+    kcu.column_name,
+    ccu.table_name AS foreign_table_name,
+    ccu.column_name AS foreign_column_name
+FROM information_schema.table_constraints AS tc
+JOIN information_schema.key_column_usage AS kcu
+    ON tc.constraint_name = kcu.constraint_name
+JOIN information_schema.constraint_column_usage AS ccu
+    ON ccu.constraint_name = tc.constraint_name
+WHERE tc.constraint_type = 'FOREIGN KEY'
+    AND tc.table_name IN ('feeding_operations', 'operation_events');
+```
+
+**Checklist de Verificación:**
+
+- [ ] Tabla `feeding_operations` existe con columna `session_id` (FK a `feeding_sessions`)
+- [ ] Tabla `feeding_operations` tiene columna `cage_id` (FK a `cages`)
+- [ ] Tabla `operation_events` existe con columna `operation_id` (FK a `feeding_operations`)
+- [ ] FK `session_id` tiene `ON DELETE CASCADE`
+- [ ] FK `operation_id` tiene `ON DELETE CASCADE`
+- [ ] Columna `applied_strategy_config` fue eliminada de `feeding_sessions`
+- [ ] Índices creados en: `session_id`, `cage_id`, `status`, `started_at`, `timestamp`
 
 ---
 
@@ -1900,50 +2123,57 @@ GetAllLinesDashboardUseCaseDep = Annotated[
 
 ### Fase 1: Preparación del Dominio
 
-- [ ] Crear `OperationId` VO en `src/domain/value_objects.py`
-- [ ] Crear `OperationStatus` enum en `src/domain/enums.py`
-- [ ] Crear `OperationEventType` enum en `src/domain/enums.py`
-- [ ] Modificar `SessionStatus` a `ACTIVE`/`CLOSED` (eliminar estados viejos: CREATED, RUNNING, PAUSED, COMPLETED, FAILED)
-- [ ] Crear `IFeedingOperationRepository` en `src/domain/repositories.py`
-- [ ] Verificar `IFeedingSessionRepository` en `src/domain/repositories.py` (debe tener interfaz completa)
-- [ ] Crear carpeta `src/domain/entities/`
-- [ ] Crear `src/domain/entities/__init__.py`
-- [ ] Crear `src/domain/entities/feeding_operation.py`
+- [x] Crear `OperationId` VO en `src/domain/value_objects.py`
+- [x] Crear `OperationStatus` enum en `src/domain/enums.py`
+- [x] Crear `OperationEventType` enum en `src/domain/enums.py`
+- [x] Modificar `SessionStatus` a `ACTIVE`/`CLOSED` (eliminar estados viejos: CREATED, RUNNING, PAUSED, COMPLETED, FAILED)
+- [x] Crear `IFeedingOperationRepository` en `src/domain/repositories.py`
+- [x] Verificar `IFeedingSessionRepository` en `src/domain/repositories.py` (debe tener interfaz completa)
+- [x] Crear carpeta `src/domain/entities/`
+- [x] Crear `src/domain/entities/__init__.py`
+- [x] Crear `src/domain/entities/feeding_operation.py`
 
-### Fase 2: Base de Datos
+### Fase 2: Migración de Base de Datos
 
-- [ ] Crear `FeedingOperationModel`
-- [ ] Crear `OperationEventModel`
-- [ ] Actualizar `FeedingSessionModel` (agregar relationship, eliminar `applied_strategy_config`)
-- [ ] Generar migración: `alembic revision --autogenerate`
-- [ ] Aplicar migración: `alembic upgrade head`
+- [x] Crear archivo `src/infrastructure/persistence/models/feeding_operation_model.py`
+- [x] Implementar `FeedingOperationModel` con relationships a `session` y `events`
+- [x] Crear archivo `src/infrastructure/persistence/models/operation_event_model.py`
+- [x] Implementar `OperationEventModel` con relationship a `operation`
+- [x] Actualizar `FeedingSessionModel`:
+  - [x] Agregar import de `FeedingOperationModel` en TYPE_CHECKING
+  - [x] ELIMINAR campo `applied_strategy_config`
+  - [x] AGREGAR relationship `operations: List["FeedingOperationModel"]`
+- [x] Actualizar `src/infrastructure/persistence/models/__init__.py` (agregar exports)
+- [x] Generar migración: `alembic revision --autogenerate -m "add_feeding_operations_and_operation_events"`
+- [x] Revisar migración generada (verificar FKs, índices, CASCADE)
+- [x] Aplicar migración: `alembic upgrade head`
 
 ### Fase 3: Dominio
 
-- [ ] Backup de `feeding_session.py`
-- [ ] Refactorizar `FeedingSession` completo
-- [ ] Agregar solo `_current_operation` (NO lista `_operations`)
-- [ ] Implementar `start_operation()` (crea operación con `session_id`)
-- [ ] Implementar `stop_current_operation()`
-- [ ] Implementar `pause_current_operation()`
-- [ ] Implementar `resume_current_operation()`
-- [ ] Implementar `update_current_operation_params()`
-- [ ] Simplificar `update_from_plc()` (pendiente de completar)
-- [ ] Agregar `_session_id` a `FeedingOperation.__init__()`
-- [ ] Agregar `pop_new_events()` a `FeedingOperation`
+- [x] Backup de `feeding_session.py`
+- [x] Refactorizar `FeedingSession` completo
+- [x] Agregar solo `_current_operation` (NO lista `_operations`)
+- [x] Implementar `start_operation()` (crea operación con `session_id`)
+- [x] Implementar `stop_current_operation()`
+- [x] Implementar `pause_current_operation()`
+- [x] Implementar `resume_current_operation()`
+- [x] Implementar `update_current_operation_params()`
+- [x] Simplificar `update_from_plc()` (pendiente de completar)
+- [x] Agregar `_session_id` a `FeedingOperation.__init__()`
+- [x] Agregar `pop_new_events()` a `FeedingOperation`
 
 ### Fase 4: Repositorios
 
-- [ ] Actualizar `FeedingSessionRepository.save()` (solo sesión)
-- [ ] Actualizar `FeedingSessionRepository.find_by_id()`
-- [ ] Actualizar `FeedingSessionRepository.find_active_by_line_id()`
-- [ ] Actualizar `FeedingSessionRepository._to_domain()` (sin operaciones)
-- [ ] Crear `FeedingOperationRepository` (nuevo archivo) con interfaz `IFeedingOperationRepository`
-- [ ] Implementar `FeedingOperationRepository.save()`
-- [ ] Implementar `FeedingOperationRepository.find_by_id()`
-- [ ] Implementar `FeedingOperationRepository.find_current_by_session()`
-- [ ] Implementar `FeedingOperationRepository.find_all_by_session()`
-- [ ] Implementar `FeedingOperationRepository._to_domain()`
+- [x] Actualizar `FeedingSessionRepository.save()` (solo sesión)
+- [x] Actualizar `FeedingSessionRepository.find_by_id()`
+- [x] Actualizar `FeedingSessionRepository.find_active_by_line_id()`
+- [x] Actualizar `FeedingSessionRepository._to_domain()` (sin operaciones)
+- [x] Crear `FeedingOperationRepository` (nuevo archivo) con interfaz `IFeedingOperationRepository`
+- [x] Implementar `FeedingOperationRepository.save()`
+- [x] Implementar `FeedingOperationRepository.find_by_id()`
+- [x] Implementar `FeedingOperationRepository.find_current_by_session()`
+- [x] Implementar `FeedingOperationRepository.find_all_by_session()`
+- [x] Implementar `FeedingOperationRepository._to_domain()`
 
 ### Fase 5: Dependency Injection y Casos de Uso
 

@@ -183,3 +183,22 @@ class SessionId:
 
     def __str__(self) -> str:
         return str(self.value)
+
+
+@dataclass(frozen=True)
+class OperationId:
+    """Identificador único para una operación de alimentación."""
+    value: UUID
+
+    @classmethod
+    def generate(cls) -> OperationId:
+        """Genera un nuevo OperationId único."""
+        return cls(uuid4())
+
+    @classmethod
+    def from_string(cls, id_str: str) -> OperationId:
+        """Crea un OperationId desde una representación de cadena."""
+        return cls(UUID(id_str))
+
+    def __str__(self) -> str:
+        return str(self.value)

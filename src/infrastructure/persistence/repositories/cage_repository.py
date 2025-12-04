@@ -5,9 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.aggregates.cage import Cage
 from domain.repositories import ICageRepository
-from domain.value_objects import CageId, CageName, LineId, SlotNumber
+from domain.value_objects import CageId, CageName, LineId
 from infrastructure.persistence.models.cage_model import CageModel
-from infrastructure.persistence.models.slot_assignment_model import SlotAssignmentModel
 from infrastructure.persistence.models.feeding_line_model import FeedingLineModel
 
 
@@ -23,13 +22,17 @@ class CageRepository(ICageRepository):
             existing.name = str(cage.name)
             existing.status = cage.status.value
             existing.created_at = cage.created_at
-            
+
+            # Asignación a línea
+            existing.line_id = cage.line_id.value if cage.line_id else None
+            existing.slot_number = cage.slot_number
+
             # Población
             existing.current_fish_count = cage.current_fish_count.value if cage.current_fish_count else None
-            
+
             # Biometría (convertir a miligramos)
             existing.avg_fish_weight_mg = cage.avg_fish_weight.as_miligrams if cage.avg_fish_weight else None
-            
+
             # Configuración
             existing.fcr = float(cage.fcr) if cage.fcr else None
             existing.total_volume_m3 = cage.total_volume.as_cubic_meters if cage.total_volume else None
@@ -39,7 +42,7 @@ class CageRepository(ICageRepository):
         else:
             cage_model = CageModel.from_domain(cage)
             self.session.add(cage_model)
-        
+
         await self.session.flush()
 
     async def find_by_id(self, cage_id: CageId) -> Optional[Cage]:
@@ -53,6 +56,25 @@ class CageRepository(ICageRepository):
         cage_model = result.scalar_one_or_none()
         return cage_model.to_domain() if cage_model else None
 
+    async def find_by_line_and_slot(self, line_id: LineId, slot_number: int) -> Optional[Cage]:
+        """Busca una jaula por su línea y número de slot."""
+        result = await self.session.execute(
+            select(CageModel).where(
+                CageModel.line_id == line_id.value,
+                CageModel.slot_number == slot_number
+            )
+        )
+        cage_model = result.scalar_one_or_none()
+        return cage_model.to_domain() if cage_model else None
+
+    async def find_by_line_id(self, line_id: LineId) -> List[Cage]:
+        """Obtiene todas las jaulas asignadas a una línea específica."""
+        result = await self.session.execute(
+            select(CageModel).where(CageModel.line_id == line_id.value)
+        )
+        cage_models = result.scalars().all()
+        return [model.to_domain() for model in cage_models]
+
     async def list(self) -> List[Cage]:
         """Lista todas las jaulas sin información adicional."""
         result = await self.session.execute(select(CageModel))
@@ -65,48 +87,35 @@ class CageRepository(ICageRepository):
         Retorna tuplas de (Cage, line_name).
         """
         if line_id:
-            # Join con slot_assignments y feeding_lines para obtener nombre
+            # Join directo con feeding_lines para obtener nombre
             query = (
-                select(CageModel, SlotAssignmentModel.slot_number, FeedingLineModel.name)
-                .join(SlotAssignmentModel, CageModel.id == SlotAssignmentModel.cage_id)
-                .join(FeedingLineModel, SlotAssignmentModel.line_id == FeedingLineModel.id)
-                .where(SlotAssignmentModel.line_id == line_id.value)
+                select(CageModel, FeedingLineModel.name)
+                .join(FeedingLineModel, CageModel.line_id == FeedingLineModel.id)
+                .where(CageModel.line_id == line_id.value)
             )
             result = await self.session.execute(query)
             rows = result.all()
-            
+
             cages_with_info = []
-            for cage_model, slot_number, line_name in rows:
+            for cage_model, line_name in rows:
                 cage = cage_model.to_domain()
-                cage._line_id = line_id
-                cage._slot_number = SlotNumber(slot_number)
                 cages_with_info.append((cage, line_name))
-            
+
             return cages_with_info
         else:
             # Sin filtro, traer todas las jaulas con left join
             query = (
-                select(
-                    CageModel, 
-                    SlotAssignmentModel.line_id, 
-                    SlotAssignmentModel.slot_number,
-                    FeedingLineModel.name
-                )
-                .outerjoin(SlotAssignmentModel, CageModel.id == SlotAssignmentModel.cage_id)
-                .outerjoin(FeedingLineModel, SlotAssignmentModel.line_id == FeedingLineModel.id)
+                select(CageModel, FeedingLineModel.name)
+                .outerjoin(FeedingLineModel, CageModel.line_id == FeedingLineModel.id)
             )
             result = await self.session.execute(query)
             rows = result.all()
-            
+
             cages_with_info = []
-            for cage_model, line_id_value, slot_number_value, line_name in rows:
+            for cage_model, line_name in rows:
                 cage = cage_model.to_domain()
-                if line_id_value:
-                    cage._line_id = LineId(line_id_value)
-                if slot_number_value is not None:
-                    cage._slot_number = SlotNumber(slot_number_value)
                 cages_with_info.append((cage, line_name))
-            
+
             return cages_with_info
 
     async def delete(self, cage_id: CageId) -> None:

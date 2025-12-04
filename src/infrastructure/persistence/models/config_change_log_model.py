@@ -11,7 +11,7 @@ class ConfigChangeLogModel(SQLModel, table=True):
     __tablename__ = "cage_config_changes_log"
 
     change_id: UUID = Field(default_factory=uuid4, primary_key=True)
-    cage_id: UUID = Field(foreign_key="cages.id", nullable=False, index=True)
+    cage_id: UUID = Field(foreign_key="cages.id", nullable=False, index=True, ondelete="CASCADE")
     
     field_name: str = Field(nullable=False, max_length=50)
     old_value: str = Field(nullable=False)

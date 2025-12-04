@@ -1,8 +1,7 @@
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 from sqlmodel import Field, Relationship, SQLModel
-from domain.aggregates.feeding_line.doser import Doser
-from domain.interfaces import IDoser
+
 from domain.enums import DoserType
 from domain.value_objects import (
     DoserId,
@@ -12,6 +11,10 @@ from domain.value_objects import (
     SiloId,
 )
 
+if TYPE_CHECKING:
+    from domain.aggregates.feeding_line.doser import Doser
+    from domain.interfaces import IDoser
+
 
 class DoserModel(SQLModel, table=True):
     __tablename__ = "dosers"
@@ -19,7 +22,7 @@ class DoserModel(SQLModel, table=True):
     id: UUID = Field(primary_key=True)
     line_id: UUID = Field(foreign_key="feeding_lines.id", ondelete="CASCADE")
     name: str = Field(max_length=100)
-    silo_id: Optional[UUID] = Field(default=None, foreign_key="silos.id")
+    silo_id: Optional[UUID] = Field(default=None, foreign_key="silos.id", ondelete="SET NULL")
     doser_type: str
     dosing_rate_value: float
     dosing_rate_unit: str
@@ -30,7 +33,7 @@ class DoserModel(SQLModel, table=True):
     feeding_line: "FeedingLineModel" = Relationship(back_populates="dosers")
 
     @staticmethod
-    def from_domain(doser: IDoser, line_id: UUID) -> "DoserModel":
+    def from_domain(doser: "IDoser", line_id: UUID) -> "DoserModel":
         """Convierte entidad de dominio a modelo de persistencia."""
         return DoserModel(
             id=doser.id.value,
@@ -45,8 +48,11 @@ class DoserModel(SQLModel, table=True):
             rate_unit=doser.dosing_range.unit,
         )
 
-    def to_domain(self) -> Doser:
+    def to_domain(self) -> "Doser":
         """Convierte modelo de persistencia a entidad de dominio."""
+        # Import local para evitar circular imports pero tenerlo disponible en runtime
+        from domain.aggregates.feeding_line.doser import Doser
+
         if not self.silo_id:
             raise ValueError("Doser debe tener un silo asignado")
 

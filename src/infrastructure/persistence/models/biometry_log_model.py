@@ -11,7 +11,7 @@ class BiometryLogModel(SQLModel, table=True):
     __tablename__ = "cage_biometry_log"
 
     biometry_id: UUID = Field(default_factory=uuid4, primary_key=True)
-    cage_id: UUID = Field(foreign_key="cages.id", nullable=False, index=True)
+    cage_id: UUID = Field(foreign_key="cages.id", nullable=False, index=True, ondelete="CASCADE")
     
     # Valores anteriores (snapshot)
     old_fish_count: Optional[int] = Field(default=None)

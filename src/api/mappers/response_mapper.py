@@ -15,7 +15,6 @@ from domain.aggregates.silo import Silo
 from domain.aggregates.cage import Cage
 from domain.aggregates.feeding_line.feeding_line import FeedingLine
 from domain.interfaces import IBlower, IDoser, ISelector, ISensor
-from domain.value_objects import SlotAssignment
 
 
 class ResponseMapper:
@@ -30,7 +29,7 @@ class ResponseMapper:
         return SystemLayoutModel(
             silos=[ResponseMapper._to_silo_model(s) for s in silos],
             cages=[ResponseMapper._to_cage_model(c) for c in cages],
-            feeding_lines=[ResponseMapper._to_feeding_line_model(l) for l in lines]
+            feeding_lines=[ResponseMapper._to_feeding_line_model(l, cages) for l in lines]
         )
 
     @staticmethod
@@ -49,7 +48,16 @@ class ResponseMapper:
         )
 
     @staticmethod
-    def _to_feeding_line_model(line: FeedingLine) -> FeedingLineConfigModel:
+    def _to_feeding_line_model(
+        line: FeedingLine,
+        all_cages: List[Cage]
+    ) -> FeedingLineConfigModel:
+        # Filtrar cages que pertenecen a esta línea (en memoria)
+        line_cages = [c for c in all_cages if c.line_id == line.id]
+
+        # Ordenar por slot_number para consistencia
+        line_cages_sorted = sorted(line_cages, key=lambda c: c.slot_number or 0)
+
         return FeedingLineConfigModel(
             id=str(line.id),
             line_name=str(line.name),
@@ -57,7 +65,10 @@ class ResponseMapper:
             sensors_config=[ResponseMapper._to_sensor_model(s) for s in line._sensors],
             dosers_config=[ResponseMapper._to_doser_model(d) for d in line.dosers],
             selector_config=ResponseMapper._to_selector_model(line.selector),
-            slot_assignments=[ResponseMapper._to_slot_assignment_model(a) for a in line.get_slot_assignments()]
+            slot_assignments=[
+                ResponseMapper._to_slot_assignment_model(cage)
+                for cage in line_cages_sorted
+            ]
         )
 
     @staticmethod
@@ -111,8 +122,12 @@ class ResponseMapper:
         )
 
     @staticmethod
-    def _to_slot_assignment_model(assignment: SlotAssignment) -> SlotAssignmentModel:
+    def _to_slot_assignment_model(cage: Cage) -> SlotAssignmentModel:
+        """Mapea Cage a SlotAssignmentModel para compatibilidad con frontend."""
+        if cage.slot_number is None:
+            raise ValueError(f"Cage {cage.id} no tiene slot_number asignado")
+
         return SlotAssignmentModel(
-            slot_number=assignment.slot_number.value,
-            cage_id=str(assignment.cage_id)
+            slot_number=cage.slot_number,
+            cage_id=str(cage.id)
         )

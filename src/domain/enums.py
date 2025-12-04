@@ -19,11 +19,18 @@ class DoserType(Enum):
 
 
 class SessionStatus(Enum):
-    CREATED = "Created"
-    RUNNING = "Running"
-    PAUSED = "Paused"
-    COMPLETED = "Completed"
-    FAILED = "Failed"
+    """Estado de la sesión diaria (contenedor)."""
+    ACTIVE = "Active"      # Sesión abierta, puede tener operaciones
+    CLOSED = "Closed"      # Sesión cerrada (fin del día)
+
+
+class OperationStatus(Enum):
+    """Estado de una operación individual."""
+    RUNNING = "Running"        # Operación en curso
+    PAUSED = "Paused"          # Operación congelada temporalmente
+    COMPLETED = "Completed"    # Operación finalizada exitosamente
+    STOPPED = "Stopped"        # Operación detenida manualmente
+    FAILED = "Failed"          # Operación fallida por error
 
 class FeedingMode(Enum):
     MANUAL = "Manual"
@@ -39,3 +46,14 @@ class FeedingEventType(Enum):
     SYSTEM_STATUS = "SystemStatus" # Fin automático de ciclo, Cambio de jaula automático
     # 4. Salud del Sistema (El "Qué salió mal")
     ALARM = "Alarm"               # Error de PLC, Timeout, Emergencia
+
+
+class OperationEventType(Enum):
+    """Tipos de eventos específicos de operación."""
+    STARTED = "Started"
+    PAUSED = "Paused"
+    RESUMED = "Resumed"
+    PARAM_CHANGE = "ParamChange"
+    COMPLETED = "Completed"
+    STOPPED = "Stopped"
+    FAILED = "Failed"

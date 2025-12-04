@@ -14,6 +14,8 @@ class FeedingSessionRepository(IFeedingSessionRepository):
         self.session = session
 
     async def save(self, feeding_session: FeedingSession) -> None:
+        """Guarda solo la sesión (acumuladores y estado)."""
+        
         # 1. Intentar recuperar el modelo existente (Para decidir si es UPDATE o INSERT)
         session_model = await self.session.get(FeedingSessionModel, feeding_session.id.value)
 
@@ -26,8 +28,7 @@ class FeedingSessionRepository(IFeedingSessionRepository):
             session_model.status = feeding_session.status.value
             session_model.total_dispensed_kg = feeding_session.total_dispensed_kg.as_kg
             session_model.dispensed_by_slot = details_json
-            session_model.applied_strategy_config = feeding_session.applied_strategy_config
-            # No es necesario .add(), el objeto ya está trackeado por la sesión
+            # applied_strategy_config ELIMINADO (ahora está en FeedingOperation)
         else:
             # --- CREACIÓN ---
             # Es una sesión nueva, creamos el modelo desde cero
@@ -37,14 +38,11 @@ class FeedingSessionRepository(IFeedingSessionRepository):
                 date=feeding_session.date,
                 status=feeding_session.status.value,
                 total_dispensed_kg=feeding_session.total_dispensed_kg.as_kg,
-                dispensed_by_slot=details_json,
-                applied_strategy_config=feeding_session.applied_strategy_config
+                dispensed_by_slot=details_json
             )
             self.session.add(session_model)
         
-        # 2. Guardar Eventos Nuevos (Hijos)
-        # Al haber hecho el paso anterior, SQLAlchemy ya sabe que 'session_model' (el padre) 
-        # debe insertarse antes que los hijos.
+        # 2. Guardar Eventos de Sesión (solo eventos de sesión, no de operación)
         new_events = feeding_session.pop_events()
         
         for event in new_events:
@@ -58,8 +56,6 @@ class FeedingSessionRepository(IFeedingSessionRepository):
             self.session.add(event_model)
         
         # 3. Flush en lugar de Commit
-        # Enviamos los cambios a la BD para asegurar que las FK se cumplan, 
-        # pero dejamos la transacción abierta.
         await self.session.flush()
 
     async def find_by_id(self, session_id: SessionId) -> Optional[FeedingSession]:
@@ -70,15 +66,10 @@ class FeedingSessionRepository(IFeedingSessionRepository):
         return self._to_domain(model)
 
     async def find_active_by_line_id(self, line_id: LineId) -> Optional[FeedingSession]:
-        # Busca la última sesión que NO esté terminada ni fallada
+        """Busca la sesión activa de una línea."""
         query = select(FeedingSessionModel).where(
-            FeedingSessionModel.line_id == line_id.value
-        ).where(
-            FeedingSessionModel.status.in_([
-                SessionStatus.CREATED.value, 
-                SessionStatus.RUNNING.value, 
-                SessionStatus.PAUSED.value
-            ])
+            FeedingSessionModel.line_id == line_id.value,
+            FeedingSessionModel.status == SessionStatus.ACTIVE.value
         ).order_by(desc(FeedingSessionModel.date))
         
         result = await self.session.execute(query)
@@ -89,7 +80,7 @@ class FeedingSessionRepository(IFeedingSessionRepository):
         return self._to_domain(model)
 
     def _to_domain(self, model: FeedingSessionModel) -> FeedingSession:
-        # Reconstrucción del Agregado
+        """Reconstruye el aggregate desde el modelo (sin operaciones)."""
         session = FeedingSession(LineId(model.line_id))
         
         # Restaurar identidad y estado (bypass de __init__)
@@ -107,6 +98,8 @@ class FeedingSessionRepository(IFeedingSessionRepository):
         else:
             session._dispensed_by_slot = {}
         
-        session._applied_strategy_config = model.applied_strategy_config
+        # current_operation se carga por separado desde FeedingOperationRepository
+        session._current_operation = None
+        session._session_events = []
         
         return session

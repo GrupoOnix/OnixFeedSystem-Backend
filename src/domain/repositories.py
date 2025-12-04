@@ -7,7 +7,7 @@ from domain.aggregates.cage import Cage
 from domain.aggregates.silo import Silo
 from domain.aggregates.feeding_session import FeedingSession
 from .aggregates.feeding_line.feeding_line import FeedingLine
-from .value_objects import CageId, CageName, LineId, LineName, SiloId, SiloName, SessionId
+from .value_objects import CageId, CageName, LineId, LineName, SiloId, SiloName, SessionId, OperationId
 
 class IFeedingLineRepository(ABC):
 
@@ -26,9 +26,6 @@ class IFeedingLineRepository(ABC):
     @abstractmethod
     async def delete(self, line_id: LineId) -> None: ...
 
-    @abstractmethod
-    async def get_slot_number(self, line_id: LineId, cage_id: CageId) -> Optional[int]: ...
-
 
 class ICageRepository(ABC):
 
@@ -37,10 +34,20 @@ class ICageRepository(ABC):
 
     @abstractmethod
     async def find_by_id(self, cage_id: CageId) -> Optional[Cage]: ...
-    
+
     @abstractmethod
     async def find_by_name(self, name: CageName) -> Optional[Cage]: ...
-    
+
+    @abstractmethod
+    async def find_by_line_and_slot(self, line_id: LineId, slot_number: int) -> Optional[Cage]:
+        """Busca una jaula por su línea y número de slot."""
+        ...
+
+    @abstractmethod
+    async def find_by_line_id(self, line_id: LineId) -> List[Cage]:
+        """Obtiene todas las jaulas asignadas a una línea específica."""
+        ...
+
     @abstractmethod
     async def list(self) -> List[Cage]: ...
 
@@ -140,4 +147,28 @@ class IConfigChangeLogRepository(ABC):
     @abstractmethod
     async def count_by_cage(self, cage_id: CageId) -> int:
         """Cuenta total de registros de cambios de configuración de una jaula."""
+        ...
+
+
+class IFeedingOperationRepository(ABC):
+    """Interfaz del repositorio de operaciones de alimentación."""
+
+    @abstractmethod
+    async def save(self, operation: 'FeedingOperation') -> None:
+        """Guarda o actualiza una operación."""
+        ...
+
+    @abstractmethod
+    async def find_by_id(self, operation_id: 'OperationId') -> Optional['FeedingOperation']:
+        """Busca una operación por su ID."""
+        ...
+
+    @abstractmethod
+    async def find_current_by_session(self, session_id: SessionId) -> Optional['FeedingOperation']:
+        """Encuentra la operación activa (RUNNING o PAUSED) de una sesión."""
+        ...
+
+    @abstractmethod
+    async def find_all_by_session(self, session_id: SessionId) -> List['FeedingOperation']:
+        """Obtiene todas las operaciones de una sesión (para reportes)."""
         ...

@@ -23,15 +23,18 @@ class ResourceReleaser:
         cage_repo: ICageRepository
     ) -> None:
         """Libera todas las jaulas asignadas a una línea."""
-        old_assignments = line.get_slot_assignments()
-        for old_assignment in old_assignments:
-            old_cage = await cage_repo.find_by_id(old_assignment.cage_id)
-            if old_cage:
-                # Cambiar estado a AVAILABLE
-                # Las referencias line_id y slot_number se limpian en el repositorio
-                from domain.enums import CageStatus
-                old_cage.status = CageStatus.AVAILABLE
-                await cage_repo.save(old_cage)
+        # Obtener cages directamente del repositorio
+        cages = await cage_repo.find_by_line_id(line.id)
+
+        for cage in cages:
+            # Usar método de dominio para desasignar
+            cage.unassign_from_line()
+
+            # Cambiar estado a AVAILABLE
+            from domain.enums import CageStatus
+            cage.status = CageStatus.AVAILABLE
+
+            await cage_repo.save(cage)
 
     @staticmethod
     async def _release_silos_from_line(

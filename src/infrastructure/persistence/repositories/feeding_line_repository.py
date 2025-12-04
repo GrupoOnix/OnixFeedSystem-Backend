@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 
 from domain.aggregates.feeding_line.feeding_line import FeedingLine
 from domain.repositories import IFeedingLineRepository
-from domain.value_objects import LineId, LineName, CageId
+from domain.value_objects import LineId, LineName
 from infrastructure.persistence.models.feeding_line_model import FeedingLineModel
 
 
@@ -28,7 +28,6 @@ class FeedingLineRepository(IFeedingLineRepository):
                 selectinload(FeedingLineModel.dosers),
                 selectinload(FeedingLineModel.selector),
                 selectinload(FeedingLineModel.sensors),
-                selectinload(FeedingLineModel.slot_assignments),
             )
         )
 
@@ -45,7 +44,6 @@ class FeedingLineRepository(IFeedingLineRepository):
                 selectinload(FeedingLineModel.dosers),
                 selectinload(FeedingLineModel.selector),
                 selectinload(FeedingLineModel.sensors),
-                selectinload(FeedingLineModel.slot_assignments),
             )
         )
 
@@ -59,7 +57,6 @@ class FeedingLineRepository(IFeedingLineRepository):
             selectinload(FeedingLineModel.dosers),
             selectinload(FeedingLineModel.selector),
             selectinload(FeedingLineModel.sensors),
-            selectinload(FeedingLineModel.slot_assignments),
         )
 
         result = await self.session.execute(stmt)
@@ -71,13 +68,3 @@ class FeedingLineRepository(IFeedingLineRepository):
         if line_model:
             await self.session.delete(line_model)
             await self.session.flush()
-
-    async def get_slot_number(self, line_id: LineId, cage_id: CageId) -> Optional[int]:
-        from infrastructure.persistence.models.slot_assignment_model import SlotAssignmentModel
-        
-        stmt = select(SlotAssignmentModel.slot_number).where(
-            SlotAssignmentModel.line_id == line_id.value,
-            SlotAssignmentModel.cage_id == cage_id.value
-        )
-        result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()

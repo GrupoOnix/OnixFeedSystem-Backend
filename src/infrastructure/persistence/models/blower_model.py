@@ -1,17 +1,20 @@
 """Modelo de persistencia para Blower."""
 
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlmodel import Field, Relationship, SQLModel
 
-from domain.aggregates.feeding_line.blower import Blower
-from domain.interfaces import IBlower
 from domain.value_objects import (
     BlowDurationInSeconds,
     BlowerId,
     BlowerName,
     BlowerPowerPercentage,
 )
+
+if TYPE_CHECKING:
+    from domain.aggregates.feeding_line.blower import Blower
+    from domain.interfaces import IBlower
 
 
 class BlowerModel(SQLModel, table=True):
@@ -27,7 +30,7 @@ class BlowerModel(SQLModel, table=True):
     feeding_line: "FeedingLineModel" = Relationship(back_populates="blower")
 
     @staticmethod
-    def from_domain(blower: IBlower, line_id: UUID) -> "BlowerModel":
+    def from_domain(blower: "IBlower", line_id: UUID) -> "BlowerModel":
         """Convierte entidad de dominio a modelo de persistencia."""
         return BlowerModel(
             id=blower.id.value,
@@ -38,8 +41,11 @@ class BlowerModel(SQLModel, table=True):
             blow_after_seconds=blower.blow_after_feeding_time.value,
         )
 
-    def to_domain(self) -> Blower:
+    def to_domain(self) -> "Blower":
         """Convierte modelo de persistencia a entidad de dominio."""
+        # Import local para evitar circular imports pero tenerlo disponible en runtime
+        from domain.aggregates.feeding_line.blower import Blower
+
         blower = Blower(
             name=BlowerName(self.name),
             non_feeding_power=BlowerPowerPercentage(self.power_percentage),

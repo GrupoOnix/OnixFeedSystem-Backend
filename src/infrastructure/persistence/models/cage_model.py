@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from uuid import UUID
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, SQLModel, Relationship
 from domain.aggregates.cage import Cage
 from domain.enums import CageStatus
 from domain.value_objects import (
@@ -14,7 +14,11 @@ from domain.value_objects import (
     Density,
     FeedingTableId,
     BlowDurationInSeconds,
+    LineId,
 )
+
+if TYPE_CHECKING:
+    from .feeding_line_model import FeedingLineModel
 
 
 class CageModel(SQLModel, table=True):
@@ -24,6 +28,15 @@ class CageModel(SQLModel, table=True):
     name: str = Field(unique=True, max_length=100)
     status: str
     created_at: datetime
+
+    # Asignación a línea de alimentación
+    line_id: Optional[UUID] = Field(
+        default=None,
+        foreign_key="feeding_lines.id",
+        ondelete="SET NULL",
+        index=True
+    )
+    slot_number: Optional[int] = Field(default=None)
 
     # Población
     current_fish_count: Optional[int] = Field(default=None)
@@ -38,14 +51,20 @@ class CageModel(SQLModel, table=True):
     feeding_table_id: Optional[str] = Field(default=None, max_length=50)
     transport_time_sec: Optional[int] = Field(default=None)
 
+    # Relationship
+    feeding_line: Optional["FeedingLineModel"] = Relationship(back_populates="cages")
+
     @staticmethod
-    def from_domain(cage: Cage) -> "CageModel":
+    def from_domain(cage: "Cage") -> "CageModel":
         """Convierte entidad de dominio a modelo de persistencia."""
         return CageModel(
             id=cage.id.value,
             name=str(cage.name),
             status=cage.status.value,
             created_at=cage.created_at,
+            # Asignación a línea
+            line_id=cage.line_id.value if cage.line_id else None,
+            slot_number=cage.slot_number,
             # Población
             current_fish_count=cage.current_fish_count.value if cage.current_fish_count else None,
             # Biometría (convertir a miligramos)
@@ -58,10 +77,12 @@ class CageModel(SQLModel, table=True):
             transport_time_sec=cage.transport_time.value if cage.transport_time else None,
         )
 
-    def to_domain(self) -> Cage:
+    def to_domain(self) -> "Cage":
         """Convierte modelo de persistencia a entidad de dominio."""
         cage = Cage(
             name=CageName(self.name),
+            line_id=LineId(self.line_id) if self.line_id else None,
+            slot_number=self.slot_number,
             avg_fish_weight=Weight.from_miligrams(self.avg_fish_weight_mg) if self.avg_fish_weight_mg is not None else None,
             fcr=FCR(self.fcr) if self.fcr is not None else None,
             total_volume=Volume.from_cubic_meters(self.total_volume_m3) if self.total_volume_m3 is not None else None,

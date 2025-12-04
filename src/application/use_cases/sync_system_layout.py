@@ -30,8 +30,7 @@ from domain.value_objects import (
     BlowerName, BlowerPowerPercentage, BlowDurationInSeconds,
     DoserName, DosingRange, DosingRate,
     SelectorName, SelectorCapacity, SelectorSpeedProfile,
-    SensorName,
-    SlotNumber, SlotAssignment
+    SensorName
 )
 from domain.exceptions import DuplicateLineNameException
 from domain.enums import SensorType
@@ -263,12 +262,19 @@ class SyncSystemLayoutUseCase:
             await NameValidator.validate_unique_line_name(
                 dto.line_name, exclude_id=None, repo=self.line_repo
             )
-            
+
+            # Validar capacidad del selector vs número de slots
+            if len(dto.slot_assignments) > dto.selector_config.capacity:
+                raise ValueError(
+                    f"La línea '{dto.line_name}' tiene {len(dto.slot_assignments)} slots "
+                    f"pero el selector solo tiene capacidad para {dto.selector_config.capacity}"
+                )
+
             blower = self._build_blower_from_model(dto.blower_config)
             sensors = self._build_sensors_from_model(dto.sensors_config)
             dosers = await self._build_dosers_from_model(dto.dosers_config, id_map)
             selector = self._build_selector_from_model(dto.selector_config)
-            
+
             new_line = FeedingLine.create(
                 name=LineName(dto.line_name),
                 blower=blower,
@@ -276,27 +282,47 @@ class SyncSystemLayoutUseCase:
                 selector=selector,
                 sensors=sensors
             )
-            
-            for slot_dto in dto.slot_assignments:
-                cage_id = await self._resolve_cage_id(slot_dto.cage_id, id_map)
-                
-                cage = await self.cage_repo.find_by_id(cage_id)
-                if cage:
-                    # Validar que la jaula esté disponible
-                    from domain.enums import CageStatus
-                    from domain.exceptions import CageNotAvailableException
-                    if cage.status != CageStatus.AVAILABLE:
-                        raise CageNotAvailableException(
-                            f"La jaula '{cage.name}' no está disponible (estado: {cage.status.value})"
-                        )
-                    # Cambiar estado a IN_USE
-                    cage.status = CageStatus.IN_USE
-                    await self.cage_repo.save(cage)
-                
-                new_line.assign_cage_to_slot(slot_dto.slot_number, cage_id)
-            
+
+            # PASO 1: Guardar línea PRIMERO (necesitamos line_id)
             await self.line_repo.save(new_line)
             id_map[dto.id] = new_line.id
+
+            # PASO 2: Asignar cages a la línea
+            for slot_dto in dto.slot_assignments:
+                # Validar que el slot_number esté en el rango válido
+                if slot_dto.slot_number < 1 or slot_dto.slot_number > selector.capacity.value:
+                    raise ValueError(
+                        f"El slot {slot_dto.slot_number} está fuera del rango válido "
+                        f"(1-{selector.capacity.value}) para la línea '{dto.line_name}'"
+                    )
+
+                cage_id = await self._resolve_cage_id(slot_dto.cage_id, id_map)
+                cage = await self.cage_repo.find_by_id(cage_id)
+
+                if not cage:
+                    raise ValueError(f"La jaula con ID '{slot_dto.cage_id}' no existe")
+
+                # Validar que la jaula esté disponible
+                from domain.enums import CageStatus
+                from domain.exceptions import CageNotAvailableException
+                if cage.status != CageStatus.AVAILABLE:
+                    raise CageNotAvailableException(
+                        f"La jaula '{cage.name}' no está disponible (estado: {cage.status.value})"
+                    )
+
+                # Validar que no haya otra cage en el mismo slot (slot duplicado)
+                existing_cage = await self.cage_repo.find_by_line_and_slot(
+                    new_line.id, slot_dto.slot_number
+                )
+                if existing_cage:
+                    raise ValueError(
+                        f"El slot {slot_dto.slot_number} ya está ocupado por la jaula '{existing_cage.name}'"
+                    )
+
+                # Asignar cage usando método del dominio
+                cage.assign_to_line(new_line.id, slot_dto.slot_number)
+                cage.status = CageStatus.IN_USE
+                await self.cage_repo.save(cage)
 
 
     async def _execute_updates(self, delta, id_map: Dict[str, Any]) -> None:
@@ -340,59 +366,82 @@ class SyncSystemLayoutUseCase:
 
     async def _update_feeding_lines(self, lines_to_update, id_map: Dict[str, Any]) -> None:
         """Actualiza líneas de alimentación existentes."""
-        # Fase 4.3a: Liberar recursos
+        # Liberar recursos (ResourceReleaser ya actualizado en Fase 1)
         lines_to_release = []
         for line_id in lines_to_update.keys():
             line = await self.line_repo.find_by_id(line_id)
             if line:
                 lines_to_release.append(line)
-        
+
         await ResourceReleaser.release_all_from_lines(
             lines_to_release, self.silo_repo, self.cage_repo
         )
-        
-        # Fase 4.3b: Reasignar recursos
+
+        # Reasignar recursos
         for line_id, dto in lines_to_update.items():
             line = await self.line_repo.find_by_id(line_id)
             if not line:
                 continue
-            
+
+            # Validar nombre único si cambió
             if str(line.name) != dto.line_name:
                 await NameValidator.validate_unique_line_name(
                     dto.line_name, exclude_id=line_id, repo=self.line_repo
                 )
                 line.name = LineName(dto.line_name)
-            
+
+            # Validar capacidad del selector
+            if len(dto.slot_assignments) > dto.selector_config.capacity:
+                raise ValueError(
+                    f"La línea '{dto.line_name}' tiene {len(dto.slot_assignments)} slots "
+                    f"pero el selector solo tiene capacidad para {dto.selector_config.capacity}"
+                )
+
+            # Actualizar componentes
             blower = self._build_blower_from_model(dto.blower_config)
             sensors = self._build_sensors_from_model(dto.sensors_config)
             dosers = await self._build_dosers_from_model(dto.dosers_config, id_map)
             selector = self._build_selector_from_model(dto.selector_config)
-            
+
             line.update_components(blower, dosers, selector, sensors)
-            
-            new_assignments: List[SlotAssignment] = []
-            for slot_dto in dto.slot_assignments:
-                cage_id = await self._resolve_cage_id(slot_dto.cage_id, id_map)
-                
-                cage = await self.cage_repo.find_by_id(cage_id)
-                if cage:
-                    # Validar que la jaula esté disponible
-                    from domain.enums import CageStatus
-                    from domain.exceptions import CageNotAvailableException
-                    if cage.status != CageStatus.AVAILABLE:
-                        raise CageNotAvailableException(
-                            f"La jaula '{cage.name}' no está disponible (estado: {cage.status.value})"
-                        )
-                    # Cambiar estado a IN_USE
-                    cage.status = CageStatus.IN_USE
-                    await self.cage_repo.save(cage)
-                
-                slot_number = SlotNumber(slot_dto.slot_number)
-                assignment = SlotAssignment(slot_number, cage_id)
-                new_assignments.append(assignment)
-            
-            line.update_assignments(new_assignments)
             await self.line_repo.save(line)
+
+            # Asignar nuevas cages (ResourceReleaser ya liberó las anteriores)
+            for slot_dto in dto.slot_assignments:
+                # Validar que el slot_number esté en el rango válido
+                if slot_dto.slot_number < 1 or slot_dto.slot_number > selector.capacity.value:
+                    raise ValueError(
+                        f"El slot {slot_dto.slot_number} está fuera del rango válido "
+                        f"(1-{selector.capacity.value}) para la línea '{dto.line_name}'"
+                    )
+
+                cage_id = await self._resolve_cage_id(slot_dto.cage_id, id_map)
+                cage = await self.cage_repo.find_by_id(cage_id)
+
+                if not cage:
+                    raise ValueError(f"La jaula con ID '{slot_dto.cage_id}' no existe")
+
+                # Validar disponibilidad
+                from domain.enums import CageStatus
+                from domain.exceptions import CageNotAvailableException
+                if cage.status != CageStatus.AVAILABLE:
+                    raise CageNotAvailableException(
+                        f"La jaula '{cage.name}' no está disponible (estado: {cage.status.value})"
+                    )
+
+                # Validar slot no duplicado
+                existing_cage = await self.cage_repo.find_by_line_and_slot(
+                    line_id, slot_dto.slot_number
+                )
+                if existing_cage and existing_cage.id != cage_id:
+                    raise ValueError(
+                        f"El slot {slot_dto.slot_number} ya está ocupado por '{existing_cage.name}'"
+                    )
+
+                # Asignar usando método del dominio
+                cage.assign_to_line(line_id, slot_dto.slot_number)
+                cage.status = CageStatus.IN_USE
+                await self.cage_repo.save(cage)
 
 
     async def _rebuild_layout(self) -> Tuple[List[Silo], List[Cage], List[FeedingLine]]:

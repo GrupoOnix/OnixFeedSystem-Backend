@@ -25,14 +25,13 @@ from src.infrastructure.persistence.models.blower_model import BlowerModel
 from src.infrastructure.persistence.models.doser_model import DoserModel
 from src.infrastructure.persistence.models.selector_model import SelectorModel
 from src.infrastructure.persistence.models.sensor_model import SensorModel
-from src.infrastructure.persistence.models.slot_assignment_model import (
-    SlotAssignmentModel,
-)
 from src.infrastructure.persistence.models.biometry_log_model import BiometryLogModel
 from src.infrastructure.persistence.models.mortality_log_model import MortalityLogModel
 from src.infrastructure.persistence.models.config_change_log_model import ConfigChangeLogModel
 from src.infrastructure.persistence.models.feeding_session_model import FeedingSessionModel
 from src.infrastructure.persistence.models.feeding_event_model import FeedingEventModel
+from src.infrastructure.persistence.models.feeding_operation_model import FeedingOperationModel
+from src.infrastructure.persistence.models.operation_event_model import OperationEventModel
 
 config = context.config
 

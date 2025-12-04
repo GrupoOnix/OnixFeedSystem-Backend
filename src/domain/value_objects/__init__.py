@@ -18,6 +18,7 @@ from .identifiers import (
     SensorId,
     FeedingTableId,
     SessionId,
+    OperationId,
 )
 
 # Names
@@ -54,12 +55,6 @@ from .aquaculture import (
     FCR,
 )
 
-# Structural
-from .structural import (
-    SlotNumber,
-    SlotAssignment,
-)
-
 __all__ = [
     # Identifiers
     "LineId",
@@ -71,6 +66,7 @@ __all__ = [
     "SensorId",
     "FeedingTableId",
     "SessionId",
+    "OperationId",
     # Names
     "LineName",
     "CageName",
@@ -93,7 +89,4 @@ __all__ = [
     # Aquaculture
     "FishCount",
     "FCR",
-    # Structural
-    "SlotNumber",
-    "SlotAssignment",
 ]

@@ -11,7 +11,7 @@ class MortalityLogModel(SQLModel, table=True):
     __tablename__ = "cage_mortality_log"
 
     mortality_id: UUID = Field(default_factory=uuid4, primary_key=True)
-    cage_id: UUID = Field(foreign_key="cages.id", nullable=False, index=True)
+    cage_id: UUID = Field(foreign_key="cages.id", nullable=False, index=True, ondelete="CASCADE")
     
     dead_fish_count: int = Field(nullable=False)
     mortality_date: date = Field(nullable=False, index=True)

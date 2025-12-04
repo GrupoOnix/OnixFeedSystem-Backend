@@ -1,17 +1,18 @@
 from uuid import UUID
 
-from domain.enums import SessionStatus
 from domain.interfaces import IFeedingMachine
-from domain.repositories import IFeedingSessionRepository
-from domain.value_objects import LineId, SessionId
+from domain.repositories import IFeedingSessionRepository, IFeedingOperationRepository
+from domain.value_objects import LineId
 
 class StopFeedingSessionUseCase:
     def __init__(
         self,
         session_repository: IFeedingSessionRepository,
+        operation_repository: IFeedingOperationRepository,
         machine_service: IFeedingMachine
     ):
         self.session_repository = session_repository
+        self.operation_repository = operation_repository
         self.machine_service = machine_service
 
     async def execute(self, line_id: UUID) -> None:
@@ -19,12 +20,17 @@ class StopFeedingSessionUseCase:
         session = await self.session_repository.find_active_by_line_id(LineId(line_id))
         
         if not session:
-            # Si no hay sesión activa, no hacemos nada o lanzamos error.
-            # Idempotencia: Si ya paró, todo bien.
-            return
-
-        # 2. Ejecutar Parada
-        await session.stop(self.machine_service)
+            return  # Idempotente
         
-        # 3. Persistencia
+        # 2. Cargar operación actual
+        current_op = await self.operation_repository.find_current_by_session(session.id)
+        if current_op:
+            session._current_operation = current_op
+
+        # 3. Ejecutar Parada
+        await session.stop_current_operation(self.machine_service)
+        
+        # 4. Persistencia (sesión + operación si existe)
         await self.session_repository.save(session)
+        if current_op:  # La operación fue cerrada
+            await self.operation_repository.save(current_op)
