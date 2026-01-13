@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID, uuid4
 
-from domain.value_objects import CageId
+from domain.value_objects.identifiers import CageId
 
 
 @dataclass(frozen=True)
@@ -12,6 +12,7 @@ class ConfigChangeLogEntry:
     Value Object que representa un cambio de configuración en una jaula.
     Inmutable, solo se crea y se consulta.
     """
+
     change_id: UUID
     cage_id: CageId
     field_name: str
@@ -33,7 +34,7 @@ class ConfigChangeLogEntry:
             raise ValueError(
                 f"No se puede crear log de cambio: old_value == new_value para campo '{field_name}'"
             )
-        
+
         return ConfigChangeLogEntry(
             change_id=uuid4(),
             cage_id=cage_id,

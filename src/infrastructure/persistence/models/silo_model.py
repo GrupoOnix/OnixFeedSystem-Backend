@@ -1,18 +1,28 @@
 from datetime import datetime
-from uuid import UUID
-from sqlalchemy import BigInteger
+from typing import Optional
+from uuid import UUID as PyUUID
+
+from sqlalchemy import BigInteger, Column, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
 from sqlmodel import Field, SQLModel
+
 from domain.aggregates.silo import Silo
-from domain.value_objects import SiloId, SiloName, Weight
+from domain.value_objects import FoodId, SiloId, SiloName, Weight
 
 
 class SiloModel(SQLModel, table=True):
     __tablename__ = "silos"
 
-    id: UUID = Field(primary_key=True)
+    id: PyUUID = Field(primary_key=True)
     name: str = Field(unique=True, max_length=100)
     capacity_mg: int = Field(sa_type=BigInteger())
     stock_level_mg: int = Field(sa_type=BigInteger())
+    food_id: Optional[PyUUID] = Field(
+        default=None,
+        sa_column=Column(
+            UUID(as_uuid=True), ForeignKey("foods.id", ondelete="SET NULL")
+        ),
+    )
     is_assigned: bool
     created_at: datetime
 
@@ -24,6 +34,7 @@ class SiloModel(SQLModel, table=True):
             name=str(silo.name),
             capacity_mg=silo.capacity.as_miligrams,
             stock_level_mg=silo.stock_level.as_miligrams,
+            food_id=silo.food_id.value if silo.food_id else None,
             is_assigned=silo.is_assigned,
             created_at=silo._created_at,
         )
@@ -34,6 +45,7 @@ class SiloModel(SQLModel, table=True):
             name=SiloName(self.name),
             capacity=Weight.from_miligrams(self.capacity_mg),
             stock_level=Weight.from_miligrams(self.stock_level_mg),
+            food_id=FoodId(self.food_id) if self.food_id else None,
         )
         silo._id = SiloId(self.id)
         silo._is_assigned = self.is_assigned

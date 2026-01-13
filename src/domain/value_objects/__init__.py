@@ -8,51 +8,57 @@ Los imports se mantienen simples desde fuera del módulo:
 """
 
 # Identifiers
-from .identifiers import (
-    LineId,
-    CageId,
-    SiloId,
-    BlowerId,
-    DoserId,
-    SelectorId,
-    SensorId,
-    FeedingTableId,
-    SessionId,
-    OperationId,
+# Aquaculture
+from .aquaculture import (
+    FCR,
+    FishCount,
 )
 
-# Names
-from .names import (
-    LineName,
-    CageName,
-    SiloName,
-    BlowerName,
-    DoserName,
-    SelectorName,
-    SensorName,
+# Log Entries
+from .biometry_log_entry import BiometryLogEntry
+from .config_change_log_entry import ConfigChangeLogEntry
+
+# Feeding Specs
+from .feeding_specs import (
+    BlowDurationInSeconds,
+    BlowerPowerPercentage,
+    DosingRange,
+    DosingRate,
+    SelectorCapacity,
+    SelectorSpeedProfile,
+)
+from .identifiers import (
+    BlowerId,
+    CageId,
+    DoserId,
+    FeedingTableId,
+    FoodId,
+    LineId,
+    OperationId,
+    SelectorId,
+    SensorId,
+    SessionId,
+    SiloId,
 )
 
 # Measurements
 from .measurements import (
-    Weight,
-    Volume,
     Density,
+    Volume,
+    Weight,
 )
+from .mortality_log_entry import MortalityLogEntry
 
-# Feeding Specs
-from .feeding_specs import (
-    BlowerPowerPercentage,
-    BlowDurationInSeconds,
-    DosingRate,
-    DosingRange,
-    SelectorCapacity,
-    SelectorSpeedProfile,
-)
-
-# Aquaculture
-from .aquaculture import (
-    FishCount,
-    FCR,
+# Names
+from .names import (
+    BlowerName,
+    CageName,
+    DoserName,
+    FoodName,
+    LineName,
+    SelectorName,
+    SensorName,
+    SiloName,
 )
 
 __all__ = [
@@ -67,6 +73,7 @@ __all__ = [
     "FeedingTableId",
     "SessionId",
     "OperationId",
+    "FoodId",
     # Names
     "LineName",
     "CageName",
@@ -75,6 +82,7 @@ __all__ = [
     "DoserName",
     "SelectorName",
     "SensorName",
+    "FoodName",
     # Measurements
     "Weight",
     "Volume",
@@ -89,4 +97,8 @@ __all__ = [
     # Aquaculture
     "FishCount",
     "FCR",
+    # Log Entries
+    "BiometryLogEntry",
+    "MortalityLogEntry",
+    "ConfigChangeLogEntry",
 ]

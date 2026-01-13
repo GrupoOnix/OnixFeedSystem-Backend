@@ -1,11 +1,16 @@
 from datetime import datetime
+from typing import Optional
 
-from domain.value_objects import SiloId, SiloName, Weight
+from domain.value_objects import FoodId, SiloId, SiloName, Weight
 
 
 class Silo:
     def __init__(
-        self, name: SiloName, capacity: Weight, stock_level: Weight = Weight.zero()
+        self,
+        name: SiloName,
+        capacity: Weight,
+        stock_level: Weight = Weight.zero(),
+        food_id: Optional[FoodId] = None,
     ):
         if stock_level > capacity:
             raise ValueError("El stock no puede ser mayor que la capacidad.")
@@ -14,6 +19,7 @@ class Silo:
         self._name = name
         self._capacity = capacity
         self._stock_level = stock_level
+        self._food_id = food_id
         self._is_assigned = False  # FA4: Control de asignación 1-a-1
         self._created_at = datetime.utcnow()
 
@@ -71,6 +77,11 @@ class Silo:
         return self._is_assigned
 
     @property
+    def food_id(self) -> Optional[FoodId]:
+        """ID del alimento asignado al silo (opcional)."""
+        return self._food_id
+
+    @property
     def created_at(self) -> datetime:
         """Fecha de creación del silo."""
         return self._created_at
@@ -90,3 +101,16 @@ class Silo:
     def release_from_doser(self) -> None:
         """Libera el silo para que pueda ser asignado a otro dosificador."""
         self._is_assigned = False
+
+    def assign_food(self, food_id: FoodId) -> None:
+        """
+        Asigna un tipo de alimento al silo.
+
+        Args:
+            food_id: ID del alimento a asignar
+        """
+        self._food_id = food_id
+
+    def remove_food(self) -> None:
+        """Remueve la asignación de alimento del silo."""
+        self._food_id = None

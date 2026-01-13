@@ -1,16 +1,31 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
-from uuid import UUID
-from datetime import date
 
 from domain.aggregates.cage import Cage
-from domain.aggregates.silo import Silo
 from domain.aggregates.feeding_session import FeedingSession
+from domain.aggregates.food import Food
+from domain.aggregates.silo import Silo
+from domain.entities.feeding_operation import FeedingOperation
+
 from .aggregates.feeding_line.feeding_line import FeedingLine
-from .value_objects import CageId, CageName, LineId, LineName, SiloId, SiloName, SessionId, OperationId
+from .value_objects import (
+    BiometryLogEntry,
+    CageId,
+    CageName,
+    ConfigChangeLogEntry,
+    FoodId,
+    FoodName,
+    LineId,
+    LineName,
+    MortalityLogEntry,
+    OperationId,
+    SessionId,
+    SiloId,
+    SiloName,
+)
+
 
 class IFeedingLineRepository(ABC):
-
     @abstractmethod
     async def save(self, feeding_line: FeedingLine) -> None: ...
 
@@ -28,7 +43,6 @@ class IFeedingLineRepository(ABC):
 
 
 class ICageRepository(ABC):
-
     @abstractmethod
     async def save(self, cage: Cage) -> None: ...
 
@@ -39,7 +53,9 @@ class ICageRepository(ABC):
     async def find_by_name(self, name: CageName) -> Optional[Cage]: ...
 
     @abstractmethod
-    async def find_by_line_and_slot(self, line_id: LineId, slot_number: int) -> Optional[Cage]:
+    async def find_by_line_and_slot(
+        self, line_id: LineId, slot_number: int
+    ) -> Optional[Cage]:
         """Busca una jaula por su línea y número de slot."""
         ...
 
@@ -52,20 +68,21 @@ class ICageRepository(ABC):
     async def list(self) -> List[Cage]: ...
 
     @abstractmethod
-    async def list_with_line_info(self, line_id: Optional['LineId'] = None) -> List[Tuple[Cage, Optional[str]]]: ...
+    async def list_with_line_info(
+        self, line_id: Optional["LineId"] = None
+    ) -> List[Tuple[Cage, Optional[str]]]: ...
 
     @abstractmethod
     async def delete(self, cage_id: CageId) -> None: ...
 
 
 class ISiloRepository(ABC):
-
     @abstractmethod
     async def save(self, silo: Silo) -> None: ...
 
     @abstractmethod
     async def find_by_id(self, silo_id: SiloId) -> Optional[Silo]: ...
-    
+
     @abstractmethod
     async def find_by_name(self, name: SiloName) -> Optional[Silo]: ...
 
@@ -77,27 +94,30 @@ class ISiloRepository(ABC):
 
 
 class IFeedingSessionRepository(ABC):
-    
     @abstractmethod
     async def save(self, session: FeedingSession) -> None: ...
-    
+
     @abstractmethod
     async def find_by_id(self, session_id: SessionId) -> Optional[FeedingSession]: ...
-    
+
     @abstractmethod
-    async def find_active_by_line_id(self, line_id: LineId) -> Optional[FeedingSession]: ...
+    async def find_active_by_line_id(
+        self, line_id: LineId
+    ) -> Optional[FeedingSession]: ...
 
 
 class IBiometryLogRepository(ABC):
     """Repositorio para logs de biometría de jaulas."""
 
     @abstractmethod
-    async def save(self, log_entry: 'BiometryLogEntry') -> None:
+    async def save(self, log_entry: BiometryLogEntry) -> None:
         """Guarda un registro de biometría."""
         ...
 
     @abstractmethod
-    async def list_by_cage(self, cage_id: CageId, limit: int = 50, offset: int = 0) -> List['BiometryLogEntry']:
+    async def list_by_cage(
+        self, cage_id: CageId, limit: int = 50, offset: int = 0
+    ) -> List[BiometryLogEntry]:
         """Lista registros de biometría de una jaula, ordenados por fecha DESC."""
         ...
 
@@ -111,12 +131,14 @@ class IMortalityLogRepository(ABC):
     """Repositorio para logs de mortalidad de jaulas."""
 
     @abstractmethod
-    async def save(self, log_entry: 'MortalityLogEntry') -> None:
+    async def save(self, log_entry: MortalityLogEntry) -> None:
         """Guarda un registro de mortalidad."""
         ...
 
     @abstractmethod
-    async def list_by_cage(self, cage_id: CageId, limit: int = 50, offset: int = 0) -> List['MortalityLogEntry']:
+    async def list_by_cage(
+        self, cage_id: CageId, limit: int = 50, offset: int = 0
+    ) -> List[MortalityLogEntry]:
         """Lista registros de mortalidad de una jaula, ordenados por fecha DESC."""
         ...
 
@@ -135,12 +157,14 @@ class IConfigChangeLogRepository(ABC):
     """Repositorio para logs de cambios de configuración de jaulas."""
 
     @abstractmethod
-    async def save_batch(self, log_entries: List['ConfigChangeLogEntry']) -> None:
+    async def save_batch(self, log_entries: List[ConfigChangeLogEntry]) -> None:
         """Guarda múltiples registros de cambios en una sola transacción."""
         ...
 
     @abstractmethod
-    async def list_by_cage(self, cage_id: CageId, limit: int = 50, offset: int = 0) -> List['ConfigChangeLogEntry']:
+    async def list_by_cage(
+        self, cage_id: CageId, limit: int = 50, offset: int = 0
+    ) -> List[ConfigChangeLogEntry]:
         """Lista registros de cambios de configuración de una jaula, ordenados por fecha DESC."""
         ...
 
@@ -154,21 +178,64 @@ class IFeedingOperationRepository(ABC):
     """Interfaz del repositorio de operaciones de alimentación."""
 
     @abstractmethod
-    async def save(self, operation: 'FeedingOperation') -> None:
+    async def save(self, operation: FeedingOperation) -> None:
         """Guarda o actualiza una operación."""
         ...
 
     @abstractmethod
-    async def find_by_id(self, operation_id: 'OperationId') -> Optional['FeedingOperation']:
+    async def find_by_id(self, operation_id: OperationId) -> Optional[FeedingOperation]:
         """Busca una operación por su ID."""
         ...
 
     @abstractmethod
-    async def find_current_by_session(self, session_id: SessionId) -> Optional['FeedingOperation']:
+    async def find_current_by_session(
+        self, session_id: SessionId
+    ) -> Optional[FeedingOperation]:
         """Encuentra la operación activa (RUNNING o PAUSED) de una sesión."""
         ...
 
     @abstractmethod
-    async def find_all_by_session(self, session_id: SessionId) -> List['FeedingOperation']:
+    async def find_all_by_session(
+        self, session_id: SessionId
+    ) -> List[FeedingOperation]:
         """Obtiene todas las operaciones de una sesión (para reportes)."""
+        ...
+
+
+class IFoodRepository(ABC):
+    """Interfaz del repositorio de alimentos."""
+
+    @abstractmethod
+    async def save(self, food: Food) -> None:
+        """Guarda o actualiza un alimento."""
+        ...
+
+    @abstractmethod
+    async def find_by_id(self, food_id: FoodId) -> Optional[Food]:
+        """Busca un alimento por su ID."""
+        ...
+
+    @abstractmethod
+    async def find_by_name(self, name: FoodName) -> Optional[Food]:
+        """Busca un alimento por su nombre."""
+        ...
+
+    @abstractmethod
+    async def find_by_code(self, code: str) -> Optional[Food]:
+        """Busca un alimento por su código de producto."""
+        ...
+
+    @abstractmethod
+    async def get_all(self) -> List[Food]:
+        """Obtiene todos los alimentos."""
+        ...
+
+    @abstractmethod
+    async def get_active(self) -> List[Food]:
+        """Obtiene solo los alimentos activos."""
+        ...
+
+    @abstractmethod
+    async def delete(self, food_id: FoodId) -> None:
+        """Elimina un alimento."""
         ...

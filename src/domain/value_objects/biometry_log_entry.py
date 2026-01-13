@@ -3,7 +3,7 @@ from datetime import date, datetime
 from typing import Optional
 from uuid import UUID, uuid4
 
-from domain.value_objects import CageId
+from domain.value_objects.identifiers import CageId
 
 
 @dataclass(frozen=True)
@@ -12,6 +12,7 @@ class BiometryLogEntry:
     Value Object que representa un registro de biometría.
     Inmutable, solo se crea y se consulta.
     """
+
     biometry_id: UUID
     cage_id: CageId
     old_fish_count: Optional[int]

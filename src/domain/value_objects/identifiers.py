@@ -1,18 +1,21 @@
 """
 Value Objects para identificadores únicos (IDs).
 """
+
 from __future__ import annotations
+
 from dataclasses import dataclass
 from uuid import UUID, uuid4
-
 
 # ============================================================================
 # Identificadores de Aggregate Roots
 # ============================================================================
 
+
 @dataclass(frozen=True)
 class LineId:
     """Identificador único para una línea de alimentación."""
+
     value: UUID
 
     @classmethod
@@ -32,6 +35,7 @@ class LineId:
 @dataclass(frozen=True)
 class CageId:
     """Identificador único para una jaula."""
+
     value: UUID
 
     @classmethod
@@ -49,6 +53,7 @@ class CageId:
 @dataclass(frozen=True)
 class SiloId:
     """Identificador único para un silo."""
+
     value: UUID
 
     @classmethod
@@ -70,6 +75,7 @@ class FeedingTableId:
     Usa string simple en lugar de UUID para permitir IDs descriptivos
     como 'table-premium-2024', 'winter-table', etc.
     """
+
     value: str
 
     def __post_init__(self):
@@ -90,9 +96,11 @@ class FeedingTableId:
 # Identificadores de Entidades Hijas
 # ============================================================================
 
+
 @dataclass(frozen=True)
 class BlowerId:
     """Identificador único para una entidad soplador."""
+
     value: UUID
 
     @classmethod
@@ -112,6 +120,7 @@ class BlowerId:
 @dataclass(frozen=True)
 class DoserId:
     """Identificador único para una entidad dosificador."""
+
     value: UUID
 
     @classmethod
@@ -131,6 +140,7 @@ class DoserId:
 @dataclass(frozen=True)
 class SelectorId:
     """Identificador único para una entidad selector."""
+
     value: UUID
 
     @classmethod
@@ -150,6 +160,7 @@ class SelectorId:
 @dataclass(frozen=True)
 class SensorId:
     """Identificador único para una entidad sensor."""
+
     value: UUID
 
     @classmethod
@@ -169,6 +180,7 @@ class SensorId:
 @dataclass(frozen=True)
 class SessionId:
     """Identificador único para una sesión de alimentación."""
+
     value: UUID
 
     @classmethod
@@ -188,6 +200,7 @@ class SessionId:
 @dataclass(frozen=True)
 class OperationId:
     """Identificador único para una operación de alimentación."""
+
     value: UUID
 
     @classmethod
@@ -198,6 +211,24 @@ class OperationId:
     @classmethod
     def from_string(cls, id_str: str) -> OperationId:
         """Crea un OperationId desde una representación de cadena."""
+        return cls(UUID(id_str))
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
+@dataclass(frozen=True)
+class FoodId:
+    """Identificador único para un alimento."""
+
+    value: UUID
+
+    @classmethod
+    def generate(cls) -> FoodId:
+        return cls(uuid4())
+
+    @classmethod
+    def from_string(cls, id_str: str) -> FoodId:
         return cls(UUID(id_str))
 
     def __str__(self) -> str:

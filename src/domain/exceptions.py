@@ -171,3 +171,43 @@ class SiloInUseError(DomainException):
     """
 
     pass
+
+
+class FoodNotFoundError(DomainException):
+    """Raised when a specified food is not found.
+
+    This occurs when attempting to access, modify, or delete a food that does not exist.
+    """
+
+    pass
+
+
+class DuplicateFoodNameError(DomainException):
+    """Raised when attempting to create a food with a name that already exists.
+
+    Business rule:
+    - Food names must be unique across the entire system
+    """
+
+    pass
+
+
+class DuplicateFoodCodeError(DomainException):
+    """Raised when attempting to create a food with a code that already exists.
+
+    Business rule:
+    - Food product codes must be unique across the entire system
+    """
+
+    pass
+
+
+class FoodInUseError(DomainException):
+    """Raised when attempting to delete a food that is currently in use.
+
+    Business rule:
+    - A food cannot be deleted if it is assigned to any silo
+    - The food must be removed from all silos before deletion
+    """
+
+    pass

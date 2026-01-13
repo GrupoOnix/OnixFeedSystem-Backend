@@ -34,6 +34,14 @@ from application.use_cases.feeding.stop_feeding_use_case import (
 from application.use_cases.feeding.update_feeding_use_case import (
     UpdateFeedingParametersUseCase,
 )
+from application.use_cases.food import (
+    CreateFoodUseCase,
+    DeleteFoodUseCase,
+    GetFoodUseCase,
+    ListFoodsUseCase,
+    ToggleFoodActiveUseCase,
+    UpdateFoodUseCase,
+)
 from application.use_cases.silo import (
     CreateSiloUseCase,
     DeleteSiloUseCase,
@@ -48,6 +56,7 @@ from infrastructure.persistence.repositories import (
     CageRepository,
     FeedingLineRepository,
     FeedingOperationRepository,
+    FoodRepository,
     SiloRepository,
 )
 from infrastructure.persistence.repositories.biometry_log_repository import (
@@ -72,6 +81,11 @@ from infrastructure.services.plc_simulator import PLCSimulator
 async def get_silo_repo(session: AsyncSession = Depends(get_session)) -> SiloRepository:
     """Crea instancia del repositorio de silos."""
     return SiloRepository(session)
+
+
+async def get_food_repo(session: AsyncSession = Depends(get_session)) -> FoodRepository:
+    """Crea instancia del repositorio de alimentos."""
+    return FoodRepository(session)
 
 
 async def get_cage_repo(session: AsyncSession = Depends(get_session)) -> CageRepository:
@@ -183,6 +197,53 @@ async def get_delete_silo_use_case(
 ) -> DeleteSiloUseCase:
     """Crea instancia del caso de uso de eliminación de silo."""
     return DeleteSiloUseCase(silo_repository=silo_repo)
+
+
+# ============================================================================
+# Dependencias de Casos de Uso - Food
+# ============================================================================
+
+
+async def get_list_foods_use_case(
+    food_repo: FoodRepository = Depends(get_food_repo),
+) -> ListFoodsUseCase:
+    """Crea instancia del caso de uso de listado de alimentos."""
+    return ListFoodsUseCase(food_repository=food_repo)
+
+
+async def get_get_food_use_case(
+    food_repo: FoodRepository = Depends(get_food_repo),
+) -> GetFoodUseCase:
+    """Crea instancia del caso de uso de obtención de alimento."""
+    return GetFoodUseCase(food_repository=food_repo)
+
+
+async def get_create_food_use_case(
+    food_repo: FoodRepository = Depends(get_food_repo),
+) -> CreateFoodUseCase:
+    """Crea instancia del caso de uso de creación de alimento."""
+    return CreateFoodUseCase(food_repository=food_repo)
+
+
+async def get_update_food_use_case(
+    food_repo: FoodRepository = Depends(get_food_repo),
+) -> UpdateFoodUseCase:
+    """Crea instancia del caso de uso de actualización de alimento."""
+    return UpdateFoodUseCase(food_repository=food_repo)
+
+
+async def get_delete_food_use_case(
+    food_repo: FoodRepository = Depends(get_food_repo),
+) -> DeleteFoodUseCase:
+    """Crea instancia del caso de uso de eliminación de alimento."""
+    return DeleteFoodUseCase(food_repository=food_repo)
+
+
+async def get_toggle_food_active_use_case(
+    food_repo: FoodRepository = Depends(get_food_repo),
+) -> ToggleFoodActiveUseCase:
+    """Crea instancia del caso de uso de activación/desactivación de alimento."""
+    return ToggleFoodActiveUseCase(food_repository=food_repo)
 
 
 # ============================================================================
@@ -375,6 +436,25 @@ CreateSiloUseCaseDep = Annotated[CreateSiloUseCase, Depends(get_create_silo_use_
 UpdateSiloUseCaseDep = Annotated[UpdateSiloUseCase, Depends(get_update_silo_use_case)]
 
 DeleteSiloUseCaseDep = Annotated[DeleteSiloUseCase, Depends(get_delete_silo_use_case)]
+
+
+# ============================================================================
+# Type Aliases para Endpoints - Food
+# ============================================================================
+
+ListFoodsUseCaseDep = Annotated[ListFoodsUseCase, Depends(get_list_foods_use_case)]
+
+GetFoodUseCaseDep = Annotated[GetFoodUseCase, Depends(get_get_food_use_case)]
+
+CreateFoodUseCaseDep = Annotated[CreateFoodUseCase, Depends(get_create_food_use_case)]
+
+UpdateFoodUseCaseDep = Annotated[UpdateFoodUseCase, Depends(get_update_food_use_case)]
+
+DeleteFoodUseCaseDep = Annotated[DeleteFoodUseCase, Depends(get_delete_food_use_case)]
+
+ToggleFoodActiveUseCaseDep = Annotated[
+    ToggleFoodActiveUseCase, Depends(get_toggle_food_active_use_case)
+]
 
 
 # ============================================================================

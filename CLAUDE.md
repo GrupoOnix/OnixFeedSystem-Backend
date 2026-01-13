@@ -19,10 +19,15 @@ Feeding System API for aquaculture management. This is a FastAPI-based backend t
 
 ### Environment Setup
 
+**Note**: This project uses a Python virtual environment located in `.venv/` directory.
+
 ```bash
-# Create virtual environment (if not using Docker)
-python -m venv .venv
+# Activate existing virtual environment
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+# If .venv doesn't exist, create it:
+python -m venv .venv
+source .venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
