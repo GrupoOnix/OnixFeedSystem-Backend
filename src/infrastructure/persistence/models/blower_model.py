@@ -24,6 +24,7 @@ class BlowerModel(SQLModel, table=True):
     line_id: UUID = Field(foreign_key="feeding_lines.id", ondelete="CASCADE")
     name: str = Field(max_length=100)
     power_percentage: float
+    current_power_percentage: float
     blow_before_seconds: int
     blow_after_seconds: int
 
@@ -37,6 +38,7 @@ class BlowerModel(SQLModel, table=True):
             line_id=line_id,
             name=str(blower.name),
             power_percentage=blower.non_feeding_power.value,
+            current_power_percentage=blower.current_power.value,
             blow_before_seconds=blower.blow_before_feeding_time.value,
             blow_after_seconds=blower.blow_after_feeding_time.value,
         )
@@ -51,6 +53,7 @@ class BlowerModel(SQLModel, table=True):
             non_feeding_power=BlowerPowerPercentage(self.power_percentage),
             blow_before_time=BlowDurationInSeconds(self.blow_before_seconds),
             blow_after_time=BlowDurationInSeconds(self.blow_after_seconds),
+            current_power=BlowerPowerPercentage(self.current_power_percentage),
         )
         blower._id = BlowerId(self.id)
         return blower

@@ -1,0 +1,380 @@
+"""
+Ejemplo de implementación de cliente PLC real usando Modbus TCP.
+
+Este archivo sirve como plantilla para la integración con el PLC real.
+Para usar:
+1. Instalar dependencias: pip install pymodbus
+2. Configurar direcciones IP y registros según documentación del PLC
+3. Renombrar a plc_modbus_client.py
+4. Actualizar dependencies.py para usar PLCModbusClient en lugar de PLCSimulator
+
+Arquitectura de comunicación:
+- Protocolo: Modbus TCP
+- Registros de escritura: Configuración y comandos
+- Registros de lectura: Estado y mediciones
+- Polling: Lectura periódica de estado (cada 100-500ms)
+"""
+
+import asyncio
+import logging
+from typing import Dict, Optional
+
+from pymodbus.client import AsyncModbusTcpClient
+from pymodbus.exceptions import ModbusException
+
+from domain.dtos.machine_io_v2 import MachineConfiguration, MachineStatus
+from domain.enums import FeedingMode
+from domain.interfaces import IFeedingMachine
+from domain.value_objects.identifiers import LineId
+
+logger = logging.getLogger(__name__)
+
+
+class PLCModbusClient(IFeedingMachine):
+    """
+    Cliente Modbus TCP para comunicación con PLC real.
+
+    Esta clase implementa la misma interfaz IFeedingMachine que PLCSimulator,
+    permitiendo intercambiar implementaciones sin cambiar el resto del sistema.
+
+    Configuración de registros Modbus (ajustar según PLC real):
+
+    REGISTROS DE ESCRITURA (Function Code 16 - Write Multiple Registers):
+    - 1000: START_COMMAND (0=stop, 1=start)
+    - 1001: MODE (0=manual, 1=auto, 2=batch)
+    - 1002: BLOWER_SPEED (0-100%)
+    - 1003: DOSER_SPEED (0-100%)
+    - 1004-1005: TARGET_AMOUNT_KG (float32)
+    - 1006-1007: BATCH_AMOUNT_KG (float32)
+    - 1008: CURRENT_SLOT (1-N)
+    - 1009: PAUSE_COMMAND (0=run, 1=pause)
+    - 1010: STOP_COMMAND (0=no_action, 1=stop)
+
+    REGISTROS DE LECTURA (Function Code 3 - Read Holding Registers):
+    - 2000: IS_RUNNING (0=stopped, 1=running)
+    - 2001: IS_PAUSED (0=running, 1=paused)
+    - 2002: CURRENT_MODE (0=manual, 1=auto, 2=batch)
+    - 2003-2004: TOTAL_DISPENSED_KG (float32)
+    - 2005-2006: CURRENT_FLOW_RATE (float32)
+    - 2007: CURRENT_SLOT_NUMBER (1-N)
+    - 2008: CURRENT_LIST_INDEX (0-N)
+    - 2009: CURRENT_CYCLE_INDEX (0-N)
+    - 2010: TOTAL_CYCLES (1-N)
+    - 2011: HAS_ERROR (0=ok, 1=error)
+    - 2012: ERROR_CODE (0=no_error, >0=código de error)
+    """
+
+    # Configuración de conexión por línea
+    # En producción, esto vendría de configuración o base de datos
+    PLC_ADDRESSES: Dict[str, str] = {
+        "line-1": "192.168.1.10",
+        "line-2": "192.168.1.11",
+        # Agregar más líneas según sea necesario
+    }
+
+    PLC_PORT = 502  # Puerto estándar Modbus TCP
+    UNIT_ID = 1     # Slave ID (ajustar según configuración PLC)
+
+    # Direcciones de registros Modbus (ajustar según PLC)
+    # Escritura
+    REG_START_COMMAND = 1000
+    REG_MODE = 1001
+    REG_BLOWER_SPEED = 1002
+    REG_DOSER_SPEED = 1003
+    REG_TARGET_AMOUNT_KG = 1004  # float32 = 2 registros
+    REG_BATCH_AMOUNT_KG = 1006   # float32 = 2 registros
+    REG_CURRENT_SLOT = 1008
+    REG_PAUSE_COMMAND = 1009
+    REG_STOP_COMMAND = 1010
+
+    # Lectura
+    REG_IS_RUNNING = 2000
+    REG_IS_PAUSED = 2001
+    REG_CURRENT_MODE = 2002
+    REG_TOTAL_DISPENSED_KG = 2003  # float32 = 2 registros
+    REG_CURRENT_FLOW_RATE = 2005   # float32 = 2 registros
+    REG_CURRENT_SLOT_NUMBER = 2007
+    REG_CURRENT_LIST_INDEX = 2008
+    REG_CURRENT_CYCLE_INDEX = 2009
+    REG_TOTAL_CYCLES = 2010
+    REG_HAS_ERROR = 2011
+    REG_ERROR_CODE = 2012
+
+    def __init__(self, connection_timeout: float = 5.0, retry_attempts: int = 3):
+        """
+        Inicializa el cliente Modbus.
+
+        Args:
+            connection_timeout: Timeout de conexión en segundos
+            retry_attempts: Número de reintentos en caso de fallo
+        """
+        self._clients: Dict[str, AsyncModbusTcpClient] = {}
+        self._connection_timeout = connection_timeout
+        self._retry_attempts = retry_attempts
+        logger.info("[PLC-Modbus] Cliente Modbus inicializado")
+
+    async def _get_client(self, line_id: LineId) -> AsyncModbusTcpClient:
+        """Obtiene o crea conexión al PLC de la línea especificada"""
+        key = line_id.value
+
+        if key not in self._clients:
+            ip_address = self.PLC_ADDRESSES.get(key)
+            if not ip_address:
+                raise ValueError(
+                    f"No hay dirección IP configurada para línea {line_id}"
+                )
+
+            client = AsyncModbusTcpClient(
+                host=ip_address,
+                port=self.PLC_PORT,
+                timeout=self._connection_timeout
+            )
+
+            # Establecer conexión
+            await client.connect()
+            if not client.connected:
+                raise ConnectionError(
+                    f"No se pudo conectar al PLC en {ip_address}:{self.PLC_PORT}"
+                )
+
+            self._clients[key] = client
+            logger.info(f"[PLC-Modbus] Conectado a PLC en {ip_address}")
+
+        return self._clients[key]
+
+    async def _write_float32(
+        self,
+        client: AsyncModbusTcpClient,
+        address: int,
+        value: float
+    ) -> None:
+        """Escribe un float32 en 2 registros Modbus consecutivos"""
+        import struct
+
+        # Convertir float a bytes y luego a 2 registros uint16
+        bytes_value = struct.pack('>f', value)
+        reg1 = int.from_bytes(bytes_value[0:2], byteorder='big')
+        reg2 = int.from_bytes(bytes_value[2:4], byteorder='big')
+
+        await client.write_registers(
+            address=address,
+            values=[reg1, reg2],
+            slave=self.UNIT_ID
+        )
+
+    async def _read_float32(
+        self,
+        client: AsyncModbusTcpClient,
+        address: int
+    ) -> float:
+        """Lee un float32 de 2 registros Modbus consecutivos"""
+        import struct
+
+        result = await client.read_holding_registers(
+            address=address,
+            count=2,
+            slave=self.UNIT_ID
+        )
+
+        if result.isError():
+            raise ModbusException(f"Error leyendo registros en {address}")
+
+        # Convertir 2 registros uint16 a bytes y luego a float
+        bytes_value = (
+            result.registers[0].to_bytes(2, byteorder='big') +
+            result.registers[1].to_bytes(2, byteorder='big')
+        )
+        return struct.unpack('>f', bytes_value)[0]
+
+    async def send_configuration(
+        self,
+        line_id: LineId,
+        config: MachineConfiguration
+    ) -> None:
+        """Envía configuración al PLC real via Modbus"""
+        client = await self._get_client(line_id)
+
+        try:
+            # Mapear enum de FeedingMode a valor numérico
+            mode_value = {
+                FeedingMode.MANUAL: 0,
+                FeedingMode.AUTO: 1,
+                FeedingMode.BATCH: 2
+            }.get(config.mode, 0)
+
+            # Escribir configuración en registros
+            if config.start_command:
+                # Comando START: escribir todos los parámetros
+                await client.write_register(
+                    self.REG_START_COMMAND, 1, slave=self.UNIT_ID
+                )
+                await client.write_register(
+                    self.REG_MODE, mode_value, slave=self.UNIT_ID
+                )
+                await client.write_register(
+                    self.REG_BLOWER_SPEED,
+                    int(config.blower_speed_percentage),
+                    slave=self.UNIT_ID
+                )
+                await client.write_register(
+                    self.REG_DOSER_SPEED,
+                    int(config.doser_speed_percentage),
+                    slave=self.UNIT_ID
+                )
+                await self._write_float32(
+                    client,
+                    self.REG_TARGET_AMOUNT_KG,
+                    config.target_amount_kg
+                )
+                await self._write_float32(
+                    client,
+                    self.REG_BATCH_AMOUNT_KG,
+                    config.batch_amount_kg
+                )
+
+                # Escribir primer slot de la lista
+                if config.slot_numbers:
+                    await client.write_register(
+                        self.REG_CURRENT_SLOT,
+                        config.slot_numbers[0],
+                        slave=self.UNIT_ID
+                    )
+
+                logger.info(
+                    f"[PLC-Modbus] Line {line_id}: START enviado. "
+                    f"Mode={config.mode.value}, Target={config.target_amount_kg}kg"
+                )
+            else:
+                # Comando STOP
+                await client.write_register(
+                    self.REG_STOP_COMMAND, 1, slave=self.UNIT_ID
+                )
+                logger.info(f"[PLC-Modbus] Line {line_id}: STOP enviado")
+
+                # Reset comando después de un breve delay
+                await asyncio.sleep(0.1)
+                await client.write_register(
+                    self.REG_STOP_COMMAND, 0, slave=self.UNIT_ID
+                )
+
+        except ModbusException as e:
+            logger.error(f"[PLC-Modbus] Error escribiendo configuración: {e}")
+            raise
+
+    async def get_status(self, line_id: LineId) -> MachineStatus:
+        """Lee el estado actual del PLC via Modbus"""
+        client = await self._get_client(line_id)
+
+        try:
+            # Leer todos los registros de estado en una sola operación
+            # (más eficiente que múltiples lecturas)
+            result = await client.read_holding_registers(
+                address=self.REG_IS_RUNNING,
+                count=13,  # 13 registros de estado
+                slave=self.UNIT_ID
+            )
+
+            if result.isError():
+                raise ModbusException("Error leyendo estado del PLC")
+
+            # Parsear registros
+            is_running = bool(result.registers[0])
+            is_paused = bool(result.registers[1])
+            mode_value = result.registers[2]
+
+            # Leer floats
+            total_dispensed_kg = await self._read_float32(
+                client, self.REG_TOTAL_DISPENSED_KG
+            )
+            current_flow_rate = await self._read_float32(
+                client, self.REG_CURRENT_FLOW_RATE
+            )
+
+            current_slot_number = result.registers[7]
+            current_list_index = result.registers[8]
+            current_cycle_index = result.registers[9]
+            total_cycles = result.registers[10]
+            has_error = bool(result.registers[11])
+            error_code = result.registers[12] if has_error else None
+
+            # Mapear valor numérico a enum FeedingMode
+            mode = {
+                0: FeedingMode.MANUAL,
+                1: FeedingMode.AUTO,
+                2: FeedingMode.BATCH
+            }.get(mode_value, FeedingMode.MANUAL)
+
+            return MachineStatus(
+                is_running=is_running,
+                is_paused=is_paused,
+                current_mode=mode,
+                total_dispensed_kg=total_dispensed_kg,
+                current_flow_rate=current_flow_rate,
+                current_slot_number=current_slot_number,
+                current_list_index=current_list_index,
+                current_cycle_index=current_cycle_index,
+                total_cycles_configured=total_cycles,
+                has_error=has_error,
+                error_code=error_code
+            )
+
+        except ModbusException as e:
+            logger.error(f"[PLC-Modbus] Error leyendo estado: {e}")
+            raise
+
+    async def pause(self, line_id: LineId) -> None:
+        """Envía comando de pausa al PLC"""
+        client = await self._get_client(line_id)
+
+        try:
+            await client.write_register(
+                self.REG_PAUSE_COMMAND, 1, slave=self.UNIT_ID
+            )
+            logger.info(f"[PLC-Modbus] Line {line_id}: PAUSE enviado")
+
+        except ModbusException as e:
+            logger.error(f"[PLC-Modbus] Error enviando pausa: {e}")
+            raise
+
+    async def resume(self, line_id: LineId) -> None:
+        """Envía comando de reanudación al PLC"""
+        client = await self._get_client(line_id)
+
+        try:
+            await client.write_register(
+                self.REG_PAUSE_COMMAND, 0, slave=self.UNIT_ID
+            )
+            logger.info(f"[PLC-Modbus] Line {line_id}: RESUME enviado")
+
+        except ModbusException as e:
+            logger.error(f"[PLC-Modbus] Error enviando resume: {e}")
+            raise
+
+    async def stop(self, line_id: LineId) -> None:
+        """Envía comando de stop al PLC"""
+        client = await self._get_client(line_id)
+
+        try:
+            await client.write_register(
+                self.REG_STOP_COMMAND, 1, slave=self.UNIT_ID
+            )
+            logger.info(f"[PLC-Modbus] Line {line_id}: STOP enviado")
+
+            # Reset comando
+            await asyncio.sleep(0.1)
+            await client.write_register(
+                self.REG_STOP_COMMAND, 0, slave=self.UNIT_ID
+            )
+
+        except ModbusException as e:
+            logger.error(f"[PLC-Modbus] Error enviando stop: {e}")
+            raise
+
+    async def disconnect_all(self) -> None:
+        """Desconecta todos los clientes Modbus (llamar al cerrar aplicación)"""
+        for line_id, client in self._clients.items():
+            if client.connected:
+                client.close()
+                logger.info(f"[PLC-Modbus] Desconectado de línea {line_id}")
+
+        self._clients.clear()

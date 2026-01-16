@@ -1,20 +1,38 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict
 
-from domain.dtos import MachineConfiguration, MachineStatus
+from domain.dtos import (
+    BlowerCommand,
+    DoserCommand,
+    MachineConfiguration,
+    MachineStatus,
+    SelectorCommand,
+    SensorReadings,
+)
 from domain.enums import DoserType, SensorType
 from domain.value_objects.identifiers import LineId
 
 from .value_objects import (
-    BlowDurationInSeconds, BlowerId, BlowerName, BlowerPowerPercentage, DoserId, 
-    DoserName, DosingRange, DosingRate, SelectorCapacity, SelectorId, SelectorName, 
-    SelectorSpeedProfile, SensorId, SensorName, SiloId
+    BlowDurationInSeconds,
+    BlowerId,
+    BlowerName,
+    BlowerPowerPercentage,
+    DoserId,
+    DoserName,
+    DosingRange,
+    DosingRate,
+    SelectorCapacity,
+    SelectorId,
+    SelectorName,
+    SelectorSpeedProfile,
+    SensorId,
+    SensorName,
+    SiloId,
 )
 
 
 class IBlower(ABC):
-
     @property
     @abstractmethod
     def id(self) -> BlowerId: ...
@@ -42,7 +60,7 @@ class IBlower(ABC):
     @blow_before_feeding_time.setter
     @abstractmethod
     def blow_before_feeding_time(self, time: BlowDurationInSeconds) -> None: ...
-    
+
     @property
     @abstractmethod
     def blow_after_feeding_time(self) -> BlowDurationInSeconds: ...
@@ -58,13 +76,12 @@ class IBlower(ABC):
     # -----------------
     # Métodos de Comportamiento (Reglas de Negocio)
     # -----------------
-  
+
     @abstractmethod
-    def validate_power_is_safe(self, power_to_check: BlowerPowerPercentage) -> bool:
-        ...
+    def validate_power_is_safe(self, power_to_check: BlowerPowerPercentage) -> bool: ...
+
 
 class IDoser(ABC):
-
     @property
     @abstractmethod
     def id(self) -> DoserId: ...
@@ -76,7 +93,7 @@ class IDoser(ABC):
     @name.setter
     @abstractmethod
     def name(self, name: DoserName) -> None: ...
-        
+
     @property
     @abstractmethod
     def assigned_silo_id(self) -> SiloId: ...
@@ -84,11 +101,11 @@ class IDoser(ABC):
     @assigned_silo_id.setter
     @abstractmethod
     def assigned_silo_id(self, new_silo_id: SiloId) -> None: ...
-        
+
     @property
     @abstractmethod
     def doser_type(self) -> "DoserType": ...
-        
+
     @property
     @abstractmethod
     def dosing_range(self) -> DosingRange: ...
@@ -96,7 +113,7 @@ class IDoser(ABC):
     @dosing_range.setter
     @abstractmethod
     def dosing_range(self, new_range: DosingRange) -> None: ...
-        
+
     @property
     @abstractmethod
     def current_rate(self) -> DosingRate: ...
@@ -123,8 +140,8 @@ class IDoser(ABC):
         """Devuelve los datos de calibración actuales de la entidad."""
         ...
 
-class ISelector(ABC):
 
+class ISelector(ABC):
     @property
     @abstractmethod
     def id(self) -> SelectorId: ...
@@ -136,7 +153,7 @@ class ISelector(ABC):
     @name.setter
     @abstractmethod
     def name(self, name: SelectorName) -> None: ...
-        
+
     @property
     @abstractmethod
     def capacity(self) -> SelectorCapacity: ...
@@ -148,7 +165,7 @@ class ISelector(ABC):
     @speed_profile.setter
     @abstractmethod
     def speed_profile(self, new_profile: SelectorSpeedProfile) -> None: ...
-        
+
     @property
     @abstractmethod
     def created_at(self) -> datetime: ...
@@ -160,7 +177,7 @@ class ISelector(ABC):
     @abstractmethod
     def validate_slot(self, slot_number: int) -> bool: ...
 
- 
+
 class ISensor(ABC):
     """
     Interfaz de dominio para un sensor
@@ -186,7 +203,9 @@ class IFeedingMachine(ABC):
     """
 
     @abstractmethod
-    async def send_configuration(self, line_id: LineId, config: MachineConfiguration) -> None:
+    async def send_configuration(
+        self, line_id: LineId, config: MachineConfiguration
+    ) -> None:
         """
         Envía una configuración completa al PLC.
         Debe traducir el DTO lógico a registros/señales específicas.
@@ -219,5 +238,53 @@ class IFeedingMachine(ABC):
     async def stop(self, line_id: LineId) -> None:
         """
         Detiene totalmente la operación y resetea el ciclo.
+        """
+        pass
+
+    @abstractmethod
+    async def get_sensor_readings(self, line_id: LineId) -> SensorReadings:
+        """
+        Lee los valores actuales de todos los sensores de una línea.
+
+        Retorna las lecturas en tiempo real de los sensores de temperatura,
+        presión y flujo asociados a la línea especificada.
+
+        En PLC real, esto leería los registros/tags correspondientes a cada sensor.
+        En simulación, genera valores realistas basados en el estado de la máquina.
+        """
+        pass
+
+    # =========================================================================
+    # Control individual de dispositivos
+    # =========================================================================
+
+    @abstractmethod
+    async def set_blower_power(self, command: BlowerCommand) -> None:
+        """
+        Establece la potencia de un blower específico.
+
+        Args:
+            command: Comando con ID, nombre del blower, línea y potencia.
+        """
+        pass
+
+    @abstractmethod
+    async def set_doser_rate(self, command: DoserCommand) -> None:
+        """
+        Establece la velocidad de un doser específico.
+
+        Args:
+            command: Comando con ID, nombre del doser, línea y velocidad.
+        """
+        pass
+
+    @abstractmethod
+    async def move_selector(self, command: SelectorCommand) -> None:
+        """
+        Mueve un selector a un slot específico o lo resetea a home.
+
+        Args:
+            command: Comando con ID, nombre del selector, línea y slot destino.
+                     Si slot_number es None, resetea a posición home.
         """
         pass

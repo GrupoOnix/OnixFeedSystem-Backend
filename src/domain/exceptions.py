@@ -38,6 +38,15 @@ class DuplicateLineNameException(DomainException):
     pass
 
 
+class FeedingLineNotFoundException(DomainException):
+    """Raised when a specified feeding line is not found.
+
+    This occurs when attempting to access, modify, or delete a feeding line that does not exist.
+    """
+
+    pass
+
+
 class InvalidComponentSequenceException(DomainException):
     """Raised when components are not arranged in the correct linear sequence.
 

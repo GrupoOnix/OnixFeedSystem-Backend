@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING
 from uuid import UUID
+
 from sqlmodel import Field, Relationship, SQLModel
 
 from domain.value_objects import (
@@ -24,6 +25,7 @@ class SelectorModel(SQLModel, table=True):
     capacity: int
     fast_speed: float
     slow_speed: float
+    current_slot: int | None = Field(default=None, nullable=True)
 
     feeding_line: "FeedingLineModel" = Relationship(back_populates="selector")
 
@@ -37,6 +39,7 @@ class SelectorModel(SQLModel, table=True):
             capacity=selector.capacity.value,
             fast_speed=selector.speed_profile.fast_speed.value,
             slow_speed=selector.speed_profile.slow_speed.value,
+            current_slot=selector.current_slot,
         )
 
     def to_domain(self) -> "Selector":
@@ -51,6 +54,7 @@ class SelectorModel(SQLModel, table=True):
                 fast_speed=BlowerPowerPercentage(self.fast_speed),
                 slow_speed=BlowerPowerPercentage(self.slow_speed),
             ),
+            current_slot=self.current_slot,
         )
         selector._id = SelectorId(self.id)
         return selector

@@ -1,0 +1,124 @@
+"""Caso de uso para encender/apagar doser."""
+
+from uuid import UUID
+
+from domain.dtos import DoserCommand
+from domain.interfaces import IFeedingMachine
+from domain.value_objects import DosingRate
+from infrastructure.persistence.repositories.doser_repository import DoserRepository
+
+
+class TurnDoserOnUseCase:
+    """Enciende el doser a su tasa mínima configurada."""
+
+    def __init__(
+        self,
+        doser_repository: DoserRepository,
+        machine_service: IFeedingMachine,
+    ):
+        self._doser_repo = doser_repository
+        self._machine = machine_service
+
+    async def execute(self, doser_id: str) -> None:
+        """
+        Enciende el doser a su tasa mínima del rango.
+
+        Args:
+            doser_id: ID del doser
+
+        Raises:
+            ValueError: Si el doser no existe
+        """
+        doser_uuid = UUID(doser_id)
+        result = await self._doser_repo.find_by_id_with_context(doser_uuid)
+
+        if not result:
+            raise ValueError(f"Doser {doser_id} no encontrado")
+
+        doser = result.doser
+
+        # Encender a la tasa mínima del rango
+        min_rate = DosingRate(doser.dosing_range.min_rate)
+        doser.current_rate = min_rate
+
+        # Calcular porcentaje para el PLC
+        rate_percentage = self._calculate_rate_percentage(doser)
+
+        # Crear comando con contexto completo
+        command = DoserCommand(
+            doser_id=str(doser_uuid),
+            doser_name=str(doser.name),
+            line_id=str(result.line_id),
+            line_name=result.line_name,
+            rate_percentage=rate_percentage,
+        )
+
+        # Enviar comando al PLC
+        await self._machine.set_doser_rate(command)
+
+        # Persistir en DB
+        await self._doser_repo.update(doser_uuid, doser)
+
+    def _calculate_rate_percentage(self, doser) -> float:
+        """Calcula el porcentaje de velocidad basado en el rango del doser."""
+        dosing_range = doser.dosing_range
+        current_rate = doser.current_rate.value
+
+        if dosing_range.max_rate == dosing_range.min_rate:
+            return 100.0 if current_rate > 0 else 0.0
+
+        # Mapear de kg/min a porcentaje (0-100%)
+        range_span = dosing_range.max_rate - dosing_range.min_rate
+        rate_in_range = current_rate - dosing_range.min_rate
+        percentage = (rate_in_range / range_span) * 100.0
+
+        # Asegurar que esté en rango válido
+        return max(0.0, min(100.0, percentage))
+
+
+class TurnDoserOffUseCase:
+    """Apaga el doser (tasa a 0)."""
+
+    def __init__(
+        self,
+        doser_repository: DoserRepository,
+        machine_service: IFeedingMachine,
+    ):
+        self._doser_repo = doser_repository
+        self._machine = machine_service
+
+    async def execute(self, doser_id: str) -> None:
+        """
+        Apaga el doser (tasa a 0).
+
+        Args:
+            doser_id: ID del doser
+
+        Raises:
+            ValueError: Si el doser no existe
+        """
+        doser_uuid = UUID(doser_id)
+        result = await self._doser_repo.find_by_id_with_context(doser_uuid)
+
+        if not result:
+            raise ValueError(f"Doser {doser_id} no encontrado")
+
+        doser = result.doser
+
+        # Apagar (tasa a 0)
+        doser.current_rate = DosingRate(0.0)
+
+        # Crear comando con contexto completo
+        command = DoserCommand(
+            doser_id=str(doser_uuid),
+            doser_name=str(doser.name),
+            line_id=str(result.line_id),
+            line_name=result.line_name,
+            rate_percentage=0.0,
+        )
+
+        # Enviar comando al PLC
+        await self._machine.set_doser_rate(command)
+
+        # Persistir en DB
+        await self._doser_repo.update(doser_uuid, doser)
