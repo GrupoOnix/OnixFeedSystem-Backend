@@ -2,13 +2,27 @@
 Router para endpoints de sensores.
 
 Proporciona acceso a las lecturas en tiempo real de los sensores
-asociados a las líneas de alimentación.
+y gestión de configuración de sensores en las líneas de alimentación.
 """
+
+from typing import Dict
 
 from fastapi import APIRouter, HTTPException, status
 
-from api.dependencies import GetSensorReadingsUseCaseDep
-from api.models.sensors import SensorReadingResponse, SensorReadingsResponse
+from api.dependencies import (
+    GetLineSensorsUseCaseDep,
+    GetSensorReadingsUseCaseDep,
+    UpdateSensorUseCaseDep,
+)
+from api.models.sensors import (
+    SensorDetailResponse,
+    SensorReadingResponse,
+    SensorReadingsResponse,
+    SensorsListResponse,
+    UpdateSensorRequest,
+)
+from application.dtos.sensor_dtos import UpdateSensorDTO
+from application.use_cases.sensors import SensorNotFoundException
 from domain.exceptions import FeedingLineNotFoundException
 
 router = APIRouter(prefix="/feeding-lines", tags=["sensors"])
@@ -120,3 +134,99 @@ async def get_sensor_readings(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al obtener lecturas de sensores: {str(e)}",
         )
+
+
+@router.get(
+    "/{line_id}/sensors",
+    response_model=SensorsListResponse,
+    summary="Listar sensores de una línea",
+    description="""
+    Obtiene la lista de sensores configurados en una línea de alimentación.
+
+    Retorna información de cada sensor incluyendo:
+    - ID y nombre del sensor
+    - Tipo de sensor (Temperatura, Presión, Caudal)
+    - Estado habilitado/deshabilitado
+    - Umbrales de warning y critical configurados
+    """,
+    responses={
+        200: {"description": "Lista de sensores obtenida exitosamente"},
+        404: {"description": "Línea de alimentación no encontrada"},
+    },
+)
+async def list_sensors(
+    line_id: str,
+    use_case: GetLineSensorsUseCaseDep,
+) -> SensorsListResponse:
+    """Lista todos los sensores de una línea."""
+    try:
+        result = await use_case.execute(line_id)
+
+        return SensorsListResponse(
+            line_id=result.line_id,
+            sensors=[
+                SensorDetailResponse(
+                    id=s.id,
+                    name=s.name,
+                    sensor_type=s.sensor_type,
+                    is_enabled=s.is_enabled,
+                    warning_threshold=s.warning_threshold,
+                    critical_threshold=s.critical_threshold,
+                )
+                for s in result.sensors
+            ],
+        )
+    except FeedingLineNotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.patch(
+    "/{line_id}/sensors/{sensor_id}",
+    response_model=SensorDetailResponse,
+    summary="Actualizar configuración de un sensor",
+    description="""
+    Actualiza la configuración de un sensor específico.
+
+    Campos actualizables:
+    - **name**: Nuevo nombre del sensor
+    - **is_enabled**: Habilitar/deshabilitar el sensor
+    - **warning_threshold**: Umbral de advertencia (enviar null para limpiar)
+    - **critical_threshold**: Umbral crítico (enviar null para limpiar)
+
+    Los sensores deshabilitados no se incluyen en las lecturas de `/sensors/readings`.
+    """,
+    responses={
+        200: {"description": "Sensor actualizado exitosamente"},
+        404: {"description": "Línea o sensor no encontrado"},
+    },
+)
+async def update_sensor(
+    line_id: str,
+    sensor_id: str,
+    request: UpdateSensorRequest,
+    use_case: UpdateSensorUseCaseDep,
+) -> SensorDetailResponse:
+    """Actualiza la configuración de un sensor."""
+    try:
+        # Convertir request a DTO
+        update_dto = UpdateSensorDTO(
+            name=request.name,
+            is_enabled=request.is_enabled,
+            warning_threshold=request.warning_threshold,
+            critical_threshold=request.critical_threshold,
+        )
+
+        result = await use_case.execute(line_id, sensor_id, update_dto)
+
+        return SensorDetailResponse(
+            id=result.id,
+            name=result.name,
+            sensor_type=result.sensor_type,
+            is_enabled=result.is_enabled,
+            warning_threshold=result.warning_threshold,
+            critical_threshold=result.critical_threshold,
+        )
+    except FeedingLineNotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except SensorNotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

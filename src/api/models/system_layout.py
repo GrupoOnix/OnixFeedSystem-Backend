@@ -1,25 +1,26 @@
-from typing import List
-from pydantic import BaseModel, Field, ConfigDict
+from typing import List, Optional
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SiloConfigModel(BaseModel):
-    model_config = ConfigDict(extra='forbid')
-    
+    model_config = ConfigDict(extra="forbid")
+
     id: str
     name: str = Field(min_length=1, max_length=100)
     capacity: float = Field(gt=0)
 
 
 class CageConfigModel(BaseModel):
-    model_config = ConfigDict(extra='forbid')
-    
+    model_config = ConfigDict(extra="forbid")
+
     id: str
     name: str = Field(min_length=1, max_length=100)
 
 
 class BlowerConfigModel(BaseModel):
-    model_config = ConfigDict(extra='forbid')
-    
+    model_config = ConfigDict(extra="forbid")
+
     id: str
     name: str = Field(min_length=1, max_length=100)
     blower_type: str = "standard"
@@ -29,8 +30,8 @@ class BlowerConfigModel(BaseModel):
 
 
 class DoserConfigModel(BaseModel):
-    model_config = ConfigDict(extra='forbid')
-    
+    model_config = ConfigDict(extra="forbid")
+
     id: str
     name: str = Field(min_length=1, max_length=100)
     assigned_silo_id: str
@@ -41,8 +42,8 @@ class DoserConfigModel(BaseModel):
 
 
 class SelectorConfigModel(BaseModel):
-    model_config = ConfigDict(extra='forbid')
-    
+    model_config = ConfigDict(extra="forbid")
+
     id: str
     name: str = Field(min_length=1, max_length=100)
     selector_type: str = "standard"
@@ -52,26 +53,38 @@ class SelectorConfigModel(BaseModel):
 
 
 class SensorConfigModel(BaseModel):
-    model_config = ConfigDict(extra='forbid')
-    
+    model_config = ConfigDict(extra="forbid")
+
     id: str
     name: str = Field(min_length=1, max_length=100)
     sensor_type: str
 
 
+class CoolerConfigModel(BaseModel):
+    """Configuración del Cooler (enfriador de aire) - componente opcional."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    name: str = Field(min_length=1, max_length=100)
+    cooling_power_percentage: float = Field(ge=0.0, le=100.0)
+    is_on: bool = False
+
+
 class SlotAssignmentModel(BaseModel):
-    model_config = ConfigDict(extra='forbid')
-    
+    model_config = ConfigDict(extra="forbid")
+
     slot_number: int = Field(gt=0)
     cage_id: str
 
 
 class FeedingLineConfigModel(BaseModel):
-    model_config = ConfigDict(extra='forbid')
-    
+    model_config = ConfigDict(extra="forbid")
+
     id: str
     line_name: str = Field(min_length=1, max_length=100)
     blower_config: BlowerConfigModel
+    cooler_config: Optional[CoolerConfigModel] = None  # Componente opcional
     sensors_config: List[SensorConfigModel] = Field(default_factory=list)
     dosers_config: List[DoserConfigModel] = Field(min_length=1)
     selector_config: SelectorConfigModel
@@ -79,11 +92,8 @@ class FeedingLineConfigModel(BaseModel):
 
 
 class SystemLayoutModel(BaseModel):
-    model_config = ConfigDict(extra='forbid')
-    
+    model_config = ConfigDict(extra="forbid")
+
     silos: List[SiloConfigModel]
     cages: List[CageConfigModel]
     feeding_lines: List[FeedingLineConfigModel]
-
-
-

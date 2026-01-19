@@ -1,14 +1,20 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
 
+from domain.aggregates.alert import Alert
 from domain.aggregates.cage import Cage
 from domain.aggregates.feeding_session import FeedingSession
 from domain.aggregates.food import Food
+from domain.aggregates.scheduled_alert import ScheduledAlert
 from domain.aggregates.silo import Silo
 from domain.entities.feeding_operation import FeedingOperation
+from domain.entities.population_event import PopulationEvent
+from domain.entities.slot_assignment import SlotAssignment
+from domain.enums import AlertCategory, AlertStatus, AlertType, PopulationEventType
 
 from .aggregates.feeding_line.feeding_line import FeedingLine
 from .value_objects import (
+    AlertId,
     BiometryLogEntry,
     CageId,
     CageName,
@@ -19,6 +25,7 @@ from .value_objects import (
     LineName,
     MortalityLogEntry,
     OperationId,
+    ScheduledAlertId,
     SessionId,
     SiloId,
     SiloName,
@@ -43,37 +50,118 @@ class IFeedingLineRepository(ABC):
 
 
 class ICageRepository(ABC):
-    @abstractmethod
-    async def save(self, cage: Cage) -> None: ...
+    """Repositorio para el aggregate Cage."""
 
     @abstractmethod
-    async def find_by_id(self, cage_id: CageId) -> Optional[Cage]: ...
+    async def save(self, cage: Cage) -> None:
+        """Guarda o actualiza una jaula."""
+        ...
 
     @abstractmethod
-    async def find_by_name(self, name: CageName) -> Optional[Cage]: ...
+    async def find_by_id(self, cage_id: CageId) -> Optional[Cage]:
+        """Busca una jaula por su ID."""
+        ...
+
+    @abstractmethod
+    async def find_by_name(self, name: CageName) -> Optional[Cage]:
+        """Busca una jaula por su nombre."""
+        ...
+
+    @abstractmethod
+    async def list(self) -> List[Cage]:
+        """Lista todas las jaulas."""
+        ...
+
+    @abstractmethod
+    async def delete(self, cage_id: CageId) -> None:
+        """Elimina una jaula."""
+        ...
+
+    @abstractmethod
+    async def exists(self, cage_id: CageId) -> bool:
+        """Verifica si existe una jaula con el ID dado."""
+        ...
+
+
+class IPopulationEventRepository(ABC):
+    """Repositorio para eventos de población de jaulas."""
+
+    @abstractmethod
+    async def save(self, event: PopulationEvent) -> None:
+        """Guarda un evento de población."""
+        ...
+
+    @abstractmethod
+    async def list_by_cage(
+        self,
+        cage_id: CageId,
+        event_types: Optional[List[PopulationEventType]] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[PopulationEvent]:
+        """
+        Lista eventos de población de una jaula.
+
+        Args:
+            cage_id: ID de la jaula
+            event_types: Filtro opcional por tipos de evento
+            limit: Cantidad máxima de resultados
+            offset: Desplazamiento para paginación
+
+        Returns:
+            Lista de eventos ordenados por fecha DESC
+        """
+        ...
+
+    @abstractmethod
+    async def count_by_cage(
+        self,
+        cage_id: CageId,
+        event_types: Optional[List[PopulationEventType]] = None,
+    ) -> int:
+        """Cuenta eventos de una jaula, opcionalmente filtrados por tipo."""
+        ...
+
+
+class ISlotAssignmentRepository(ABC):
+    """Repositorio para asignaciones de jaulas a slots de líneas."""
+
+    @abstractmethod
+    async def save(self, assignment: SlotAssignment) -> None:
+        """Guarda o actualiza una asignación."""
+        ...
 
     @abstractmethod
     async def find_by_line_and_slot(
         self, line_id: LineId, slot_number: int
-    ) -> Optional[Cage]:
-        """Busca una jaula por su línea y número de slot."""
+    ) -> Optional[SlotAssignment]:
+        """Busca una asignación por línea y número de slot."""
         ...
 
     @abstractmethod
-    async def find_by_line_id(self, line_id: LineId) -> List[Cage]:
-        """Obtiene todas las jaulas asignadas a una línea específica."""
+    async def find_by_cage(self, cage_id: CageId) -> Optional[SlotAssignment]:
+        """Busca la asignación de una jaula (una jaula solo puede estar en un slot)."""
         ...
 
     @abstractmethod
-    async def list(self) -> List[Cage]: ...
+    async def find_by_line(self, line_id: LineId) -> List[SlotAssignment]:
+        """Obtiene todas las asignaciones de una línea."""
+        ...
 
     @abstractmethod
-    async def list_with_line_info(
-        self, line_id: Optional["LineId"] = None
-    ) -> List[Tuple[Cage, Optional[str]]]: ...
+    async def delete(self, assignment_id) -> None:
+        """Elimina una asignación."""
+        ...
 
     @abstractmethod
-    async def delete(self, cage_id: CageId) -> None: ...
+    async def delete_by_line(self, line_id: LineId) -> None:
+        """Elimina todas las asignaciones de una línea."""
+        ...
+
+    @abstractmethod
+    async def delete_by_cage(self, cage_id: CageId) -> None:
+        """Elimina la asignación de una jaula."""
+        ...
 
 
 class ISiloRepository(ABC):
@@ -238,4 +326,90 @@ class IFoodRepository(ABC):
     @abstractmethod
     async def delete(self, food_id: FoodId) -> None:
         """Elimina un alimento."""
+        ...
+
+
+# ============================================================================
+# Repositorios de Alertas
+# ============================================================================
+
+
+class IAlertRepository(ABC):
+    """Repositorio para alertas del sistema."""
+
+    @abstractmethod
+    async def save(self, alert: Alert) -> None:
+        """Guarda o actualiza una alerta."""
+        ...
+
+    @abstractmethod
+    async def find_by_id(self, alert_id: AlertId) -> Optional[Alert]:
+        """Busca una alerta por su ID."""
+        ...
+
+    @abstractmethod
+    async def list(
+        self,
+        status: Optional[List[AlertStatus]] = None,
+        type: Optional[List[AlertType]] = None,
+        category: Optional[List[AlertCategory]] = None,
+        search: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[Alert]:
+        """
+        Lista alertas con filtros opcionales.
+
+        Args:
+            status: Filtrar por estados (ej: [UNREAD, READ])
+            type: Filtrar por tipos (ej: [CRITICAL, WARNING])
+            category: Filtrar por categorías (ej: [DEVICE, INVENTORY])
+            search: Buscar en title, message, source
+            limit: Cantidad máxima de resultados
+            offset: Desplazamiento para paginación
+        """
+        ...
+
+    @abstractmethod
+    async def count_unread(self) -> int:
+        """Cuenta la cantidad de alertas no leídas."""
+        ...
+
+    @abstractmethod
+    async def mark_all_as_read(self) -> int:
+        """
+        Marca todas las alertas UNREAD como READ.
+
+        Returns:
+            Cantidad de alertas actualizadas.
+        """
+        ...
+
+
+class IScheduledAlertRepository(ABC):
+    """Repositorio para alertas programadas."""
+
+    @abstractmethod
+    async def save(self, scheduled_alert: ScheduledAlert) -> None:
+        """Guarda o actualiza una alerta programada."""
+        ...
+
+    @abstractmethod
+    async def find_by_id(self, alert_id: ScheduledAlertId) -> Optional[ScheduledAlert]:
+        """Busca una alerta programada por su ID."""
+        ...
+
+    @abstractmethod
+    async def get_all(self) -> List[ScheduledAlert]:
+        """Obtiene todas las alertas programadas."""
+        ...
+
+    @abstractmethod
+    async def get_active(self) -> List[ScheduledAlert]:
+        """Obtiene solo las alertas programadas activas."""
+        ...
+
+    @abstractmethod
+    async def delete(self, alert_id: ScheduledAlertId) -> None:
+        """Elimina una alerta programada."""
         ...

@@ -1,32 +1,33 @@
-from datetime import datetime
+"""Aggregate Root para Jaulas."""
+
+from dataclasses import field
+from datetime import date, datetime
 from typing import Optional
-from domain.enums import CageStatus
-from domain.exceptions import CageNotAvailableException
-from domain.value_objects import (
-    CageId,
-    CageName,
-    FishCount,
-    Weight,
-    FCR,
-    Volume,
-    Density,
-    FeedingTableId,
-    BlowDurationInSeconds,
-    LineId,
-)
+
+from domain.entities.population_event import PopulationEvent
+from domain.enums import CageStatus, PopulationEventType
+from domain.value_objects.cage_configuration import CageConfiguration
+from domain.value_objects.identifiers import CageId
+from domain.value_objects.names import CageName
 
 
 class Cage:
+    """
+    Aggregate Root que representa una jaula de peces.
+
+    Responsabilidades:
+    - Identidad y estado de la jaula
+    - Gestión de población (cantidad de peces y peso promedio)
+    - Configuración de alimentación
+
+    NO es responsable de:
+    - Asignación a líneas de alimentación (se maneja desde FeedingLine)
+    """
+
     def __init__(
         self,
         name: CageName,
-        line_id: Optional[LineId] = None,
-        slot_number: Optional[int] = None,
-        avg_fish_weight: Optional[Weight] = None,
-        fcr: Optional[FCR] = None,
-        total_volume: Optional[Volume] = None,
-        max_density: Optional[Density] = None,
-        transport_time: Optional[BlowDurationInSeconds] = None,
+        config: Optional[CageConfiguration] = None,
         status: CageStatus = CageStatus.AVAILABLE,
     ):
         self._id = CageId.generate()
@@ -35,21 +36,15 @@ class Cage:
         self._created_at = datetime.utcnow()
 
         # Población
-        self._current_fish_count: Optional[FishCount] = None
-
-        # Biometría
-        self._avg_fish_weight = avg_fish_weight
+        self._fish_count: int = 0
+        self._avg_weight_grams: Optional[float] = None
 
         # Configuración
-        self._fcr = fcr
-        self._total_volume = total_volume
-        self._max_density = max_density
-        self._feeding_table_id: Optional[FeedingTableId] = None
-        self._transport_time = transport_time
+        self._config = config or CageConfiguration.empty()
 
-        # Asignación a línea de alimentación
-        self._line_id: Optional[LineId] = line_id
-        self._slot_number: Optional[int] = slot_number
+    # =========================================================================
+    # PROPIEDADES DE IDENTIDAD
+    # =========================================================================
 
     @property
     def id(self) -> CageId:
@@ -59,161 +54,298 @@ class Cage:
     def name(self) -> CageName:
         return self._name
 
-    @name.setter
-    def name(self, new_name: CageName) -> None:
-        self._name = new_name
-
     @property
     def status(self) -> CageStatus:
         return self._status
-
-    @status.setter
-    def status(self, new_status: CageStatus) -> None:
-        self._status = new_status
 
     @property
     def created_at(self) -> datetime:
         return self._created_at
 
-    # Población
-    @property
-    def current_fish_count(self) -> Optional[FishCount]:
-        return self._current_fish_count
-
-    # Biometría
-    @property
-    def avg_fish_weight(self) -> Optional[Weight]:
-        return self._avg_fish_weight
+    # =========================================================================
+    # PROPIEDADES DE POBLACIÓN
+    # =========================================================================
 
     @property
-    def biomass(self) -> Weight:
-        """Biomasa calculada: (cantidad_peces * peso_promedio)"""
-        if self._current_fish_count is None or self._avg_fish_weight is None:
-            return Weight.zero()
-
-        total_grams = self._current_fish_count.value * self._avg_fish_weight.as_grams
-        return Weight.from_kg(total_grams / 1000.0)
-
-    # Configuración
-    @property
-    def fcr(self) -> FCR:
-        return self._fcr
-
-    @fcr.setter
-    def fcr(self, new_fcr: FCR) -> None:
-        self._fcr = new_fcr
+    def fish_count(self) -> int:
+        return self._fish_count
 
     @property
-    def total_volume(self) -> Optional[Volume]:
-        return self._total_volume
-
-    @total_volume.setter
-    def total_volume(self, new_volume: Optional[Volume]) -> None:
-        self._total_volume = new_volume
+    def avg_weight_grams(self) -> Optional[float]:
+        return self._avg_weight_grams
 
     @property
-    def max_density(self) -> Optional[Density]:
-        return self._max_density
-
-    @max_density.setter
-    def max_density(self, new_density: Optional[Density]) -> None:
-        self._max_density = new_density
-
-    @property
-    def feeding_table_id(self) -> Optional[FeedingTableId]:
-        return self._feeding_table_id
-
-    @feeding_table_id.setter
-    def feeding_table_id(self, table_id: Optional[FeedingTableId]) -> None:
-        self._feeding_table_id = table_id
+    def biomass_kg(self) -> float:
+        """Biomasa calculada en kg: (cantidad_peces * peso_promedio_g) / 1000."""
+        if self._avg_weight_grams is None or self._fish_count == 0:
+            return 0.0
+        return (self._fish_count * self._avg_weight_grams) / 1000.0
 
     @property
-    def transport_time(self) -> BlowDurationInSeconds:
-        return self._transport_time
-
-    @transport_time.setter
-    def transport_time(self, new_time: BlowDurationInSeconds) -> None:
-        self._transport_time = new_time
-
-    # Relaciones
-    @property
-    def line_id(self) -> Optional[LineId]:
-        return self._line_id
-
-    @property
-    def slot_number(self) -> Optional[int]:
-        return self._slot_number
-
-    # Propiedades calculadas
-
-
-    @property
-    def current_density(self) -> Optional[Density]:
+    def current_density_kg_m3(self) -> Optional[float]:
         """Densidad actual en kg/m³ (si hay volumen configurado)."""
-        if self._total_volume is None:
+        if self._config.volume_m3 is None or self._config.volume_m3 == 0:
             return None
-
-        if self._total_volume.as_cubic_meters == 0:
+        if self.biomass_kg == 0:
             return None
+        return self.biomass_kg / self._config.volume_m3
 
-        biomass_kg = self.biomass.as_kg
-        if biomass_kg == 0:
-            return None
+    # =========================================================================
+    # PROPIEDADES DE CONFIGURACIÓN
+    # =========================================================================
 
-        density_value = biomass_kg / self._total_volume.as_cubic_meters
-        return Density(density_value)
+    @property
+    def config(self) -> CageConfiguration:
+        return self._config
 
-    # Métodos de negocio
+    # =========================================================================
+    # MÉTODOS DE IDENTIDAD
+    # =========================================================================
 
-    def register_mortality(self, dead_count: FishCount) -> None:
+    def rename(self, new_name: CageName) -> None:
+        """Cambia el nombre de la jaula."""
+        self._name = new_name
+
+    def set_available(self) -> None:
+        """Marca la jaula como disponible."""
+        self._status = CageStatus.AVAILABLE
+
+    def set_in_use(self) -> None:
+        """Marca la jaula como en uso."""
+        self._status = CageStatus.IN_USE
+
+    def set_maintenance(self) -> None:
+        """Marca la jaula en mantenimiento."""
+        self._status = CageStatus.MAINTENANCE
+
+    # =========================================================================
+    # MÉTODOS DE POBLACIÓN
+    # =========================================================================
+
+    def set_initial_population(
+        self,
+        fish_count: int,
+        avg_weight_grams: float,
+        event_date: date,
+        note: Optional[str] = None,
+    ) -> PopulationEvent:
         """
-        Registra mortalidad para reportes y estadísticas.
-        NO modifica current_fish_count.
-        El registro se guarda en cage_mortality_log.
-        """
-        if self._current_fish_count is None:
-            raise ValueError("No se puede registrar mortalidad sin población establecida")
+        Establece la población inicial de la jaula (siembra).
 
-        if dead_count.value <= 0:
+        Retorna el evento de población para persistir.
+        """
+        if fish_count <= 0:
+            raise ValueError("La cantidad de peces debe ser mayor a 0")
+        if avg_weight_grams <= 0:
+            raise ValueError("El peso promedio debe ser mayor a 0")
+        if self._fish_count > 0:
+            raise ValueError(
+                "La jaula ya tiene población. Use add_fish para agregar más."
+            )
+
+        self._fish_count = fish_count
+        self._avg_weight_grams = avg_weight_grams
+
+        return PopulationEvent.create_initial_stock(
+            cage_id=self._id,
+            fish_count=fish_count,
+            avg_weight_grams=avg_weight_grams,
+            event_date=event_date,
+            note=note,
+        )
+
+    def add_fish(
+        self,
+        count: int,
+        avg_weight_grams: Optional[float],
+        event_date: date,
+        note: Optional[str] = None,
+    ) -> PopulationEvent:
+        """
+        Agrega peces a la jaula (resiembra).
+
+        Si se proporciona avg_weight_grams, se actualiza el peso promedio.
+        """
+        if count <= 0:
+            raise ValueError("La cantidad de peces a agregar debe ser mayor a 0")
+
+        self._fish_count += count
+        if avg_weight_grams is not None:
+            if avg_weight_grams <= 0:
+                raise ValueError("El peso promedio debe ser mayor a 0")
+            self._avg_weight_grams = avg_weight_grams
+
+        return PopulationEvent.create_restock(
+            cage_id=self._id,
+            added_count=count,
+            new_total=self._fish_count,
+            avg_weight_grams=avg_weight_grams or self._avg_weight_grams or 0,
+            event_date=event_date,
+            note=note,
+        )
+
+    def register_mortality(
+        self,
+        dead_count: int,
+        event_date: date,
+        note: Optional[str] = None,
+    ) -> PopulationEvent:
+        """
+        Registra mortalidad y RESTA los peces del total.
+
+        Retorna el evento de población para persistir.
+        """
+        if dead_count <= 0:
             raise ValueError("La cantidad de peces muertos debe ser mayor a 0")
+        if dead_count > self._fish_count:
+            raise ValueError(
+                f"No se pueden registrar {dead_count} muertes. "
+                f"Solo hay {self._fish_count} peces en la jaula."
+            )
 
-    def update_fish_count(self, new_count: FishCount) -> None:
+        self._fish_count -= dead_count
+
+        return PopulationEvent.create_mortality(
+            cage_id=self._id,
+            dead_count=dead_count,
+            new_total=self._fish_count,
+            event_date=event_date,
+            avg_weight_grams=self._avg_weight_grams,
+            note=note,
+        )
+
+    def update_biometry(
+        self,
+        avg_weight_grams: float,
+        event_date: date,
+        note: Optional[str] = None,
+    ) -> PopulationEvent:
         """
-        Actualiza el conteo de peces.
-        El operador puede modificar esto libremente (recuento físico, ajustes, etc.)
+        Actualiza el peso promedio de los peces (biometría).
+
+        No modifica la cantidad de peces.
         """
-        if new_count.value < 0:
-            raise ValueError("El conteo de peces no puede ser negativo")
-
-        self._current_fish_count = new_count
-
-    def update_biometry(self, new_avg_weight: Weight) -> None:
-        """Actualiza el peso promedio de los peces."""
-        if new_avg_weight.as_grams <= 0:
+        if avg_weight_grams <= 0:
             raise ValueError("El peso promedio debe ser mayor a 0")
 
-        self._avg_fish_weight = new_avg_weight
+        self._avg_weight_grams = avg_weight_grams
 
-    def set_population(self, fish_count: FishCount, avg_weight: Weight) -> None:
-        """Establece la población de la jaula."""
-        if fish_count.value < 0:
+        return PopulationEvent.create_biometry(
+            cage_id=self._id,
+            current_fish_count=self._fish_count,
+            avg_weight_grams=avg_weight_grams,
+            event_date=event_date,
+            note=note,
+        )
+
+    def harvest(
+        self,
+        count: int,
+        event_date: date,
+        note: Optional[str] = None,
+    ) -> PopulationEvent:
+        """
+        Registra una cosecha (extracción de peces).
+        """
+        if count <= 0:
+            raise ValueError("La cantidad de peces a cosechar debe ser mayor a 0")
+        if count > self._fish_count:
+            raise ValueError(
+                f"No se pueden cosechar {count} peces. "
+                f"Solo hay {self._fish_count} peces en la jaula."
+            )
+
+        self._fish_count -= count
+
+        return PopulationEvent.create_harvest(
+            cage_id=self._id,
+            harvested_count=count,
+            new_total=self._fish_count,
+            event_date=event_date,
+            avg_weight_grams=self._avg_weight_grams,
+            note=note,
+        )
+
+    def adjust_population(
+        self,
+        new_fish_count: int,
+        event_date: date,
+        note: Optional[str] = None,
+    ) -> PopulationEvent:
+        """
+        Ajusta manualmente la población (corrección de inventario).
+
+        Útil para reconciliar diferencias entre el sistema y conteos físicos.
+        """
+        if new_fish_count < 0:
             raise ValueError("La cantidad de peces no puede ser negativa")
 
-        if avg_weight.as_grams <= 0:
-            raise ValueError("El peso promedio debe ser mayor a 0")
+        delta = new_fish_count - self._fish_count
+        self._fish_count = new_fish_count
 
-        self._current_fish_count = fish_count
-        self._avg_fish_weight = avg_weight
+        return PopulationEvent.create_adjustment(
+            cage_id=self._id,
+            delta=delta,
+            new_total=self._fish_count,
+            event_date=event_date,
+            avg_weight_grams=self._avg_weight_grams,
+            note=note,
+        )
 
-    def assign_to_line(self, line_id: LineId, slot_number: int) -> None:
-        """Asigna la jaula a una línea de alimentación en un slot específico."""
-        if slot_number < 1:
-            raise ValueError("El número de slot debe ser mayor o igual a 1")
+    # =========================================================================
+    # MÉTODOS DE CONFIGURACIÓN
+    # =========================================================================
 
-        self._line_id = line_id
-        self._slot_number = slot_number
+    def update_config(self, new_config: CageConfiguration) -> None:
+        """Actualiza la configuración de la jaula."""
+        self._config = new_config
 
-    def unassign_from_line(self) -> None:
-        """Desasigna la jaula de su línea de alimentación."""
-        self._line_id = None
-        self._slot_number = None
+    # =========================================================================
+    # MÉTODOS DE RECONSTRUCCIÓN (para repositorio)
+    # =========================================================================
+
+    def _set_id(self, cage_id: CageId) -> None:
+        """Solo para uso del repositorio al reconstruir desde BD."""
+        self._id = cage_id
+
+    def _set_created_at(self, created_at: datetime) -> None:
+        """Solo para uso del repositorio al reconstruir desde BD."""
+        self._created_at = created_at
+
+    def _set_fish_count(self, count: int) -> None:
+        """Solo para uso del repositorio al reconstruir desde BD."""
+        self._fish_count = count
+
+    def _set_avg_weight_grams(self, weight: Optional[float]) -> None:
+        """Solo para uso del repositorio al reconstruir desde BD."""
+        self._avg_weight_grams = weight
+
+    def _set_status(self, status: CageStatus) -> None:
+        """Solo para uso del repositorio al reconstruir desde BD."""
+        self._status = status
+
+    # =========================================================================
+    # FACTORY METHOD
+    # =========================================================================
+
+    @classmethod
+    def create(
+        cls,
+        name: str,
+        config: Optional[CageConfiguration] = None,
+    ) -> "Cage":
+        """
+        Factory method para crear una nueva jaula.
+
+        Args:
+            name: Nombre de la jaula
+            config: Configuración opcional
+
+        Returns:
+            Nueva instancia de Cage
+        """
+        return cls(
+            name=CageName(name),
+            config=config,
+            status=CageStatus.AVAILABLE,
+        )

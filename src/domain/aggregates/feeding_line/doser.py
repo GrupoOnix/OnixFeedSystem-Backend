@@ -6,6 +6,7 @@ from domain.value_objects import (
     DoserId, DoserName, SiloId, DosingRange, DosingRate
 )
 
+
 class Doser(IDoser):
     
     def __init__(self,
@@ -13,9 +14,26 @@ class Doser(IDoser):
                  assigned_silo_id: SiloId,
                  doser_type: DoserType,
                  dosing_range: DosingRange,
-                 current_rate: DosingRate):
+                 current_rate: DosingRate,
+                 is_on: bool = True,
+                 *,
+                 _skip_validation: bool = False):
+        """
+        Inicializa un Doser.
         
-        if not dosing_range.contains(current_rate):
+        Args:
+            name: Nombre del doser
+            assigned_silo_id: ID del silo asignado
+            doser_type: Tipo de doser
+            dosing_range: Rango de dosificación permitido
+            current_rate: Tasa de dosificación configurada
+            is_on: Estado encendido/apagado del doser
+            _skip_validation: (Interno) Si True, omite validación de rango.
+                              Solo usar para reconstrucción desde persistencia.
+        """
+        # Validar que current_rate esté dentro del rango permitido
+        # Skip validation permite cargar dosers con rate=0 desde la DB
+        if not _skip_validation and not dosing_range.contains(current_rate):
             raise ValueError(
                 f"La tasa de dosificación inicial ({current_rate}) "
                 f"está fuera del rango permitido ({dosing_range})."
@@ -27,8 +45,8 @@ class Doser(IDoser):
         self._doser_type = doser_type
         self._dosing_range = dosing_range
         self._current_rate = current_rate
+        self._is_on = is_on
         self._calibration_data: Dict[str, Any] = {"status": "uncalibrated"}
-
 
     @property
     def id(self) -> DoserId:
@@ -75,6 +93,37 @@ class Doser(IDoser):
             
         self._current_rate = new_rate
 
+    @property
+    def is_on(self) -> bool:
+        """Indica si el doser está encendido."""
+        return self._is_on
+
+    def turn_on(self) -> None:
+        """
+        Enciende el doser.
+        
+        Valida que el current_rate configurado esté dentro del rango permitido.
+        Si no hay un rate válido configurado, la operación falla.
+        
+        Raises:
+            ValueError: Si current_rate no está dentro del dosing_range
+        """
+        if not self._dosing_range.contains(self._current_rate):
+            raise ValueError(
+                f"No se puede encender el doser: la tasa configurada ({self._current_rate}) "
+                f"está fuera del rango permitido ({self._dosing_range}). "
+                f"Configure una tasa válida antes de encender."
+            )
+        self._is_on = True
+
+    def stop(self) -> None:
+        """
+        Apaga el doser.
+        
+        El current_rate configurado se mantiene guardado para cuando
+        se vuelva a encender.
+        """
+        self._is_on = False
 
     def calibrate(self, calibration_data: Dict[str, Any]) -> bool:
         print("Calibrando dosificador con datos:", calibration_data)

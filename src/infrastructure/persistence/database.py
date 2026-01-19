@@ -7,7 +7,6 @@ from sqlmodel import SQLModel
 
 
 def _get_required_env(key: str) -> str:
-
     value = os.getenv(key)
     if value is None:
         raise ValueError(
@@ -49,7 +48,6 @@ async_session_maker = sessionmaker(
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
-
     async with async_session_maker() as session:
         try:
             yield session
@@ -59,6 +57,27 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
             raise
 
 
-async def close_db_connection() -> None:
+from contextlib import asynccontextmanager
 
+
+@asynccontextmanager
+async def get_session_context() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Context manager para obtener una sesión fuera de FastAPI dependency injection.
+
+    Uso:
+        async with get_session_context() as session:
+            repo = SomeRepository(session)
+            await repo.do_something()
+            await session.commit()
+    """
+    async with async_session_maker() as session:
+        try:
+            yield session
+        except Exception:
+            await session.rollback()
+            raise
+
+
+async def close_db_connection() -> None:
     await async_engine.dispose()

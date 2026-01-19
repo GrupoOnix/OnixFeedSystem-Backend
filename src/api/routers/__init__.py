@@ -9,11 +9,13 @@ Organización:
 - feeding_lines: Gestión de líneas de alimentación (listado y consulta)
 - feeding: Operaciones de alimentación (UC-02, UC-03)
 - sensor: Lecturas en tiempo real de sensores
+- alerts: Sistema de alertas y alertas programadas
 """
 
 from fastapi import APIRouter
 
 from . import (
+    alerts_router,
     cage_router,
     device_control_router,
     feeding_line_router,
@@ -36,5 +38,6 @@ api_router.include_router(feeding_line_router.router)
 api_router.include_router(feeding_router.router)
 api_router.include_router(sensor_router.router)
 api_router.include_router(device_control_router.router)
+api_router.include_router(alerts_router.router)
 
 __all__ = ["api_router"]

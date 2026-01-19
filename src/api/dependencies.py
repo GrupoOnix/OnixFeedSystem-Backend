@@ -5,21 +5,34 @@ from typing import Annotated, Optional
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from application.services import AlertTriggerService
 from application.use_cases import GetSystemLayoutUseCase, SyncSystemLayoutUseCase
-from application.use_cases.cage import ListCagesUseCase
-from application.use_cases.cage.list_biometry_use_case import ListBiometryUseCase
-from application.use_cases.cage.list_config_changes_use_case import (
-    ListConfigChangesUseCase,
+from application.use_cases.alerts import (
+    CreateAlertUseCase,
+    CreateScheduledAlertUseCase,
+    DeleteScheduledAlertUseCase,
+    GetUnreadCountUseCase,
+    ListAlertsUseCase,
+    ListScheduledAlertsUseCase,
+    MarkAlertReadUseCase,
+    MarkAllAlertsReadUseCase,
+    ToggleScheduledAlertUseCase,
+    UpdateAlertUseCase,
+    UpdateScheduledAlertUseCase,
 )
-from application.use_cases.cage.list_mortality_use_case import ListMortalityUseCase
-from application.use_cases.cage.register_biometry_use_case import (
-    RegisterBiometryUseCase,
-)
-from application.use_cases.cage.register_mortality_use_case import (
+from application.use_cases.cage import (
+    AdjustPopulationUseCase,
+    CreateCageUseCase,
+    DeleteCageUseCase,
+    GetCageUseCase,
+    GetPopulationHistoryUseCase,
+    HarvestUseCase,
+    ListCagesUseCase,
     RegisterMortalityUseCase,
-)
-from application.use_cases.cage.update_cage_config_use_case import (
+    SetPopulationUseCase,
+    UpdateBiometryUseCase,
     UpdateCageConfigUseCase,
+    UpdateCageUseCase,
 )
 from application.use_cases.device_control import (
     MoveSelectorToSlotDirectUseCase,
@@ -61,8 +74,10 @@ from application.use_cases.food import (
     ToggleFoodActiveUseCase,
     UpdateFoodUseCase,
 )
-from application.use_cases.sensors.get_sensor_readings_use_case import (
+from application.use_cases.sensors import (
+    GetLineSensorsUseCase,
     GetSensorReadingsUseCase,
+    UpdateSensorUseCase,
 )
 from application.use_cases.silo import (
     CreateSiloUseCase,
@@ -75,28 +90,27 @@ from domain.factories import ComponentFactory
 from domain.interfaces import IFeedingMachine
 from infrastructure.persistence.database import get_session
 from infrastructure.persistence.repositories import (
+    AlertRepository,
     CageRepository,
     FeedingLineRepository,
     FeedingOperationRepository,
     FoodRepository,
+    ScheduledAlertRepository,
     SiloRepository,
 )
-from infrastructure.persistence.repositories.biometry_log_repository import (
-    BiometryLogRepository,
-)
 from infrastructure.persistence.repositories.blower_repository import BlowerRepository
-from infrastructure.persistence.repositories.config_change_log_repository import (
-    ConfigChangeLogRepository,
-)
 from infrastructure.persistence.repositories.doser_repository import DoserRepository
 from infrastructure.persistence.repositories.feeding_session_repository import (
     FeedingSessionRepository,
 )
-from infrastructure.persistence.repositories.mortality_log_repository import (
-    MortalityLogRepository,
+from infrastructure.persistence.repositories.population_event_repository import (
+    PopulationEventRepository,
 )
 from infrastructure.persistence.repositories.selector_repository import (
     SelectorRepository,
+)
+from infrastructure.persistence.repositories.slot_assignment_repository import (
+    SlotAssignmentRepository,
 )
 from infrastructure.services.plc_simulator import PLCSimulator
 
@@ -120,32 +134,25 @@ async def get_cage_repo(session: AsyncSession = Depends(get_session)) -> CageRep
     return CageRepository(session)
 
 
+async def get_population_event_repo(
+    session: AsyncSession = Depends(get_session),
+) -> PopulationEventRepository:
+    """Crea instancia del repositorio de eventos de población."""
+    return PopulationEventRepository(session)
+
+
+async def get_slot_assignment_repo(
+    session: AsyncSession = Depends(get_session),
+) -> SlotAssignmentRepository:
+    """Crea instancia del repositorio de asignaciones de slots."""
+    return SlotAssignmentRepository(session)
+
+
 async def get_line_repo(
     session: AsyncSession = Depends(get_session),
 ) -> FeedingLineRepository:
     """Crea instancia del repositorio de líneas de alimentación."""
     return FeedingLineRepository(session)
-
-
-async def get_biometry_log_repo(
-    session: AsyncSession = Depends(get_session),
-) -> BiometryLogRepository:
-    """Crea instancia del repositorio de logs de biometría."""
-    return BiometryLogRepository(session)
-
-
-async def get_mortality_log_repo(
-    session: AsyncSession = Depends(get_session),
-) -> MortalityLogRepository:
-    """Crea instancia del repositorio de logs de mortalidad."""
-    return MortalityLogRepository(session)
-
-
-async def get_config_change_log_repo(
-    session: AsyncSession = Depends(get_session),
-) -> ConfigChangeLogRepository:
-    """Crea instancia del repositorio de logs de cambios de configuración."""
-    return ConfigChangeLogRepository(session)
 
 
 async def get_feeding_session_repo(
@@ -272,6 +279,20 @@ async def get_sensor_readings_use_case(
         feeding_line_repo=line_repo,
         feeding_machine=machine_service,
     )
+
+
+async def get_line_sensors_use_case(
+    line_repo: FeedingLineRepository = Depends(get_line_repo),
+) -> GetLineSensorsUseCase:
+    """Crea instancia del caso de uso de listado de sensores de una línea."""
+    return GetLineSensorsUseCase(feeding_line_repo=line_repo)
+
+
+async def get_update_sensor_use_case(
+    line_repo: FeedingLineRepository = Depends(get_line_repo),
+) -> UpdateSensorUseCase:
+    """Crea instancia del caso de uso de actualización de sensor."""
+    return UpdateSensorUseCase(feeding_line_repo=line_repo)
 
 
 # ============================================================================
@@ -463,6 +484,7 @@ async def get_sync_use_case(
     line_repo: FeedingLineRepository = Depends(get_line_repo),
     silo_repo: SiloRepository = Depends(get_silo_repo),
     cage_repo: CageRepository = Depends(get_cage_repo),
+    slot_assignment_repo: SlotAssignmentRepository = Depends(get_slot_assignment_repo),
     factory: ComponentFactory = Depends(get_component_factory),
 ) -> SyncSystemLayoutUseCase:
     """Crea instancia del caso de uso de sincronización del trazado del sistema."""
@@ -470,6 +492,7 @@ async def get_sync_use_case(
         line_repo=line_repo,
         silo_repo=silo_repo,
         cage_repo=cage_repo,
+        slot_assignment_repo=slot_assignment_repo,
         component_factory=factory,
     )
 
@@ -478,16 +501,34 @@ async def get_get_use_case(
     line_repo: FeedingLineRepository = Depends(get_line_repo),
     silo_repo: SiloRepository = Depends(get_silo_repo),
     cage_repo: CageRepository = Depends(get_cage_repo),
+    slot_assignment_repo: SlotAssignmentRepository = Depends(get_slot_assignment_repo),
 ) -> GetSystemLayoutUseCase:
     """Crea instancia del caso de uso de obtención del trazado del sistema."""
     return GetSystemLayoutUseCase(
-        line_repo=line_repo, silo_repo=silo_repo, cage_repo=cage_repo
+        line_repo=line_repo,
+        silo_repo=silo_repo,
+        cage_repo=cage_repo,
+        slot_assignment_repo=slot_assignment_repo,
     )
 
 
 # ============================================================================
 # Dependencias de Casos de Uso - Cage
 # ============================================================================
+
+
+async def get_create_cage_use_case(
+    cage_repo: CageRepository = Depends(get_cage_repo),
+) -> CreateCageUseCase:
+    """Crea instancia del caso de uso de creación de jaula."""
+    return CreateCageUseCase(cage_repository=cage_repo)
+
+
+async def get_get_cage_use_case(
+    cage_repo: CageRepository = Depends(get_cage_repo),
+) -> GetCageUseCase:
+    """Crea instancia del caso de uso de obtención de jaula."""
+    return GetCageUseCase(cage_repository=cage_repo)
 
 
 async def get_list_cages_use_case(
@@ -497,55 +538,76 @@ async def get_list_cages_use_case(
     return ListCagesUseCase(cage_repository=cage_repo)
 
 
-async def get_register_biometry_use_case(
+async def get_update_cage_use_case(
     cage_repo: CageRepository = Depends(get_cage_repo),
-    biometry_log_repo: BiometryLogRepository = Depends(get_biometry_log_repo),
-) -> RegisterBiometryUseCase:
-    """Crea instancia del caso de uso de registro de biometría."""
-    return RegisterBiometryUseCase(
-        cage_repository=cage_repo, biometry_log_repository=biometry_log_repo
-    )
+) -> UpdateCageUseCase:
+    """Crea instancia del caso de uso de actualización de jaula."""
+    return UpdateCageUseCase(cage_repository=cage_repo)
 
 
-async def get_list_biometry_use_case(
-    biometry_log_repo: BiometryLogRepository = Depends(get_biometry_log_repo),
-) -> ListBiometryUseCase:
-    """Crea instancia del caso de uso de listado de biometrías."""
-    return ListBiometryUseCase(biometry_log_repository=biometry_log_repo)
-
-
-async def get_register_mortality_use_case(
+async def get_delete_cage_use_case(
     cage_repo: CageRepository = Depends(get_cage_repo),
-    mortality_log_repo: MortalityLogRepository = Depends(get_mortality_log_repo),
-) -> RegisterMortalityUseCase:
-    """Crea instancia del caso de uso de registro de mortalidad."""
-    return RegisterMortalityUseCase(
-        cage_repository=cage_repo, mortality_log_repository=mortality_log_repo
-    )
-
-
-async def get_list_mortality_use_case(
-    mortality_log_repo: MortalityLogRepository = Depends(get_mortality_log_repo),
-) -> ListMortalityUseCase:
-    """Crea instancia del caso de uso de listado de mortalidades."""
-    return ListMortalityUseCase(mortality_log_repository=mortality_log_repo)
+) -> DeleteCageUseCase:
+    """Crea instancia del caso de uso de eliminación de jaula."""
+    return DeleteCageUseCase(cage_repository=cage_repo)
 
 
 async def get_update_cage_config_use_case(
     cage_repo: CageRepository = Depends(get_cage_repo),
-    config_log_repo: ConfigChangeLogRepository = Depends(get_config_change_log_repo),
 ) -> UpdateCageConfigUseCase:
-    """Crea instancia del caso de uso de actualización de configuración de jaula."""
-    return UpdateCageConfigUseCase(
-        cage_repository=cage_repo, config_change_log_repository=config_log_repo
+    """Crea instancia del caso de uso de actualización de configuración."""
+    return UpdateCageConfigUseCase(cage_repository=cage_repo)
+
+
+async def get_set_population_use_case(
+    cage_repo: CageRepository = Depends(get_cage_repo),
+    event_repo: PopulationEventRepository = Depends(get_population_event_repo),
+) -> SetPopulationUseCase:
+    """Crea instancia del caso de uso de establecer población."""
+    return SetPopulationUseCase(cage_repository=cage_repo, event_repository=event_repo)
+
+
+async def get_register_mortality_use_case(
+    cage_repo: CageRepository = Depends(get_cage_repo),
+    event_repo: PopulationEventRepository = Depends(get_population_event_repo),
+) -> RegisterMortalityUseCase:
+    """Crea instancia del caso de uso de registro de mortalidad."""
+    return RegisterMortalityUseCase(
+        cage_repository=cage_repo, event_repository=event_repo
     )
 
 
-async def get_list_config_changes_use_case(
-    config_log_repo: ConfigChangeLogRepository = Depends(get_config_change_log_repo),
-) -> ListConfigChangesUseCase:
-    """Crea instancia del caso de uso de listado de cambios de configuración."""
-    return ListConfigChangesUseCase(config_change_log_repository=config_log_repo)
+async def get_update_biometry_use_case(
+    cage_repo: CageRepository = Depends(get_cage_repo),
+    event_repo: PopulationEventRepository = Depends(get_population_event_repo),
+) -> UpdateBiometryUseCase:
+    """Crea instancia del caso de uso de actualización de biometría."""
+    return UpdateBiometryUseCase(cage_repository=cage_repo, event_repository=event_repo)
+
+
+async def get_harvest_use_case(
+    cage_repo: CageRepository = Depends(get_cage_repo),
+    event_repo: PopulationEventRepository = Depends(get_population_event_repo),
+) -> HarvestUseCase:
+    """Crea instancia del caso de uso de cosecha."""
+    return HarvestUseCase(cage_repository=cage_repo, event_repository=event_repo)
+
+
+async def get_adjust_population_use_case(
+    cage_repo: CageRepository = Depends(get_cage_repo),
+    event_repo: PopulationEventRepository = Depends(get_population_event_repo),
+) -> AdjustPopulationUseCase:
+    """Crea instancia del caso de uso de ajuste de población."""
+    return AdjustPopulationUseCase(
+        cage_repository=cage_repo, event_repository=event_repo
+    )
+
+
+async def get_population_history_use_case(
+    event_repo: PopulationEventRepository = Depends(get_population_event_repo),
+) -> GetPopulationHistoryUseCase:
+    """Crea instancia del caso de uso de historial de población."""
+    return GetPopulationHistoryUseCase(event_repository=event_repo)
 
 
 # ============================================================================
@@ -667,6 +729,14 @@ GetSensorReadingsUseCaseDep = Annotated[
     GetSensorReadingsUseCase, Depends(get_sensor_readings_use_case)
 ]
 
+GetLineSensorsUseCaseDep = Annotated[
+    GetLineSensorsUseCase, Depends(get_line_sensors_use_case)
+]
+
+UpdateSensorUseCaseDep = Annotated[
+    UpdateSensorUseCase, Depends(get_update_sensor_use_case)
+]
+
 
 # ============================================================================
 # Type Aliases para Endpoints - Silo
@@ -706,30 +776,40 @@ ToggleFoodActiveUseCaseDep = Annotated[
 # Type Aliases para Endpoints - Cage
 # ============================================================================
 
+CreateCageUseCaseDep = Annotated[CreateCageUseCase, Depends(get_create_cage_use_case)]
+
+GetCageUseCaseDep = Annotated[GetCageUseCase, Depends(get_get_cage_use_case)]
+
 ListCagesUseCaseDep = Annotated[ListCagesUseCase, Depends(get_list_cages_use_case)]
 
-RegisterBiometryUseCaseDep = Annotated[
-    RegisterBiometryUseCase, Depends(get_register_biometry_use_case)
+UpdateCageUseCaseDep = Annotated[UpdateCageUseCase, Depends(get_update_cage_use_case)]
+
+DeleteCageUseCaseDep = Annotated[DeleteCageUseCase, Depends(get_delete_cage_use_case)]
+
+UpdateCageConfigUseCaseDep = Annotated[
+    UpdateCageConfigUseCase, Depends(get_update_cage_config_use_case)
 ]
 
-ListBiometryUseCaseDep = Annotated[
-    ListBiometryUseCase, Depends(get_list_biometry_use_case)
+SetPopulationUseCaseDep = Annotated[
+    SetPopulationUseCase, Depends(get_set_population_use_case)
 ]
 
 RegisterMortalityUseCaseDep = Annotated[
     RegisterMortalityUseCase, Depends(get_register_mortality_use_case)
 ]
 
-ListMortalityUseCaseDep = Annotated[
-    ListMortalityUseCase, Depends(get_list_mortality_use_case)
+UpdateBiometryUseCaseDep = Annotated[
+    UpdateBiometryUseCase, Depends(get_update_biometry_use_case)
 ]
 
-UpdateCageConfigUseCaseDep = Annotated[
-    UpdateCageConfigUseCase, Depends(get_update_cage_config_use_case)
+HarvestUseCaseDep = Annotated[HarvestUseCase, Depends(get_harvest_use_case)]
+
+AdjustPopulationUseCaseDep = Annotated[
+    AdjustPopulationUseCase, Depends(get_adjust_population_use_case)
 ]
 
-ListConfigChangesUseCaseDep = Annotated[
-    ListConfigChangesUseCase, Depends(get_list_config_changes_use_case)
+GetPopulationHistoryUseCaseDep = Annotated[
+    GetPopulationHistoryUseCase, Depends(get_population_history_use_case)
 ]
 
 
@@ -792,4 +872,179 @@ TurnDoserOnUseCaseDep = Annotated[
 
 TurnDoserOffUseCaseDep = Annotated[
     TurnDoserOffUseCase, Depends(get_turn_doser_off_use_case)
+]
+
+
+# ============================================================================
+# Dependencias de Repositorios - Alerts
+# ============================================================================
+
+
+async def get_alert_repo(
+    session: AsyncSession = Depends(get_session),
+) -> AlertRepository:
+    """Crea instancia del repositorio de alertas."""
+    return AlertRepository(session)
+
+
+async def get_scheduled_alert_repo(
+    session: AsyncSession = Depends(get_session),
+) -> ScheduledAlertRepository:
+    """Crea instancia del repositorio de alertas programadas."""
+    return ScheduledAlertRepository(session)
+
+
+# ============================================================================
+# Dependencias de Casos de Uso - Alerts
+# ============================================================================
+
+
+async def get_list_alerts_use_case(
+    alert_repo: AlertRepository = Depends(get_alert_repo),
+) -> ListAlertsUseCase:
+    """Crea instancia del caso de uso de listado de alertas."""
+    return ListAlertsUseCase(alert_repository=alert_repo)
+
+
+async def get_unread_count_use_case(
+    alert_repo: AlertRepository = Depends(get_alert_repo),
+) -> GetUnreadCountUseCase:
+    """Crea instancia del caso de uso de contador de alertas no leídas."""
+    return GetUnreadCountUseCase(alert_repository=alert_repo)
+
+
+async def get_update_alert_use_case(
+    alert_repo: AlertRepository = Depends(get_alert_repo),
+) -> UpdateAlertUseCase:
+    """Crea instancia del caso de uso de actualización de alerta."""
+    return UpdateAlertUseCase(alert_repository=alert_repo)
+
+
+async def get_mark_alert_read_use_case(
+    alert_repo: AlertRepository = Depends(get_alert_repo),
+) -> MarkAlertReadUseCase:
+    """Crea instancia del caso de uso de marcar alerta como leída."""
+    return MarkAlertReadUseCase(alert_repository=alert_repo)
+
+
+async def get_mark_all_alerts_read_use_case(
+    alert_repo: AlertRepository = Depends(get_alert_repo),
+) -> MarkAllAlertsReadUseCase:
+    """Crea instancia del caso de uso de marcar todas las alertas como leídas."""
+    return MarkAllAlertsReadUseCase(alert_repository=alert_repo)
+
+
+async def get_create_alert_use_case(
+    alert_repo: AlertRepository = Depends(get_alert_repo),
+) -> CreateAlertUseCase:
+    """Crea instancia del caso de uso de creación de alerta (interno)."""
+    return CreateAlertUseCase(alert_repository=alert_repo)
+
+
+# ============================================================================
+# Dependencias de Casos de Uso - Scheduled Alerts
+# ============================================================================
+
+
+async def get_list_scheduled_alerts_use_case(
+    scheduled_alert_repo: ScheduledAlertRepository = Depends(get_scheduled_alert_repo),
+) -> ListScheduledAlertsUseCase:
+    """Crea instancia del caso de uso de listado de alertas programadas."""
+    return ListScheduledAlertsUseCase(scheduled_alert_repository=scheduled_alert_repo)
+
+
+async def get_create_scheduled_alert_use_case(
+    scheduled_alert_repo: ScheduledAlertRepository = Depends(get_scheduled_alert_repo),
+) -> CreateScheduledAlertUseCase:
+    """Crea instancia del caso de uso de creación de alerta programada."""
+    return CreateScheduledAlertUseCase(scheduled_alert_repository=scheduled_alert_repo)
+
+
+async def get_update_scheduled_alert_use_case(
+    scheduled_alert_repo: ScheduledAlertRepository = Depends(get_scheduled_alert_repo),
+) -> UpdateScheduledAlertUseCase:
+    """Crea instancia del caso de uso de actualización de alerta programada."""
+    return UpdateScheduledAlertUseCase(scheduled_alert_repository=scheduled_alert_repo)
+
+
+async def get_delete_scheduled_alert_use_case(
+    scheduled_alert_repo: ScheduledAlertRepository = Depends(get_scheduled_alert_repo),
+) -> DeleteScheduledAlertUseCase:
+    """Crea instancia del caso de uso de eliminación de alerta programada."""
+    return DeleteScheduledAlertUseCase(scheduled_alert_repository=scheduled_alert_repo)
+
+
+async def get_toggle_scheduled_alert_use_case(
+    scheduled_alert_repo: ScheduledAlertRepository = Depends(get_scheduled_alert_repo),
+) -> ToggleScheduledAlertUseCase:
+    """Crea instancia del caso de uso de activación/desactivación de alerta programada."""
+    return ToggleScheduledAlertUseCase(scheduled_alert_repository=scheduled_alert_repo)
+
+
+# ============================================================================
+# Type Aliases para Endpoints - Alerts
+# ============================================================================
+
+ListAlertsUseCaseDep = Annotated[ListAlertsUseCase, Depends(get_list_alerts_use_case)]
+
+GetUnreadCountUseCaseDep = Annotated[
+    GetUnreadCountUseCase, Depends(get_unread_count_use_case)
+]
+
+UpdateAlertUseCaseDep = Annotated[
+    UpdateAlertUseCase, Depends(get_update_alert_use_case)
+]
+
+MarkAlertReadUseCaseDep = Annotated[
+    MarkAlertReadUseCase, Depends(get_mark_alert_read_use_case)
+]
+
+MarkAllAlertsReadUseCaseDep = Annotated[
+    MarkAllAlertsReadUseCase, Depends(get_mark_all_alerts_read_use_case)
+]
+
+CreateAlertUseCaseDep = Annotated[
+    CreateAlertUseCase, Depends(get_create_alert_use_case)
+]
+
+
+# ============================================================================
+# Type Aliases para Endpoints - Scheduled Alerts
+# ============================================================================
+
+ListScheduledAlertsUseCaseDep = Annotated[
+    ListScheduledAlertsUseCase, Depends(get_list_scheduled_alerts_use_case)
+]
+
+CreateScheduledAlertUseCaseDep = Annotated[
+    CreateScheduledAlertUseCase, Depends(get_create_scheduled_alert_use_case)
+]
+
+UpdateScheduledAlertUseCaseDep = Annotated[
+    UpdateScheduledAlertUseCase, Depends(get_update_scheduled_alert_use_case)
+]
+
+DeleteScheduledAlertUseCaseDep = Annotated[
+    DeleteScheduledAlertUseCase, Depends(get_delete_scheduled_alert_use_case)
+]
+
+ToggleScheduledAlertUseCaseDep = Annotated[
+    ToggleScheduledAlertUseCase, Depends(get_toggle_scheduled_alert_use_case)
+]
+
+
+# ============================================================================
+# Dependencias de Servicios - Alerts
+# ============================================================================
+
+
+async def get_alert_trigger_service(
+    alert_repo: AlertRepository = Depends(get_alert_repo),
+) -> AlertTriggerService:
+    """Crea instancia del servicio de triggers de alertas."""
+    return AlertTriggerService(alert_repository=alert_repo)
+
+
+AlertTriggerServiceDep = Annotated[
+    AlertTriggerService, Depends(get_alert_trigger_service)
 ]

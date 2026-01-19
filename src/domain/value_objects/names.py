@@ -115,3 +115,16 @@ class FoodName:
 
     def __str__(self) -> str:
         return self.value
+
+
+@dataclass(frozen=True)
+class CoolerName:
+    """Nombre de un cooler (enfriador de aire) con validación."""
+
+    value: str
+
+    def __post_init__(self):
+        validate_name_format(self.value, "El nombre del cooler")
+
+    def __str__(self) -> str:
+        return self.value

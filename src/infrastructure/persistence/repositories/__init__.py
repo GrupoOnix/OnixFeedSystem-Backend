@@ -1,15 +1,23 @@
 """Implementaciones de repositorios con SQLModel."""
 
+from .alert_repository import AlertRepository
 from .cage_repository import CageRepository
 from .feeding_line_repository import FeedingLineRepository
 from .feeding_operation_repository import FeedingOperationRepository
 from .food_repository import FoodRepository
+from .population_event_repository import PopulationEventRepository
+from .scheduled_alert_repository import ScheduledAlertRepository
 from .silo_repository import SiloRepository
+from .slot_assignment_repository import SlotAssignmentRepository
 
 __all__ = [
     "SiloRepository",
     "CageRepository",
+    "PopulationEventRepository",
+    "SlotAssignmentRepository",
     "FeedingLineRepository",
     "FeedingOperationRepository",
     "FoodRepository",
+    "AlertRepository",
+    "ScheduledAlertRepository",
 ]

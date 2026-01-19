@@ -1,7 +1,9 @@
 from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
+
 from sqlmodel import Field, Relationship, SQLModel
+
 from domain.aggregates.feeding_line.feeding_line import FeedingLine
 from domain.value_objects import LineId, LineName
 
@@ -29,10 +31,12 @@ class FeedingLineModel(SQLModel, table=True):
         back_populates="feeding_line",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
-    cages: List["CageModel"] = Relationship(
+    cooler: Optional["CoolerModel"] = Relationship(
         back_populates="feeding_line",
-        sa_relationship_kwargs={"cascade": "save-update"},
+        sa_relationship_kwargs={"uselist": False, "cascade": "all, delete-orphan"},
     )
+    # Nota: Las jaulas se relacionan a través de SlotAssignmentModel
+    # Ya no hay relación directa FeedingLine -> Cage
 
     feeding_sessions: List["FeedingSessionModel"] = Relationship(
         back_populates="feeding_line",
@@ -43,6 +47,7 @@ class FeedingLineModel(SQLModel, table=True):
     def from_domain(line: FeedingLine) -> "FeedingLineModel":
         """Convierte entidad de dominio a modelo de persistencia."""
         from .blower_model import BlowerModel
+        from .cooler_model import CoolerModel
         from .doser_model import DoserModel
         from .selector_model import SelectorModel
         from .sensor_model import SensorModel
@@ -69,6 +74,9 @@ class FeedingLineModel(SQLModel, table=True):
             SensorModel.from_domain(sensor, line.id.value) for sensor in line._sensors
         ]
 
+        if line._cooler:
+            line_model.cooler = CoolerModel.from_domain(line._cooler, line.id.value)
+
         # Nota: Las asignaciones de cages a líneas se gestionan desde CageModel
         # No se mapean aquí para evitar duplicación de responsabilidades
 
@@ -77,6 +85,7 @@ class FeedingLineModel(SQLModel, table=True):
     def to_domain(self) -> FeedingLine:
         """Convierte modelo de persistencia a entidad de dominio."""
         from domain.aggregates.feeding_line.blower import Blower
+        from domain.aggregates.feeding_line.cooler import Cooler
         from domain.aggregates.feeding_line.doser import Doser
         from domain.aggregates.feeding_line.selector import Selector
         from domain.aggregates.feeding_line.sensor import Sensor
@@ -90,6 +99,7 @@ class FeedingLineModel(SQLModel, table=True):
         dosers_domain = [doser.to_domain() for doser in self.dosers]
         selector_domain = self.selector.to_domain()
         sensors_domain = [sensor.to_domain() for sensor in self.sensors]
+        cooler_domain = self.cooler.to_domain() if self.cooler else None
 
         line = FeedingLine.create(
             name=LineName(self.name),
@@ -97,6 +107,7 @@ class FeedingLineModel(SQLModel, table=True):
             dosers=dosers_domain,
             selector=selector_domain,
             sensors=sensors_domain,
+            cooler=cooler_domain,
         )
 
         line._id = LineId(self.id)

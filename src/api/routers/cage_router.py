@@ -1,290 +1,343 @@
-"""Router para endpoints de gestión de jaulas."""
+"""Router para el módulo de jaulas."""
 
-from typing import Optional
-from fastapi import APIRouter, HTTPException, Query, status
+from typing import List, Optional
+
+from fastapi import APIRouter, HTTPException, Query
+from api.models.cage_models import (
+    AdjustPopulationRequestModel,
+    CageResponseModel,
+    CreateCageRequestModel,
+    HarvestRequestModel,
+    ListCagesResponseModel,
+    PopulationHistoryResponseModel,
+    RegisterMortalityRequestModel,
+    SetPopulationRequestModel,
+    UpdateBiometryRequestModel,
+    UpdateCageConfigRequestModel,
+    UpdateCageRequestModel,
+)
 
 from api.dependencies import (
+    AdjustPopulationUseCaseDep,
+    CreateCageUseCaseDep,
+    DeleteCageUseCaseDep,
+    GetCageUseCaseDep,
+    GetPopulationHistoryUseCaseDep,
+    HarvestUseCaseDep,
     ListCagesUseCaseDep,
-    RegisterBiometryUseCaseDep,
-    ListBiometryUseCaseDep,
     RegisterMortalityUseCaseDep,
-    ListMortalityUseCaseDep,
+    SetPopulationUseCaseDep,
+    UpdateBiometryUseCaseDep,
     UpdateCageConfigUseCaseDep,
-    ListConfigChangesUseCaseDep
+    UpdateCageUseCaseDep,
 )
-from application.dtos.cage_dtos import ListCagesRequest, ListCagesResponse
-from application.dtos.biometry_dtos import RegisterBiometryRequest, PaginatedBiometryResponse
-from application.dtos.mortality_dtos import RegisterMortalityRequest, PaginatedMortalityResponse
-from application.dtos.config_dtos import UpdateCageConfigRequest, PaginatedConfigChangesResponse
-from domain.exceptions import DomainException
-
+from application.dtos.cage_dtos import (
+    AdjustPopulationRequest,
+    CreateCageRequest,
+    HarvestRequest,
+    RegisterMortalityRequest,
+    SetPopulationRequest,
+    UpdateBiometryRequest,
+    UpdateCageConfigRequest,
+    UpdateCageRequest,
+)
 
 router = APIRouter(prefix="/cages", tags=["Cages"])
 
 
-@router.get("", response_model=ListCagesResponse)
+# =============================================================================
+# CRUD ENDPOINTS
+# =============================================================================
+
+
+@router.post("", response_model=CageResponseModel, status_code=201)
+async def create_cage(
+    request: CreateCageRequestModel,
+    use_case: CreateCageUseCaseDep,
+) -> CageResponseModel:
+    """
+    Crea una nueva jaula.
+
+    - **name**: Nombre único de la jaula
+    - **fcr**: Feed Conversion Ratio (opcional, 0.5-3.0)
+    - **volume_m3**: Volumen en metros cúbicos (opcional)
+    - **max_density_kg_m3**: Densidad máxima en kg/m³ (opcional)
+    - **transport_time_seconds**: Tiempo de transporte en segundos (opcional)
+    """
+    try:
+        dto = CreateCageRequest(
+            name=request.name,
+            fcr=request.fcr,
+            volume_m3=request.volume_m3,
+            max_density_kg_m3=request.max_density_kg_m3,
+            transport_time_seconds=request.transport_time_seconds,
+        )
+        result = await use_case.execute(dto)
+        return CageResponseModel.from_dto(result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("", response_model=ListCagesResponseModel)
 async def list_cages(
     use_case: ListCagesUseCaseDep,
-    line_id: Optional[str] = Query(None, description="Filtrar por ID de línea de alimentación")
-) -> ListCagesResponse:
-    """
-    Lista todas las jaulas del sistema con filtros opcionales.
-    
-    - **line_id**: (Opcional) Filtrar jaulas por línea de alimentación
-    """
-    try:
-        request = ListCagesRequest(line_id=line_id)
-        return await use_case.execute(request)
-        
-    except DomainException as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error interno del servidor: {str(e)}"
-        )
+) -> ListCagesResponseModel:
+    """Lista todas las jaulas."""
+    result = await use_case.execute()
+    return ListCagesResponseModel.from_dto(result)
 
 
-@router.post("/{cage_id}/biometry", status_code=status.HTTP_200_OK)
-async def register_biometry(
+@router.get("/{cage_id}", response_model=CageResponseModel)
+async def get_cage(
     cage_id: str,
-    request: RegisterBiometryRequest,
-    use_case: RegisterBiometryUseCaseDep
-) -> dict:
-    """
-    Registra un muestreo de biometría y actualiza los datos de la jaula.
-    
-    - **cage_id**: ID de la jaula
-    - **fish_count**: Cantidad actual de peces
-    - **average_weight_g**: Peso promedio en gramos
-    - **sampling_date**: Fecha del muestreo
-    - **note**: (Opcional) Nota descriptiva
-    """
+    use_case: GetCageUseCaseDep,
+) -> CageResponseModel:
+    """Obtiene una jaula por su ID."""
     try:
-        await use_case.execute(cage_id, request)
-        return {"message": "Biometría registrada exitosamente"}
-        
+        result = await use_case.execute(cage_id)
+        return CageResponseModel.from_dto(result)
     except ValueError as e:
-        # Error de validación: jaula no existe, datos inválidos, etc.
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-        
-    except DomainException as e:
-        # Otros errores de dominio
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error de dominio: {str(e)}"
-        )
-        
-    except Exception as e:
-        # Error inesperado
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error interno del servidor: {str(e)}"
-        )
+        raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.get("/{cage_id}/biometry", response_model=PaginatedBiometryResponse)
-async def list_biometry(
+@router.patch("/{cage_id}", response_model=CageResponseModel)
+async def update_cage(
     cage_id: str,
-    use_case: ListBiometryUseCaseDep,
-    limit: int = Query(50, ge=1, le=100, description="Cantidad máxima de registros"),
-    offset: int = Query(0, ge=0, description="Cantidad de registros a saltar")
-) -> PaginatedBiometryResponse:
+    request: UpdateCageRequestModel,
+    use_case: UpdateCageUseCaseDep,
+) -> CageResponseModel:
     """
-    Lista los registros de biometría de una jaula con paginación.
-    
-    - **cage_id**: ID de la jaula
-    - **limit**: (Opcional) Cantidad máxima de registros (default: 50, max: 100)
-    - **offset**: (Opcional) Cantidad de registros a saltar (default: 0)
+    Actualiza nombre y/o estado de una jaula.
+
+    - **name**: Nuevo nombre (opcional)
+    - **status**: Nuevo estado: AVAILABLE, IN_USE, MAINTENANCE (opcional)
     """
     try:
-        return await use_case.execute(cage_id, limit, offset)
-        
+        dto = UpdateCageRequest(
+            name=request.name,
+            status=request.status,
+        )
+        result = await use_case.execute(cage_id, dto)
+        return CageResponseModel.from_dto(result)
     except ValueError as e:
-        # Error de validación: jaula no existe, etc.
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-        
-    except DomainException as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error interno del servidor: {str(e)}"
-        )
+        raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/{cage_id}/mortality", status_code=status.HTTP_200_OK)
-async def register_mortality(
+@router.delete("/{cage_id}", status_code=204)
+async def delete_cage(
     cage_id: str,
-    request: RegisterMortalityRequest,
-    use_case: RegisterMortalityUseCaseDep
-) -> dict:
-    """
-    Registra un evento de mortalidad en una jaula.
-    
-    IMPORTANTE: Este endpoint NO modifica el current_fish_count de la jaula.
-    Solo crea un registro en el log para auditoría y estadísticas.
-    
-    - **cage_id**: ID de la jaula
-    - **dead_fish_count**: Cantidad de peces muertos
-    - **mortality_date**: Fecha del evento de mortalidad
-    - **note**: (Opcional) Nota descriptiva
-    """
+    use_case: DeleteCageUseCaseDep,
+) -> None:
+    """Elimina una jaula."""
     try:
-        await use_case.execute(cage_id, request)
-        return {"message": "Mortalidad registrada exitosamente"}
-        
+        await use_case.execute(cage_id)
     except ValueError as e:
-        # Error de validación: jaula no existe, datos inválidos, etc.
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-        
-    except DomainException as e:
-        # Otros errores de dominio
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error de dominio: {str(e)}"
-        )
-        
-    except Exception as e:
-        # Error inesperado
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error interno del servidor: {str(e)}"
-        )
+        raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.get("/{cage_id}/mortality", response_model=PaginatedMortalityResponse)
-async def list_mortality(
-    cage_id: str,
-    use_case: ListMortalityUseCaseDep,
-    limit: int = Query(50, ge=1, le=100, description="Cantidad máxima de registros"),
-    offset: int = Query(0, ge=0, description="Cantidad de registros a saltar")
-) -> PaginatedMortalityResponse:
-    """
-    Lista los registros de mortalidad de una jaula con paginación.
-    
-    - **cage_id**: ID de la jaula
-    - **limit**: (Opcional) Cantidad máxima de registros (default: 50, max: 100)
-    - **offset**: (Opcional) Cantidad de registros a saltar (default: 0)
-    """
-    try:
-        return await use_case.execute(cage_id, limit, offset)
-        
-    except ValueError as e:
-        # Error de validación: jaula no existe, etc.
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-        
-    except DomainException as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error interno del servidor: {str(e)}"
-        )
+# =============================================================================
+# CONFIGURATION ENDPOINTS
+# =============================================================================
 
 
-@router.patch("/{cage_id}/config", status_code=status.HTTP_200_OK)
+@router.patch("/{cage_id}/config", response_model=CageResponseModel)
 async def update_cage_config(
     cage_id: str,
-    request: UpdateCageConfigRequest,
-    use_case: UpdateCageConfigUseCaseDep
-) -> dict:
+    request: UpdateCageConfigRequestModel,
+    use_case: UpdateCageConfigUseCaseDep,
+) -> CageResponseModel:
     """
-    Actualiza la configuración de una jaula y registra los cambios.
-    
-    Solo crea logs para campos que realmente cambian (OLD != NEW).
-    Todos los campos son opcionales.
-    
-    - **cage_id**: ID de la jaula
-    - **fcr**: (Opcional) Factor de conversión alimenticia
-    - **volume_m3**: (Opcional) Volumen total en metros cúbicos
-    - **max_density_kg_m3**: (Opcional) Densidad máxima en kg/m³
-    - **feeding_table_id**: (Opcional) ID de la tabla de alimentación
-    - **transport_time_seconds**: (Opcional) Tiempo de transporte en segundos
-    - **change_reason**: (Opcional) Razón del cambio
+    Actualiza la configuración de una jaula.
+
+    Solo actualiza los campos proporcionados, manteniendo los demás.
+
+    - **fcr**: Feed Conversion Ratio (0.5-3.0)
+    - **volume_m3**: Volumen en metros cúbicos
+    - **max_density_kg_m3**: Densidad máxima en kg/m³
+    - **transport_time_seconds**: Tiempo de transporte en segundos
     """
     try:
-        await use_case.execute(cage_id, request)
-        return {"message": "Configuración actualizada exitosamente"}
-        
+        dto = UpdateCageConfigRequest(
+            fcr=request.fcr,
+            volume_m3=request.volume_m3,
+            max_density_kg_m3=request.max_density_kg_m3,
+            transport_time_seconds=request.transport_time_seconds,
+        )
+        result = await use_case.execute(cage_id, dto)
+        return CageResponseModel.from_dto(result)
     except ValueError as e:
-        # Error de validación: jaula no existe, datos inválidos, etc.
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-        
-    except DomainException as e:
-        # Otros errores de dominio
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error de dominio: {str(e)}"
-        )
-        
-    except Exception as e:
-        # Error inesperado
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error interno del servidor: {str(e)}"
-        )
+        raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/{cage_id}/config-changes", response_model=PaginatedConfigChangesResponse)
-async def list_config_changes(
+# =============================================================================
+# POPULATION ENDPOINTS
+# =============================================================================
+
+
+@router.put("/{cage_id}/population", response_model=CageResponseModel)
+async def set_population(
     cage_id: str,
-    use_case: ListConfigChangesUseCaseDep,
-    limit: int = Query(50, ge=1, le=100, description="Cantidad máxima de registros"),
-    offset: int = Query(0, ge=0, description="Cantidad de registros a saltar")
-) -> PaginatedConfigChangesResponse:
+    request: SetPopulationRequestModel,
+    use_case: SetPopulationUseCaseDep,
+) -> CageResponseModel:
     """
-    Lista los cambios de configuración de una jaula con paginación.
-    
-    - **cage_id**: ID de la jaula
-    - **limit**: (Opcional) Cantidad máxima de registros (default: 50, max: 100)
-    - **offset**: (Opcional) Cantidad de registros a saltar (default: 0)
+    Establece la población inicial de una jaula (siembra).
+
+    - **fish_count**: Cantidad de peces
+    - **avg_weight_grams**: Peso promedio en gramos
+    - **event_date**: Fecha del evento
+    - **note**: Nota opcional
     """
     try:
-        return await use_case.execute(cage_id, limit, offset)
-        
+        dto = SetPopulationRequest(
+            fish_count=request.fish_count,
+            avg_weight_grams=request.avg_weight_grams,
+            event_date=request.event_date,
+            note=request.note,
+        )
+        result = await use_case.execute(cage_id, dto)
+        return CageResponseModel.from_dto(result)
     except ValueError as e:
-        # Error de validación: jaula no existe, etc.
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{cage_id}/mortality", response_model=CageResponseModel)
+async def register_mortality(
+    cage_id: str,
+    request: RegisterMortalityRequestModel,
+    use_case: RegisterMortalityUseCaseDep,
+) -> CageResponseModel:
+    """
+    Registra mortalidad y resta los peces del total.
+
+    - **dead_count**: Cantidad de peces muertos
+    - **event_date**: Fecha del evento
+    - **note**: Nota opcional
+    """
+    try:
+        dto = RegisterMortalityRequest(
+            dead_count=request.dead_count,
+            event_date=request.event_date,
+            note=request.note,
         )
-        
-    except DomainException as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+        result = await use_case.execute(cage_id, dto)
+        return CageResponseModel.from_dto(result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.patch("/{cage_id}/biometry", response_model=CageResponseModel)
+async def update_biometry(
+    cage_id: str,
+    request: UpdateBiometryRequestModel,
+    use_case: UpdateBiometryUseCaseDep,
+) -> CageResponseModel:
+    """
+    Actualiza el peso promedio de los peces (biometría).
+
+    - **avg_weight_grams**: Nuevo peso promedio en gramos
+    - **event_date**: Fecha del muestreo
+    - **note**: Nota opcional
+    """
+    try:
+        dto = UpdateBiometryRequest(
+            avg_weight_grams=request.avg_weight_grams,
+            event_date=request.event_date,
+            note=request.note,
         )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error interno del servidor: {str(e)}"
+        result = await use_case.execute(cage_id, dto)
+        return CageResponseModel.from_dto(result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{cage_id}/harvest", response_model=CageResponseModel)
+async def harvest(
+    cage_id: str,
+    request: HarvestRequestModel,
+    use_case: HarvestUseCaseDep,
+) -> CageResponseModel:
+    """
+    Registra una cosecha (extracción de peces).
+
+    - **count**: Cantidad de peces cosechados
+    - **event_date**: Fecha de la cosecha
+    - **note**: Nota opcional
+    """
+    try:
+        dto = HarvestRequest(
+            count=request.count,
+            event_date=request.event_date,
+            note=request.note,
         )
+        result = await use_case.execute(cage_id, dto)
+        return CageResponseModel.from_dto(result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{cage_id}/adjust", response_model=CageResponseModel)
+async def adjust_population(
+    cage_id: str,
+    request: AdjustPopulationRequestModel,
+    use_case: AdjustPopulationUseCaseDep,
+) -> CageResponseModel:
+    """
+    Ajusta manualmente la población (corrección de inventario).
+
+    Útil para reconciliar diferencias entre el sistema y conteos físicos.
+
+    - **new_fish_count**: Nueva cantidad total de peces
+    - **event_date**: Fecha del ajuste
+    - **note**: Nota explicativa (recomendado)
+    """
+    try:
+        dto = AdjustPopulationRequest(
+            new_fish_count=request.new_fish_count,
+            event_date=request.event_date,
+            note=request.note,
+        )
+        result = await use_case.execute(cage_id, dto)
+        return CageResponseModel.from_dto(result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# =============================================================================
+# HISTORY ENDPOINTS
+# =============================================================================
+
+
+@router.get("/{cage_id}/history", response_model=PopulationHistoryResponseModel)
+async def get_population_history(
+    cage_id: str,
+    use_case: GetPopulationHistoryUseCaseDep,
+    event_types: Optional[List[str]] = Query(
+        None, description="Filtrar por tipos de evento"
+    ),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+) -> PopulationHistoryResponseModel:
+    """
+    Obtiene el historial de eventos de población.
+
+    Tipos de evento disponibles:
+    - INITIAL_STOCK: Siembra inicial
+    - RESTOCK: Resiembra
+    - MORTALITY: Mortalidad
+    - HARVEST: Cosecha
+    - TRANSFER_IN: Transferencia entrante
+    - TRANSFER_OUT: Transferencia saliente
+    - BIOMETRY: Actualización de peso
+    - ADJUSTMENT: Ajuste de inventario
+    """
+    try:
+        result = await use_case.execute(
+            cage_id=cage_id,
+            event_types=event_types,
+            limit=limit,
+            offset=offset,
+        )
+        return PopulationHistoryResponseModel.from_dto(result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

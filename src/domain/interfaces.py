@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from domain.dtos import (
     BlowerCommand,
@@ -18,6 +18,9 @@ from .value_objects import (
     BlowerId,
     BlowerName,
     BlowerPowerPercentage,
+    CoolerId,
+    CoolerName,
+    CoolerPowerPercentage,
     DoserId,
     DoserName,
     DosingRange,
@@ -122,6 +125,26 @@ class IDoser(ABC):
     @abstractmethod
     def current_rate(self, new_rate: DosingRate) -> None: ...
 
+    @property
+    @abstractmethod
+    def is_on(self) -> bool: ...
+
+    @abstractmethod
+    def turn_on(self) -> None:
+        """
+        Enciende el doser.
+        Valida que current_rate esté dentro del rango permitido.
+        """
+        ...
+
+    @abstractmethod
+    def stop(self) -> None:
+        """
+        Apaga el doser.
+        El current_rate se mantiene guardado.
+        """
+        ...
+
     # -----------------
     # Métodos de Comportamiento (Reglas de Negocio)
     # -----------------
@@ -180,7 +203,11 @@ class ISelector(ABC):
 
 class ISensor(ABC):
     """
-    Interfaz de dominio para un sensor
+    Interfaz de dominio para un sensor.
+
+    Los sensores monitorean condiciones físicas en la línea de alimentación
+    (temperatura, presión, flujo). Pueden ser habilitados/deshabilitados
+    y tener umbrales configurables para alertas.
     """
 
     @property
@@ -191,9 +218,105 @@ class ISensor(ABC):
     @abstractmethod
     def name(self) -> SensorName: ...
 
+    @name.setter
+    @abstractmethod
+    def name(self, name: SensorName) -> None: ...
+
     @property
     @abstractmethod
     def sensor_type(self) -> "SensorType": ...
+
+    @property
+    @abstractmethod
+    def is_enabled(self) -> bool: ...
+
+    @property
+    @abstractmethod
+    def warning_threshold(self) -> Optional[float]: ...
+
+    @warning_threshold.setter
+    @abstractmethod
+    def warning_threshold(self, value: Optional[float]) -> None: ...
+
+    @property
+    @abstractmethod
+    def critical_threshold(self) -> Optional[float]: ...
+
+    @critical_threshold.setter
+    @abstractmethod
+    def critical_threshold(self, value: Optional[float]) -> None: ...
+
+    @abstractmethod
+    def enable(self) -> None:
+        """Habilita el sensor para lecturas."""
+        ...
+
+    @abstractmethod
+    def disable(self) -> None:
+        """Deshabilita el sensor (no se incluirá en lecturas)."""
+        ...
+
+
+class ICooler(ABC):
+    """
+    Interfaz de dominio para un Cooler (enfriador de aire).
+
+    El cooler se ubica entre el Blower y el Doser, enfriando el aire
+    para evitar que el calor dañe la calidad del alimento.
+    """
+
+    @property
+    @abstractmethod
+    def id(self) -> CoolerId: ...
+
+    @property
+    @abstractmethod
+    def name(self) -> CoolerName: ...
+
+    @name.setter
+    @abstractmethod
+    def name(self, name: CoolerName) -> None: ...
+
+    @property
+    @abstractmethod
+    def is_on(self) -> bool: ...
+
+    @is_on.setter
+    @abstractmethod
+    def is_on(self, value: bool) -> None: ...
+
+    @property
+    @abstractmethod
+    def cooling_power_percentage(self) -> CoolerPowerPercentage: ...
+
+    @cooling_power_percentage.setter
+    @abstractmethod
+    def cooling_power_percentage(self, power: CoolerPowerPercentage) -> None: ...
+
+    @property
+    @abstractmethod
+    def created_at(self) -> datetime: ...
+
+    # -----------------
+    # Métodos de Comportamiento (Reglas de Negocio)
+    # -----------------
+
+    @abstractmethod
+    def turn_on(self) -> None:
+        """Enciende el cooler."""
+        ...
+
+    @abstractmethod
+    def turn_off(self) -> None:
+        """Apaga el cooler."""
+        ...
+
+    @abstractmethod
+    def validate_power_is_safe(self, power: CoolerPowerPercentage) -> bool:
+        """
+        Valida que la potencia de enfriamiento sea segura.
+        """
+        ...
 
 
 class IFeedingMachine(ABC):

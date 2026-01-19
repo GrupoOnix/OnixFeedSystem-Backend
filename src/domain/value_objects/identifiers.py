@@ -233,3 +233,67 @@ class FoodId:
 
     def __str__(self) -> str:
         return str(self.value)
+
+
+# ============================================================================
+# Identificadores de Alertas
+# ============================================================================
+
+
+@dataclass(frozen=True)
+class AlertId:
+    """Identificador único para una alerta."""
+
+    value: UUID
+
+    @classmethod
+    def generate(cls) -> AlertId:
+        return cls(uuid4())
+
+    @classmethod
+    def from_string(cls, id_str: str) -> AlertId:
+        return cls(UUID(id_str))
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
+@dataclass(frozen=True)
+class ScheduledAlertId:
+    """Identificador único para una alerta programada."""
+
+    value: UUID
+
+    @classmethod
+    def generate(cls) -> ScheduledAlertId:
+        return cls(uuid4())
+
+    @classmethod
+    def from_string(cls, id_str: str) -> ScheduledAlertId:
+        return cls(UUID(id_str))
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
+# ============================================================================
+# Identificadores de Componentes de Línea
+# ============================================================================
+
+
+@dataclass(frozen=True)
+class CoolerId:
+    """Identificador único para un cooler (enfriador de aire)."""
+
+    value: UUID
+
+    @classmethod
+    def generate(cls) -> CoolerId:
+        return cls(uuid4())
+
+    @classmethod
+    def from_string(cls, id_str: str) -> CoolerId:
+        return cls(UUID(id_str))
+
+    def __str__(self) -> str:
+        return str(self.value)

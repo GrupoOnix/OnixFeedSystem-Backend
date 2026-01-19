@@ -29,6 +29,7 @@ class DoserModel(SQLModel, table=True):
     min_rate_value: float
     max_rate_value: float
     rate_unit: str
+    is_on: bool = Field(default=True)
 
     feeding_line: "FeedingLineModel" = Relationship(back_populates="dosers")
 
@@ -46,6 +47,7 @@ class DoserModel(SQLModel, table=True):
             min_rate_value=doser.dosing_range.min_rate,
             max_rate_value=doser.dosing_range.max_rate,
             rate_unit=doser.dosing_range.unit,
+            is_on=doser.is_on,
         )
 
     def to_domain(self) -> "Doser":
@@ -68,6 +70,8 @@ class DoserModel(SQLModel, table=True):
             current_rate=DosingRate(
                 value=self.dosing_rate_value, unit=self.dosing_rate_unit
             ),
+            is_on=self.is_on,
+            _skip_validation=True,  # Permitir cargar dosers con rate=0 desde DB
         )
         doser._id = DoserId(self.id)
         return doser

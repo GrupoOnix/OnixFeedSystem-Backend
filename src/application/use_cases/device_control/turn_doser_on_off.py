@@ -4,12 +4,11 @@ from uuid import UUID
 
 from domain.dtos import DoserCommand
 from domain.interfaces import IFeedingMachine
-from domain.value_objects import DosingRate
 from infrastructure.persistence.repositories.doser_repository import DoserRepository
 
 
 class TurnDoserOnUseCase:
-    """Enciende el doser a su tasa mínima configurada."""
+    """Enciende el doser usando su tasa configurada."""
 
     def __init__(
         self,
@@ -21,13 +20,13 @@ class TurnDoserOnUseCase:
 
     async def execute(self, doser_id: str) -> None:
         """
-        Enciende el doser a su tasa mínima del rango.
+        Enciende el doser a su tasa configurada.
 
         Args:
             doser_id: ID del doser
 
         Raises:
-            ValueError: Si el doser no existe
+            ValueError: Si el doser no existe o no tiene un rate válido configurado
         """
         doser_uuid = UUID(doser_id)
         result = await self._doser_repo.find_by_id_with_context(doser_uuid)
@@ -37,11 +36,10 @@ class TurnDoserOnUseCase:
 
         doser = result.doser
 
-        # Encender a la tasa mínima del rango
-        min_rate = DosingRate(doser.dosing_range.min_rate)
-        doser.current_rate = min_rate
+        # Encender el doser (valida que current_rate esté en rango)
+        doser.turn_on()
 
-        # Calcular porcentaje para el PLC
+        # Calcular porcentaje para el PLC basado en el rate configurado
         rate_percentage = self._calculate_rate_percentage(doser)
 
         # Crear comando con contexto completo
@@ -77,7 +75,7 @@ class TurnDoserOnUseCase:
 
 
 class TurnDoserOffUseCase:
-    """Apaga el doser (tasa a 0)."""
+    """Apaga el doser manteniendo su configuración de rate."""
 
     def __init__(
         self,
@@ -89,7 +87,10 @@ class TurnDoserOffUseCase:
 
     async def execute(self, doser_id: str) -> None:
         """
-        Apaga el doser (tasa a 0).
+        Apaga el doser.
+        
+        El current_rate configurado se mantiene guardado para cuando
+        se vuelva a encender.
 
         Args:
             doser_id: ID del doser
@@ -105,10 +106,10 @@ class TurnDoserOffUseCase:
 
         doser = result.doser
 
-        # Apagar (tasa a 0)
-        doser.current_rate = DosingRate(0.0)
+        # Apagar el doser (mantiene current_rate guardado)
+        doser.stop()
 
-        # Crear comando con contexto completo
+        # Crear comando con rate 0% para el PLC
         command = DoserCommand(
             doser_id=str(doser_uuid),
             doser_name=str(doser.name),

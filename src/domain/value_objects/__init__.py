@@ -14,27 +14,34 @@ from .aquaculture import (
     FishCount,
 )
 
-# Log Entries
+# Log Entries (legacy - kept for backward compatibility)
 from .biometry_log_entry import BiometryLogEntry
+
+# Cage Configuration
+from .cage_configuration import CageConfiguration
 from .config_change_log_entry import ConfigChangeLogEntry
 
 # Feeding Specs
 from .feeding_specs import (
     BlowDurationInSeconds,
     BlowerPowerPercentage,
+    CoolerPowerPercentage,
     DosingRange,
     DosingRate,
     SelectorCapacity,
     SelectorSpeedProfile,
 )
 from .identifiers import (
+    AlertId,
     BlowerId,
     CageId,
+    CoolerId,
     DoserId,
     FeedingTableId,
     FoodId,
     LineId,
     OperationId,
+    ScheduledAlertId,
     SelectorId,
     SensorId,
     SessionId,
@@ -53,6 +60,7 @@ from .mortality_log_entry import MortalityLogEntry
 from .names import (
     BlowerName,
     CageName,
+    CoolerName,
     DoserName,
     FoodName,
     LineName,
@@ -67,6 +75,7 @@ __all__ = [
     "CageId",
     "SiloId",
     "BlowerId",
+    "CoolerId",
     "DoserId",
     "SelectorId",
     "SensorId",
@@ -74,11 +83,14 @@ __all__ = [
     "SessionId",
     "OperationId",
     "FoodId",
+    "AlertId",
+    "ScheduledAlertId",
     # Names
     "LineName",
     "CageName",
     "SiloName",
     "BlowerName",
+    "CoolerName",
     "DoserName",
     "SelectorName",
     "SensorName",
@@ -90,6 +102,7 @@ __all__ = [
     # Feeding Specs
     "BlowerPowerPercentage",
     "BlowDurationInSeconds",
+    "CoolerPowerPercentage",
     "DosingRate",
     "DosingRange",
     "SelectorCapacity",
@@ -97,7 +110,9 @@ __all__ = [
     # Aquaculture
     "FishCount",
     "FCR",
-    # Log Entries
+    # Cage Configuration
+    "CageConfiguration",
+    # Log Entries (legacy)
     "BiometryLogEntry",
     "MortalityLogEntry",
     "ConfigChangeLogEntry",

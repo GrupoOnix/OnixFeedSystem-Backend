@@ -1,7 +1,7 @@
-"""
-Entidades del dominio de Feeding System.
-"""
+"""Domain entities."""
 
-from .feeding_operation import FeedingOperation, OperationEvent
+from domain.entities.feeding_operation import FeedingOperation
+from domain.entities.population_event import PopulationEvent
+from domain.entities.slot_assignment import SlotAssignment
 
-__all__ = ["FeedingOperation", "OperationEvent"]
+__all__ = ["FeedingOperation", "PopulationEvent", "SlotAssignment"]

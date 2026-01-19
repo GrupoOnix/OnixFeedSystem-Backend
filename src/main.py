@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -7,11 +8,14 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from api.routers import api_router
+from infrastructure.services.background_tasks import lifespan_with_scheduler
 
 app = FastAPI(
     title="Feeding System API",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan_with_scheduler,
 )
 
 # CORS - TODO: Restringir origins en producción
@@ -29,7 +33,7 @@ app.include_router(api_router)
 @app.get("/", tags=["Health"])
 async def root():
     return {
-        "status": "ok",
+        "version": "1.0.0",
         "message": "Feeding System API is running",
         "version": "1.0.0"
     }
@@ -38,4 +42,3 @@ async def root():
 @app.get("/health", tags=["Health"])
 async def health_check():
     return {"status": "healthy"}
-

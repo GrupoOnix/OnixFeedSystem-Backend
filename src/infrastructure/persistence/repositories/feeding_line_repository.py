@@ -25,6 +25,7 @@ class FeedingLineRepository(IFeedingLineRepository):
             .where(FeedingLineModel.id == line_id.value)
             .options(
                 selectinload(FeedingLineModel.blower),
+                selectinload(FeedingLineModel.cooler),
                 selectinload(FeedingLineModel.dosers),
                 selectinload(FeedingLineModel.selector),
                 selectinload(FeedingLineModel.sensors),
@@ -41,6 +42,7 @@ class FeedingLineRepository(IFeedingLineRepository):
             .where(FeedingLineModel.name == str(name))
             .options(
                 selectinload(FeedingLineModel.blower),
+                selectinload(FeedingLineModel.cooler),
                 selectinload(FeedingLineModel.dosers),
                 selectinload(FeedingLineModel.selector),
                 selectinload(FeedingLineModel.sensors),
@@ -54,6 +56,7 @@ class FeedingLineRepository(IFeedingLineRepository):
     async def get_all(self) -> List[FeedingLine]:
         stmt = select(FeedingLineModel).options(
             selectinload(FeedingLineModel.blower),
+            selectinload(FeedingLineModel.cooler),
             selectinload(FeedingLineModel.dosers),
             selectinload(FeedingLineModel.selector),
             selectinload(FeedingLineModel.sensors),
