@@ -1,22 +1,28 @@
 """Router para endpoints del sistema de alertas."""
 
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, status
 
 from api.dependencies import (
     CreateScheduledAlertUseCaseDep,
     DeleteScheduledAlertUseCaseDep,
+    GetAlertCountsUseCaseDep,
+    GetSnoozedCountUseCaseDep,
     GetUnreadCountUseCaseDep,
     ListAlertsUseCaseDep,
     ListScheduledAlertsUseCaseDep,
+    ListSnoozedAlertsUseCaseDep,
     MarkAlertReadUseCaseDep,
     MarkAllAlertsReadUseCaseDep,
+    SnoozeAlertUseCaseDep,
     ToggleScheduledAlertUseCaseDep,
+    UnsnoozeAlertUseCaseDep,
     UpdateAlertUseCaseDep,
     UpdateScheduledAlertUseCaseDep,
 )
 from application.dtos.alert_dtos import (
+    AlertCountsResponse,
     AlertDTO,
     CreateScheduledAlertRequest,
     ListAlertsRequest,
@@ -24,6 +30,8 @@ from application.dtos.alert_dtos import (
     ListScheduledAlertsResponse,
     MarkAllReadResponse,
     ScheduledAlertDTO,
+    SnoozeAlertRequest,
+    SnoozedCountResponse,
     ToggleScheduledAlertResponse,
     UnreadCountResponse,
     UpdateAlertRequest,
@@ -67,7 +75,8 @@ async def list_alerts(
 
     - **status**: Filtrar por estado (UNREAD, READ, RESOLVED, ARCHIVED)
     - **type**: Filtrar por tipo (CRITICAL, WARNING, INFO, SUCCESS)
-    - **category**: Filtrar por categoría (SYSTEM, DEVICE, FEEDING, INVENTORY, MAINTENANCE, CONNECTION)
+    - **category**: Filtrar por categoría (SYSTEM, DEVICE, FEEDING,
+      INVENTORY, MAINTENANCE, CONNECTION)
     - **search**: Buscar en título, mensaje y origen
     - **limit**: Cantidad máxima de resultados (default: 50)
     - **offset**: Desplazamiento para paginación
@@ -158,6 +167,122 @@ async def mark_alert_read(alert_id: str, use_case: MarkAlertReadUseCaseDep) -> d
         )
 
 
+@router.post("/{alert_id}/snooze", status_code=status.HTTP_200_OK)
+async def snooze_alert(
+    alert_id: str, request: SnoozeAlertRequest, use_case: SnoozeAlertUseCaseDep
+) -> dict:
+    """
+    Silencia una alerta temporalmente.
+
+    - **alert_id**: ID de la alerta a silenciar
+    - **duration_days**: Duración del silenciamiento (1 o 7 días)
+    """
+    try:
+        await use_case.execute(alert_id, request.duration_days)
+        return {
+            "message": f"Alerta silenciada por {request.duration_days} día(s)",
+            "duration_days": request.duration_days,
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}",
+        )
+
+
+@router.delete("/{alert_id}/snooze", status_code=status.HTTP_200_OK)
+async def unsnooze_alert(alert_id: str, use_case: UnsnoozeAlertUseCaseDep) -> dict:
+    """
+    Remueve el silenciamiento de una alerta (unsnooze).
+
+    - **alert_id**: ID de la alerta a reactivar
+
+    Este endpoint es idempotente: puede ser llamado múltiples veces
+    sin efectos secundarios.
+    """
+    try:
+        await use_case.execute(alert_id)
+        return {
+            "message": "Alert successfully unsnoozed",
+            "alert_id": alert_id,
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}",
+        )
+
+
+@router.get("/snoozed", response_model=ListAlertsResponse)
+async def list_snoozed_alerts(
+    use_case: ListSnoozedAlertsUseCaseDep,
+    limit: int = Query(50, ge=1, le=100, description="Cantidad máxima de resultados"),
+    offset: int = Query(0, ge=0, description="Desplazamiento para paginación"),
+) -> ListAlertsResponse:
+    """
+    Lista todas las alertas actualmente silenciadas.
+
+    - **limit**: Cantidad máxima de resultados (default: 50, max: 100)
+    - **offset**: Desplazamiento para paginación
+
+    Retorna alertas ordenadas por snoozed_until ascendente (las que expiran primero).
+    """
+    try:
+        return await use_case.execute(limit=limit, offset=offset)
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}",
+        )
+
+
+@router.get("/snoozed/count", response_model=SnoozedCountResponse)
+async def get_snoozed_count(
+    use_case: GetSnoozedCountUseCaseDep,
+) -> SnoozedCountResponse:
+    """
+    Obtiene el contador de alertas actualmente silenciadas.
+
+    Útil para mostrar el badge en la UI de alertas silenciadas.
+    """
+    try:
+        return await use_case.execute()
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}",
+        )
+
+
+@router.get("/counts", response_model=AlertCountsResponse)
+async def get_alert_counts(use_case: GetAlertCountsUseCaseDep) -> AlertCountsResponse:
+    """
+    Obtiene contadores de alertas activas por tipo.
+
+    Excluye alertas resueltas y alertas silenciadas.
+
+    Retorna contadores para: CRITICAL, WARNING, INFO, SUCCESS
+    """
+    try:
+        return await use_case.execute()
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}",
+        )
+
+
 @router.patch("/read-all", response_model=MarkAllReadResponse)
 async def mark_all_read(use_case: MarkAllAlertsReadUseCaseDep) -> MarkAllReadResponse:
     """
@@ -217,7 +342,8 @@ async def create_scheduled_alert(
     - **days_before_warning**: Días de anticipación (default: 0)
     - **device_id**: ID del dispositivo relacionado (opcional)
     - **device_name**: Nombre del dispositivo (opcional)
-    - **custom_days_interval**: Intervalo en días para CUSTOM_DAYS (requerido si frequency=CUSTOM_DAYS)
+    - **custom_days_interval**: Intervalo en días para CUSTOM_DAYS
+      (requerido si frequency=CUSTOM_DAYS)
     - **metadata**: Datos adicionales (opcional)
     """
     try:

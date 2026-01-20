@@ -1,4 +1,7 @@
+from typing import Optional
+
 from application.dtos.silo_dtos import SiloDTO, UpdateSiloRequest
+from application.services.alert_trigger_service import AlertTriggerService
 from domain.exceptions import DuplicateSiloNameError, SiloNotFoundError
 from domain.repositories import ISiloRepository
 from domain.value_objects import SiloId, SiloName, Weight
@@ -7,8 +10,13 @@ from domain.value_objects import SiloId, SiloName, Weight
 class UpdateSiloUseCase:
     """Caso de uso para actualizar un silo existente."""
 
-    def __init__(self, silo_repository: ISiloRepository):
+    def __init__(
+        self,
+        silo_repository: ISiloRepository,
+        alert_trigger_service: Optional[AlertTriggerService] = None,
+    ):
         self._silo_repository = silo_repository
+        self._alert_trigger_service = alert_trigger_service
 
     async def execute(self, silo_id: str, request: UpdateSiloRequest) -> SiloDTO:
         """
@@ -59,6 +67,9 @@ class UpdateSiloUseCase:
         # Persistir cambios
         await self._silo_repository.save(silo)
 
+        # Verificar nivel bajo de silo y disparar alerta si es necesario
+        await self._check_and_trigger_low_level_alert(silo)
+
         # Obtener información actualizada con línea asignada
         result = await self._silo_repository.find_by_id_with_line_info(silo_id_vo)
 
@@ -69,6 +80,39 @@ class UpdateSiloUseCase:
 
         # Retornar DTO
         return self._to_dto(silo, line_id, line_name)
+
+    async def _check_and_trigger_low_level_alert(self, silo) -> None:
+        """
+        Verifica el nivel del silo y dispara una alerta si está por debajo de los umbrales.
+        Usa los umbrales configurados del silo.
+
+        Args:
+            silo: El silo a verificar
+        """
+        # Si no hay alert_trigger_service, no hacer nada
+        if self._alert_trigger_service is None:
+            return
+
+        # Calcular porcentaje de llenado
+        current_level_kg = silo.stock_level.as_kg
+        capacity_kg = silo.capacity.as_kg
+
+        # Evitar división por cero
+        if capacity_kg == 0:
+            return
+
+        percentage = (current_level_kg / capacity_kg) * 100
+
+        # Solo disparar alerta si el nivel está bajo (usar umbral de advertencia del silo)
+        if percentage < silo.warning_threshold_percentage:
+            await self._alert_trigger_service.silo_low_level(
+                silo_id=str(silo.id),
+                silo_name=str(silo.name),
+                current_level=current_level_kg,
+                max_capacity=capacity_kg,
+                percentage=percentage,
+                critical_threshold=silo.critical_threshold_percentage,
+            )
 
     def _to_dto(self, silo, line_id=None, line_name=None) -> SiloDTO:
         """Convierte un agregado Silo a SiloDTO."""

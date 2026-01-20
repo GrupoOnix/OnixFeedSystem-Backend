@@ -24,6 +24,8 @@ class SiloModel(SQLModel, table=True):
         ),
     )
     is_assigned: bool
+    warning_threshold_percentage: float = Field(default=20.0)
+    critical_threshold_percentage: float = Field(default=10.0)
     created_at: datetime
 
     @staticmethod
@@ -36,6 +38,8 @@ class SiloModel(SQLModel, table=True):
             stock_level_mg=silo.stock_level.as_miligrams,
             food_id=silo.food_id.value if silo.food_id else None,
             is_assigned=silo.is_assigned,
+            warning_threshold_percentage=silo.warning_threshold_percentage,
+            critical_threshold_percentage=silo.critical_threshold_percentage,
             created_at=silo._created_at,
         )
 
@@ -49,5 +53,7 @@ class SiloModel(SQLModel, table=True):
         )
         silo._id = SiloId(self.id)
         silo._is_assigned = self.is_assigned
+        silo._warning_threshold_percentage = self.warning_threshold_percentage
+        silo._critical_threshold_percentage = self.critical_threshold_percentage
         silo._created_at = self.created_at
         return silo

@@ -159,6 +159,7 @@ src/
    - `FeedingSession`: Manages daily feeding sessions with operations
    - `FeedingLine`: Represents physical feeding lines with components (blowers, selectors, dosers)
    - `Cage`: Fish cages with population tracking and configuration
+   - `CageGroup`: Groups of cages for organization and aggregated metrics
    - `Silo`: Feed storage silos
 
 ## Domain Model Key Concepts
@@ -202,12 +203,34 @@ The system uses the Strategy pattern for feeding configurations:
 - `ManualFeedingStrategy`: Manual operator-controlled feeding
 - Returns `MachineConfiguration` DTOs for PLC communication
 
+### Cage Groups
+
+The system supports organizing cages into logical groups for management and monitoring:
+
+- **Purpose**: Group cages by sector, zone, production phase, or custom criteria
+- **Multiple Membership**: A cage can belong to multiple groups simultaneously
+- **Aggregated Metrics**: Groups calculate real-time metrics:
+  - Total population across all cages
+  - Total biomass (kg)
+  - Average weight (weighted average)
+  - Total volume (m³)
+  - Average density (biomass/volume)
+- **Hard Delete**: Deleting a group does not affect the cages
+- **Value Objects**: `CageGroupId`, `CageGroupName`
+- **Validation**: Names must be unique (case-insensitive), all cages must exist
+
+**Common Use Cases**:
+- Geographic sectors (e.g., "Sector Norte", "Sector Sur")
+- Production phases (e.g., "Fase de Engorde", "Cosecha Próxima")
+- Operational groups (e.g., "Requiere Mantenimiento")
+
 ## Database Schema
 
 ### Key Tables
 
 - `feeding_lines`: Physical feeding lines
 - `cages`: Fish cages with population and configuration
+- `cage_groups`: Logical groups of cages for organization
 - `silos`: Feed storage
 - `slot_assignments`: Maps cages to physical slots on feeding lines
 - `feeding_sessions`: Daily operational sessions
@@ -266,6 +289,7 @@ When adding new use cases:
 
 - `/api/system-layout`: System configuration (sync layout, get layout)
 - `/api/cages`: Cage CRUD and tracking (biometry, mortality, config)
+- `/api/cage-groups`: Cage group management (CRUD, search, metrics)
 - `/api/feeding`: Feeding operations (start, stop, pause, resume, update params)
 
 ### Common Response Patterns
@@ -364,6 +388,7 @@ Required in `.env`:
 ## Additional Documentation
 
 - `/docs/API_CAGES.md`: Cage management API documentation
+- `/docs/API_CAGE_GROUPS.md`: Cage group management API documentation
 - `/docs/comandos-alembic.md`: Alembic commands reference (Spanish)
 - `/docs/Analisis-de-Requerimientos.md`: Requirements analysis
 - `/docs/plan-migracion-feeding-operation.md`: Phase 2 migration plan (detailed architecture decisions)

@@ -40,6 +40,7 @@ class Alert:
         self._read_at: Optional[datetime] = None
         self._resolved_at: Optional[datetime] = None
         self._resolved_by: Optional[str] = None
+        self._snoozed_until: Optional[datetime] = None
         self._metadata: Dict[str, Any] = metadata.copy() if metadata else {}
 
     # =========================================================================
@@ -91,6 +92,17 @@ class Alert:
         return self._resolved_by
 
     @property
+    def snoozed_until(self) -> Optional[datetime]:
+        return self._snoozed_until
+
+    @property
+    def is_snoozed(self) -> bool:
+        """Indica si la alerta está actualmente silenciada."""
+        if self._snoozed_until is None:
+            return False
+        return datetime.utcnow() < self._snoozed_until
+
+    @property
     def metadata(self) -> Dict[str, Any]:
         return self._metadata.copy()
 
@@ -122,6 +134,69 @@ class Alert:
     def archive(self) -> None:
         """Archiva la alerta."""
         self._status = AlertStatus.ARCHIVED
+
+    def snooze(self, duration_days: int) -> None:
+        """
+        Silencia la alerta por un período de tiempo.
+
+        La alerta no aparecerá en las consultas hasta que expire el snooze.
+        Útil para alertas de nivel bajo de silos que están en proceso de recarga.
+
+        Args:
+            duration_days: Duración del silenciamiento en días (1 o 7 típicamente)
+        """
+        from datetime import timedelta
+
+        if duration_days <= 0:
+            raise ValueError("La duración del snooze debe ser mayor a 0 días")
+
+        self._snoozed_until = datetime.utcnow() + timedelta(days=duration_days)
+
+    def unsnooze(self) -> None:
+        """Remueve el silenciamiento de la alerta."""
+        self._snoozed_until = None
+
+    def update_content(
+        self,
+        message: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        type: Optional[AlertType] = None,
+    ) -> None:
+        """
+        Actualiza el contenido de la alerta.
+
+        Útil para actualizar alertas existentes en lugar de crear duplicados.
+        Por ejemplo, actualizar el porcentaje de nivel de un silo.
+
+        Args:
+            message: Nuevo mensaje (opcional)
+            metadata: Nuevos metadatos (se combinan con los existentes)
+            type: Nuevo tipo de alerta (opcional, para cambiar de WARNING a CRITICAL)
+        """
+        if message is not None:
+            self._message = message
+
+        if metadata is not None:
+            self._metadata.update(metadata)
+
+        if type is not None:
+            self._type = type
+
+        # Actualizar timestamp para reflejar la actualización
+        self._timestamp = datetime.utcnow()
+
+        # Si la alerta estaba resuelta, volver a marcarla como no leída
+        # (porque el problema persiste o empeoró)
+        if self._status in [AlertStatus.RESOLVED, AlertStatus.READ]:
+            self._status = AlertStatus.UNREAD
+            self._read_at = None
+            self._resolved_at = None
+            self._resolved_by = None
+
+        # Si la alerta estaba silenciada y se actualiza, remover el snooze
+        # (el problema cambió, el usuario debe ver la actualización)
+        if self._snoozed_until is not None:
+            self._snoozed_until = None
 
     def update_status(self, new_status: AlertStatus) -> None:
         """
@@ -166,6 +241,7 @@ class Alert:
         read_at: Optional[datetime] = None,
         resolved_at: Optional[datetime] = None,
         resolved_by: Optional[str] = None,
+        snoozed_until: Optional[datetime] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> "Alert":
         """
@@ -184,5 +260,6 @@ class Alert:
         alert._read_at = read_at
         alert._resolved_at = resolved_at
         alert._resolved_by = resolved_by
+        alert._snoozed_until = snoozed_until
         alert._metadata = metadata or {}
         return alert

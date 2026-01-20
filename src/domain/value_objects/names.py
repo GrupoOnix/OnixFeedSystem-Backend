@@ -92,6 +92,19 @@ class CageName:
 
 
 @dataclass(frozen=True)
+class CageGroupName:
+    """Nombre de un grupo de jaulas con validación."""
+
+    value: str
+
+    def __post_init__(self):
+        validate_name_format(self.value, "El nombre del grupo de jaulas")
+
+    def __str__(self) -> str:
+        return self.value
+
+
+@dataclass(frozen=True)
 class SiloName:
     """Nombre de un silo con validación."""
 

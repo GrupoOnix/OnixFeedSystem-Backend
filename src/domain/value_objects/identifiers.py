@@ -51,6 +51,24 @@ class CageId:
 
 
 @dataclass(frozen=True)
+class CageGroupId:
+    """Identificador único para un grupo de jaulas."""
+
+    value: UUID
+
+    @classmethod
+    def generate(cls) -> CageGroupId:
+        return cls(uuid4())
+
+    @classmethod
+    def from_string(cls, id_str: str) -> CageGroupId:
+        return cls(UUID(id_str))
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
+@dataclass(frozen=True)
 class SiloId:
     """Identificador único para un silo."""
 

@@ -11,9 +11,22 @@ class Silo:
         capacity: Weight,
         stock_level: Weight = Weight.zero(),
         food_id: Optional[FoodId] = None,
+        warning_threshold_percentage: float = 20.0,
+        critical_threshold_percentage: float = 10.0,
     ):
         if stock_level > capacity:
             raise ValueError("El stock no puede ser mayor que la capacidad.")
+        
+        if warning_threshold_percentage <= critical_threshold_percentage:
+            raise ValueError(
+                "El umbral de advertencia debe ser mayor que el umbral crítico."
+            )
+        
+        if not (0 <= critical_threshold_percentage <= 100):
+            raise ValueError("Los umbrales deben estar entre 0 y 100.")
+        
+        if not (0 <= warning_threshold_percentage <= 100):
+            raise ValueError("Los umbrales deben estar entre 0 y 100.")
 
         self._id = SiloId.generate()
         self._name = name
@@ -21,6 +34,8 @@ class Silo:
         self._stock_level = stock_level
         self._food_id = food_id
         self._is_assigned = False  # FA4: Control de asignación 1-a-1
+        self._warning_threshold_percentage = warning_threshold_percentage
+        self._critical_threshold_percentage = critical_threshold_percentage
         self._created_at = datetime.utcnow()
 
     @property
@@ -85,6 +100,46 @@ class Silo:
     def created_at(self) -> datetime:
         """Fecha de creación del silo."""
         return self._created_at
+
+    @property
+    def warning_threshold_percentage(self) -> float:
+        """Umbral de advertencia en porcentaje (ej: 20.0 para 20%)."""
+        return self._warning_threshold_percentage
+
+    @warning_threshold_percentage.setter
+    def warning_threshold_percentage(self, value: float) -> None:
+        """
+        Actualiza el umbral de advertencia.
+        
+        Regla de negocio: Debe ser mayor que el umbral crítico y estar entre 0-100.
+        """
+        if not (0 <= value <= 100):
+            raise ValueError("El umbral debe estar entre 0 y 100.")
+        if value <= self._critical_threshold_percentage:
+            raise ValueError(
+                "El umbral de advertencia debe ser mayor que el umbral crítico."
+            )
+        self._warning_threshold_percentage = value
+
+    @property
+    def critical_threshold_percentage(self) -> float:
+        """Umbral crítico en porcentaje (ej: 10.0 para 10%)."""
+        return self._critical_threshold_percentage
+
+    @critical_threshold_percentage.setter
+    def critical_threshold_percentage(self, value: float) -> None:
+        """
+        Actualiza el umbral crítico.
+        
+        Regla de negocio: Debe ser menor que el umbral de advertencia y estar entre 0-100.
+        """
+        if not (0 <= value <= 100):
+            raise ValueError("El umbral debe estar entre 0 y 100.")
+        if value >= self._warning_threshold_percentage:
+            raise ValueError(
+                "El umbral crítico debe ser menor que el umbral de advertencia."
+            )
+        self._critical_threshold_percentage = value
 
     def assign_to_doser(self) -> None:
         """

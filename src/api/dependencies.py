@@ -11,12 +11,17 @@ from application.use_cases.alerts import (
     CreateAlertUseCase,
     CreateScheduledAlertUseCase,
     DeleteScheduledAlertUseCase,
+    GetAlertCountsUseCase,
+    GetSnoozedCountUseCase,
     GetUnreadCountUseCase,
     ListAlertsUseCase,
     ListScheduledAlertsUseCase,
+    ListSnoozedAlertsUseCase,
     MarkAlertReadUseCase,
     MarkAllAlertsReadUseCase,
+    SnoozeAlertUseCase,
     ToggleScheduledAlertUseCase,
+    UnsnoozeAlertUseCase,
     UpdateAlertUseCase,
     UpdateScheduledAlertUseCase,
 )
@@ -33,6 +38,13 @@ from application.use_cases.cage import (
     UpdateBiometryUseCase,
     UpdateCageConfigUseCase,
     UpdateCageUseCase,
+)
+from application.use_cases.cage_group import (
+    CreateCageGroupUseCase,
+    DeleteCageGroupUseCase,
+    GetCageGroupUseCase,
+    ListCageGroupsUseCase,
+    UpdateCageGroupUseCase,
 )
 from application.use_cases.device_control import (
     MoveSelectorToSlotDirectUseCase,
@@ -91,6 +103,7 @@ from domain.interfaces import IFeedingMachine
 from infrastructure.persistence.database import get_session
 from infrastructure.persistence.repositories import (
     AlertRepository,
+    CageGroupRepository,
     CageRepository,
     FeedingLineRepository,
     FeedingOperationRepository,
@@ -132,6 +145,13 @@ async def get_food_repo(session: AsyncSession = Depends(get_session)) -> FoodRep
 async def get_cage_repo(session: AsyncSession = Depends(get_session)) -> CageRepository:
     """Crea instancia del repositorio de jaulas."""
     return CageRepository(session)
+
+
+async def get_cage_group_repo(
+    session: AsyncSession = Depends(get_session)
+) -> CageGroupRepository:
+    """Crea instancia del repositorio de grupos de jaulas."""
+    return CageGroupRepository(session)
 
 
 async def get_population_event_repo(
@@ -188,6 +208,20 @@ async def get_selector_repo(
 ) -> SelectorRepository:
     """Crea instancia del repositorio de selectors."""
     return SelectorRepository(session)
+
+
+async def get_alert_repo(
+    session: AsyncSession = Depends(get_session),
+) -> AlertRepository:
+    """Crea instancia del repositorio de alertas."""
+    return AlertRepository(session)
+
+
+async def get_scheduled_alert_repo(
+    session: AsyncSession = Depends(get_session),
+) -> ScheduledAlertRepository:
+    """Crea instancia del repositorio de alertas programadas."""
+    return ScheduledAlertRepository(session)
 
 
 # ============================================================================
@@ -389,6 +423,23 @@ async def get_turn_doser_off_use_case(
 
 
 # ============================================================================
+# Dependencias de Servicios - Alert Trigger
+# ============================================================================
+
+
+async def get_alert_trigger_service(
+    alert_repo: AlertRepository = Depends(get_alert_repo),
+) -> AlertTriggerService:
+    """Crea instancia del servicio de triggers de alertas."""
+    return AlertTriggerService(alert_repository=alert_repo)
+
+
+AlertTriggerServiceDep = Annotated[
+    AlertTriggerService, Depends(get_alert_trigger_service)
+]
+
+
+# ============================================================================
 # Dependencias de Casos de Uso - Silo
 # ============================================================================
 
@@ -416,9 +467,12 @@ async def get_create_silo_use_case(
 
 async def get_update_silo_use_case(
     silo_repo: SiloRepository = Depends(get_silo_repo),
+    alert_trigger_service: "AlertTriggerService" = Depends(get_alert_trigger_service),
 ) -> UpdateSiloUseCase:
     """Crea instancia del caso de uso de actualización de silo."""
-    return UpdateSiloUseCase(silo_repository=silo_repo)
+    return UpdateSiloUseCase(
+        silo_repository=silo_repo, alert_trigger_service=alert_trigger_service
+    )
 
 
 async def get_delete_silo_use_case(
@@ -608,6 +662,50 @@ async def get_population_history_use_case(
 ) -> GetPopulationHistoryUseCase:
     """Crea instancia del caso de uso de historial de población."""
     return GetPopulationHistoryUseCase(event_repository=event_repo)
+
+
+# ============================================================================
+# Dependencias de Casos de Uso - Cage Group
+# ============================================================================
+
+
+async def get_create_cage_group_use_case(
+    group_repo: CageGroupRepository = Depends(get_cage_group_repo),
+    cage_repo: CageRepository = Depends(get_cage_repo),
+) -> CreateCageGroupUseCase:
+    """Crea instancia del caso de uso de creación de grupo de jaulas."""
+    return CreateCageGroupUseCase(group_repository=group_repo, cage_repository=cage_repo)
+
+
+async def get_list_cage_groups_use_case(
+    group_repo: CageGroupRepository = Depends(get_cage_group_repo),
+    cage_repo: CageRepository = Depends(get_cage_repo),
+) -> ListCageGroupsUseCase:
+    """Crea instancia del caso de uso de listado de grupos de jaulas."""
+    return ListCageGroupsUseCase(group_repository=group_repo, cage_repository=cage_repo)
+
+
+async def get_get_cage_group_use_case(
+    group_repo: CageGroupRepository = Depends(get_cage_group_repo),
+    cage_repo: CageRepository = Depends(get_cage_repo),
+) -> GetCageGroupUseCase:
+    """Crea instancia del caso de uso de obtención de grupo de jaulas."""
+    return GetCageGroupUseCase(group_repository=group_repo, cage_repository=cage_repo)
+
+
+async def get_update_cage_group_use_case(
+    group_repo: CageGroupRepository = Depends(get_cage_group_repo),
+    cage_repo: CageRepository = Depends(get_cage_repo),
+) -> UpdateCageGroupUseCase:
+    """Crea instancia del caso de uso de actualización de grupo de jaulas."""
+    return UpdateCageGroupUseCase(group_repository=group_repo, cage_repository=cage_repo)
+
+
+async def get_delete_cage_group_use_case(
+    group_repo: CageGroupRepository = Depends(get_cage_group_repo),
+) -> DeleteCageGroupUseCase:
+    """Crea instancia del caso de uso de eliminación de grupo de jaulas."""
+    return DeleteCageGroupUseCase(group_repository=group_repo)
 
 
 # ============================================================================
@@ -814,6 +912,31 @@ GetPopulationHistoryUseCaseDep = Annotated[
 
 
 # ============================================================================
+# Type Aliases para Endpoints - Cage Group
+# ============================================================================
+
+CreateCageGroupUseCaseDep = Annotated[
+    CreateCageGroupUseCase, Depends(get_create_cage_group_use_case)
+]
+
+ListCageGroupsUseCaseDep = Annotated[
+    ListCageGroupsUseCase, Depends(get_list_cage_groups_use_case)
+]
+
+GetCageGroupUseCaseDep = Annotated[
+    GetCageGroupUseCase, Depends(get_get_cage_group_use_case)
+]
+
+UpdateCageGroupUseCaseDep = Annotated[
+    UpdateCageGroupUseCase, Depends(get_update_cage_group_use_case)
+]
+
+DeleteCageGroupUseCaseDep = Annotated[
+    DeleteCageGroupUseCase, Depends(get_delete_cage_group_use_case)
+]
+
+
+# ============================================================================
 # Type Aliases para Endpoints - Feeding
 # ============================================================================
 
@@ -876,25 +999,6 @@ TurnDoserOffUseCaseDep = Annotated[
 
 
 # ============================================================================
-# Dependencias de Repositorios - Alerts
-# ============================================================================
-
-
-async def get_alert_repo(
-    session: AsyncSession = Depends(get_session),
-) -> AlertRepository:
-    """Crea instancia del repositorio de alertas."""
-    return AlertRepository(session)
-
-
-async def get_scheduled_alert_repo(
-    session: AsyncSession = Depends(get_session),
-) -> ScheduledAlertRepository:
-    """Crea instancia del repositorio de alertas programadas."""
-    return ScheduledAlertRepository(session)
-
-
-# ============================================================================
 # Dependencias de Casos de Uso - Alerts
 # ============================================================================
 
@@ -927,6 +1031,13 @@ async def get_mark_alert_read_use_case(
     return MarkAlertReadUseCase(alert_repository=alert_repo)
 
 
+async def get_snooze_alert_use_case(
+    alert_repo: AlertRepository = Depends(get_alert_repo),
+) -> SnoozeAlertUseCase:
+    """Crea instancia del caso de uso de silenciar alerta."""
+    return SnoozeAlertUseCase(alert_repository=alert_repo)
+
+
 async def get_mark_all_alerts_read_use_case(
     alert_repo: AlertRepository = Depends(get_alert_repo),
 ) -> MarkAllAlertsReadUseCase:
@@ -939,6 +1050,34 @@ async def get_create_alert_use_case(
 ) -> CreateAlertUseCase:
     """Crea instancia del caso de uso de creación de alerta (interno)."""
     return CreateAlertUseCase(alert_repository=alert_repo)
+
+
+async def get_list_snoozed_alerts_use_case(
+    alert_repo: AlertRepository = Depends(get_alert_repo),
+) -> ListSnoozedAlertsUseCase:
+    """Crea instancia del caso de uso de listado de alertas silenciadas."""
+    return ListSnoozedAlertsUseCase(alert_repository=alert_repo)
+
+
+async def get_unsnooze_alert_use_case(
+    alert_repo: AlertRepository = Depends(get_alert_repo),
+) -> UnsnoozeAlertUseCase:
+    """Crea instancia del caso de uso de reactivar alerta."""
+    return UnsnoozeAlertUseCase(alert_repository=alert_repo)
+
+
+async def get_alert_counts_use_case(
+    alert_repo: AlertRepository = Depends(get_alert_repo),
+) -> GetAlertCountsUseCase:
+    """Crea instancia del caso de uso de contadores de alertas."""
+    return GetAlertCountsUseCase(alert_repository=alert_repo)
+
+
+async def get_snoozed_count_use_case(
+    alert_repo: AlertRepository = Depends(get_alert_repo),
+) -> GetSnoozedCountUseCase:
+    """Crea instancia del caso de uso de contador de alertas silenciadas."""
+    return GetSnoozedCountUseCase(alert_repository=alert_repo)
 
 
 # ============================================================================
@@ -999,12 +1138,32 @@ MarkAlertReadUseCaseDep = Annotated[
     MarkAlertReadUseCase, Depends(get_mark_alert_read_use_case)
 ]
 
+SnoozeAlertUseCaseDep = Annotated[
+    SnoozeAlertUseCase, Depends(get_snooze_alert_use_case)
+]
+
 MarkAllAlertsReadUseCaseDep = Annotated[
     MarkAllAlertsReadUseCase, Depends(get_mark_all_alerts_read_use_case)
 ]
 
 CreateAlertUseCaseDep = Annotated[
     CreateAlertUseCase, Depends(get_create_alert_use_case)
+]
+
+ListSnoozedAlertsUseCaseDep = Annotated[
+    ListSnoozedAlertsUseCase, Depends(get_list_snoozed_alerts_use_case)
+]
+
+UnsnoozeAlertUseCaseDep = Annotated[
+    UnsnoozeAlertUseCase, Depends(get_unsnooze_alert_use_case)
+]
+
+GetAlertCountsUseCaseDep = Annotated[
+    GetAlertCountsUseCase, Depends(get_alert_counts_use_case)
+]
+
+GetSnoozedCountUseCaseDep = Annotated[
+    GetSnoozedCountUseCase, Depends(get_snoozed_count_use_case)
 ]
 
 
@@ -1030,21 +1189,4 @@ DeleteScheduledAlertUseCaseDep = Annotated[
 
 ToggleScheduledAlertUseCaseDep = Annotated[
     ToggleScheduledAlertUseCase, Depends(get_toggle_scheduled_alert_use_case)
-]
-
-
-# ============================================================================
-# Dependencias de Servicios - Alerts
-# ============================================================================
-
-
-async def get_alert_trigger_service(
-    alert_repo: AlertRepository = Depends(get_alert_repo),
-) -> AlertTriggerService:
-    """Crea instancia del servicio de triggers de alertas."""
-    return AlertTriggerService(alert_repository=alert_repo)
-
-
-AlertTriggerServiceDep = Annotated[
-    AlertTriggerService, Depends(get_alert_trigger_service)
 ]

@@ -3,6 +3,7 @@ from typing import List, Optional, Tuple
 
 from domain.aggregates.alert import Alert
 from domain.aggregates.cage import Cage
+from domain.aggregates.cage_group import CageGroup
 from domain.aggregates.feeding_session import FeedingSession
 from domain.aggregates.food import Food
 from domain.aggregates.scheduled_alert import ScheduledAlert
@@ -16,6 +17,8 @@ from .aggregates.feeding_line.feeding_line import FeedingLine
 from .value_objects import (
     AlertId,
     BiometryLogEntry,
+    CageGroupId,
+    CageGroupName,
     CageId,
     CageName,
     ConfigChangeLogEntry,
@@ -80,6 +83,79 @@ class ICageRepository(ABC):
     @abstractmethod
     async def exists(self, cage_id: CageId) -> bool:
         """Verifica si existe una jaula con el ID dado."""
+        ...
+
+
+class ICageGroupRepository(ABC):
+    """Repositorio para el aggregate CageGroup."""
+
+    @abstractmethod
+    async def save(self, cage_group: CageGroup) -> None:
+        """Guarda o actualiza un grupo de jaulas."""
+        ...
+
+    @abstractmethod
+    async def find_by_id(self, group_id: CageGroupId) -> Optional[CageGroup]:
+        """Busca un grupo por su ID."""
+        ...
+
+    @abstractmethod
+    async def find_by_name(self, name: CageGroupName) -> Optional[CageGroup]:
+        """Busca un grupo por su nombre."""
+        ...
+
+    @abstractmethod
+    async def list(
+        self,
+        search: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[CageGroup]:
+        """
+        Lista grupos de jaulas con filtros opcionales.
+
+        Args:
+            search: Búsqueda en nombre, descripción o cage_ids
+            limit: Cantidad máxima de resultados
+            offset: Desplazamiento para paginación
+
+        Returns:
+            Lista de grupos ordenados por created_at DESC
+        """
+        ...
+
+    @abstractmethod
+    async def count(self, search: Optional[str] = None) -> int:
+        """
+        Cuenta total de grupos con filtros opcionales.
+
+        Args:
+            search: Búsqueda en nombre, descripción o cage_ids
+
+        Returns:
+            Cantidad total de grupos
+        """
+        ...
+
+    @abstractmethod
+    async def delete(self, group_id: CageGroupId) -> None:
+        """Elimina un grupo de jaulas."""
+        ...
+
+    @abstractmethod
+    async def exists_by_name(
+        self, name: str, exclude_id: Optional[CageGroupId] = None
+    ) -> bool:
+        """
+        Verifica si existe un grupo con el nombre dado.
+
+        Args:
+            name: Nombre a buscar (case-insensitive)
+            exclude_id: ID de grupo a excluir (útil para updates)
+
+        Returns:
+            True si existe un grupo con ese nombre, False en caso contrario
+        """
         ...
 
 
@@ -382,6 +458,75 @@ class IAlertRepository(ABC):
 
         Returns:
             Cantidad de alertas actualizadas.
+        """
+        ...
+
+    @abstractmethod
+    async def find_active_by_silo(self, silo_id: str) -> Optional[Alert]:
+        """
+        Busca una alerta activa (UNREAD o READ) para un silo específico.
+
+        Útil para evitar duplicar alertas de nivel bajo.
+
+        Args:
+            silo_id: ID del silo (en formato string)
+
+        Returns:
+            La alerta activa más reciente o None si no existe.
+        """
+        ...
+
+    @abstractmethod
+    async def find_any_by_silo(self, silo_id: str) -> Optional[Alert]:
+        """
+        Busca cualquier alerta para un silo (incluyendo silenciadas).
+
+        Útil para verificar si ya existe una alerta antes de crear una nueva.
+
+        Args:
+            silo_id: ID del silo (en formato string)
+
+        Returns:
+            La alerta más reciente (incluso si está silenciada) o None.
+        """
+        ...
+
+    @abstractmethod
+    async def list_snoozed(self, limit: int = 50, offset: int = 0) -> Tuple[List[Alert], int]:
+        """
+        Lista alertas actualmente silenciadas.
+
+        Args:
+            limit: Cantidad máxima de resultados
+            offset: Desplazamiento para paginación
+
+        Returns:
+            Tupla con (lista de alertas, total de alertas silenciadas)
+        """
+        ...
+
+    @abstractmethod
+    async def count_snoozed(self) -> int:
+        """Cuenta la cantidad de alertas actualmente silenciadas."""
+        ...
+
+    @abstractmethod
+    async def count_by_type(
+        self,
+        type: AlertType,
+        exclude_resolved: bool = True,
+        exclude_snoozed: bool = True,
+    ) -> int:
+        """
+        Cuenta alertas por tipo.
+
+        Args:
+            type: Tipo de alerta a contar
+            exclude_resolved: Excluir alertas resueltas
+            exclude_snoozed: Excluir alertas silenciadas
+
+        Returns:
+            Cantidad de alertas del tipo especificado
         """
         ...
 

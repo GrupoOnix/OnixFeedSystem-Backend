@@ -24,6 +24,7 @@ class AlertDTO:
     read_at: Optional[datetime]
     resolved_at: Optional[datetime]
     resolved_by: Optional[str]
+    snoozed_until: Optional[datetime]
     metadata: Dict[str, Any]
 
 
@@ -68,6 +69,30 @@ class MarkAllReadResponse:
 
     count: int
     message: str
+
+
+@dataclass
+class SnoozeAlertRequest:
+    """Request para silenciar una alerta temporalmente."""
+
+    duration_days: int  # 1 o 7 días
+
+
+@dataclass
+class AlertCountsResponse:
+    """Response con contadores de alertas por tipo."""
+
+    critical: int
+    warning: int
+    info: int
+    success: int
+
+
+@dataclass
+class SnoozedCountResponse:
+    """Response con contador de alertas silenciadas."""
+
+    count: int
 
 
 # ============================================================================

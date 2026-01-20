@@ -37,9 +37,14 @@ class AlertTriggerService:
         current_level: float,
         max_capacity: float,
         percentage: float,
-    ) -> AlertId:
+        critical_threshold: float = 10.0,
+    ) -> Optional[AlertId]:
         """
         Nivel bajo de silo.
+
+        Si ya existe una alerta activa para este silo, la actualiza.
+        Si existe una alerta silenciada, NO hace nada (evita duplicados).
+        Si no existe ninguna alerta, crea una nueva.
 
         Args:
             silo_id: ID del silo.
@@ -47,24 +52,54 @@ class AlertTriggerService:
             current_level: Nivel actual en kg.
             max_capacity: Capacidad máxima en kg.
             percentage: Porcentaje actual de llenado.
+            critical_threshold: Umbral crítico del silo (default 10.0%).
 
         Returns:
-            ID de la alerta creada.
+            ID de la alerta (existente o nueva), o None si está silenciada.
         """
-        alert_type = AlertType.CRITICAL if percentage < 10 else AlertType.WARNING
-        return await self._create_alert(
-            type=alert_type,
-            category=AlertCategory.INVENTORY,
-            title=f"Nivel bajo en {silo_name}",
-            message=f"El silo está al {percentage:.1f}% de capacidad ({current_level:.0f}/{max_capacity:.0f} kg)",
-            source=silo_name,
-            metadata={
-                "silo_id": silo_id,
-                "current_level": current_level,
-                "max_capacity": max_capacity,
-                "percentage": percentage,
-            },
+        # Determinar tipo de alerta usando el umbral crítico del silo
+        alert_type = (
+            AlertType.CRITICAL if percentage < critical_threshold else AlertType.WARNING
         )
+
+        # Preparar mensaje y metadata
+        message = (
+            f"El silo está al {percentage:.1f}% de capacidad "
+            f"({current_level:.0f}/{max_capacity:.0f} kg)"
+        )
+        metadata = {
+            "silo_id": silo_id,
+            "current_level": current_level,
+            "max_capacity": max_capacity,
+            "percentage": percentage,
+        }
+
+        # Buscar cualquier alerta para este silo (incluyendo silenciadas)
+        any_alert = await self._alert_repo.find_any_by_silo(silo_id)
+
+        if any_alert:
+            # Si la alerta está silenciada, NO hacer nada (evitar duplicados)
+            if any_alert.is_snoozed:
+                return None  # No crear ni actualizar
+
+            # Si la alerta está activa (no silenciada), actualizarla
+            any_alert.update_content(
+                message=message,
+                metadata=metadata,
+                type=alert_type,
+            )
+            await self._alert_repo.save(any_alert)
+            return any_alert.id
+        else:
+            # No existe ninguna alerta, crear una nueva
+            return await self._create_alert(
+                type=alert_type,
+                category=AlertCategory.INVENTORY,
+                title=f"Nivel bajo en {silo_name}",
+                message=message,
+                source=silo_name,
+                metadata=metadata,
+            )
 
     async def sensor_out_of_range(
         self,

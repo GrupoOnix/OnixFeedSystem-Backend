@@ -29,6 +29,7 @@ class AlertModel(SQLModel, table=True):
     read_at: Optional[datetime] = Field(default=None)
     resolved_at: Optional[datetime] = Field(default=None)
     resolved_by: Optional[str] = Field(default=None, max_length=100)
+    snoozed_until: Optional[datetime] = Field(default=None)
     metadata_json: Dict[str, Any] = Field(
         default_factory=dict, sa_column=Column("metadata", JSONB, nullable=False)
     )
@@ -51,6 +52,7 @@ class AlertModel(SQLModel, table=True):
             read_at=alert.read_at,
             resolved_at=alert.resolved_at,
             resolved_by=alert.resolved_by,
+            snoozed_until=alert.snoozed_until,
             metadata_json=alert.metadata,
         )
 
@@ -68,5 +70,6 @@ class AlertModel(SQLModel, table=True):
             read_at=self.read_at,
             resolved_at=self.resolved_at,
             resolved_by=self.resolved_by,
+            snoozed_until=self.snoozed_until,
             metadata=self.metadata_json,
         )

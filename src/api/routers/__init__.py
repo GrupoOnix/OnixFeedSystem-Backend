@@ -16,6 +16,7 @@ from fastapi import APIRouter
 
 from . import (
     alerts_router,
+    cage_group_router,
     cage_router,
     device_control_router,
     feeding_line_router,
@@ -32,6 +33,7 @@ api_router = APIRouter(prefix="/api")
 # Registrar routers por funcionalidad
 api_router.include_router(system_layout.router)
 api_router.include_router(cage_router.router)
+api_router.include_router(cage_group_router.router)
 api_router.include_router(silo_router.router)
 api_router.include_router(food_router.router)
 api_router.include_router(feeding_line_router.router)

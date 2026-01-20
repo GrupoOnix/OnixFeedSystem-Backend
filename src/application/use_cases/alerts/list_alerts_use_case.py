@@ -67,5 +67,6 @@ class ListAlertsUseCase:
             read_at=alert.read_at,
             resolved_at=alert.resolved_at,
             resolved_by=alert.resolved_by,
+            snoozed_until=alert.snoozed_until,
             metadata=alert.metadata,
         )

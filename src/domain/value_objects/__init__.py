@@ -34,6 +34,7 @@ from .feeding_specs import (
 from .identifiers import (
     AlertId,
     BlowerId,
+    CageGroupId,
     CageId,
     CoolerId,
     DoserId,
@@ -59,6 +60,7 @@ from .mortality_log_entry import MortalityLogEntry
 # Names
 from .names import (
     BlowerName,
+    CageGroupName,
     CageName,
     CoolerName,
     DoserName,
@@ -73,6 +75,7 @@ __all__ = [
     # Identifiers
     "LineId",
     "CageId",
+    "CageGroupId",
     "SiloId",
     "BlowerId",
     "CoolerId",
@@ -88,6 +91,7 @@ __all__ = [
     # Names
     "LineName",
     "CageName",
+    "CageGroupName",
     "SiloName",
     "BlowerName",
     "CoolerName",
