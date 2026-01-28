@@ -40,21 +40,21 @@ async def start_feeding(
             "session_id": str(session_id),
             "message": "Feeding session started successfully"
         }
-        
+
     except ValueError as e:
         # Error de validación: línea no existe, jaula no existe, etc.
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)
         )
-        
+
     except DomainException as e:
         # Errores de dominio: sesión ya activa, etc.
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
-        
+
     except Exception as e:
         # Error inesperado
         raise HTTPException(
@@ -76,21 +76,21 @@ async def stop_feeding(
     try:
         await use_case.execute(line_id)
         return {"message": "Feeding session stopped successfully"}
-        
+
     except ValueError as e:
         # Error de validación: línea no existe, sesión no existe, etc.
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)
         )
-        
+
     except DomainException as e:
         # Errores de dominio
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
-        
+
     except Exception as e:
         # Error inesperado
         raise HTTPException(
@@ -112,21 +112,21 @@ async def pause_feeding(
     try:
         await use_case.execute(line_id)
         return {"message": "Feeding session paused successfully"}
-        
+
     except ValueError as e:
         # Error de validación: línea no existe, sesión no existe, etc.
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)
         )
-        
+
     except DomainException as e:
         # Errores de dominio
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
-        
+
     except Exception as e:
         # Error inesperado
         raise HTTPException(
@@ -148,21 +148,21 @@ async def resume_feeding(
     try:
         await use_case.execute(line_id)
         return {"message": "Feeding session resumed successfully"}
-        
+
     except ValueError as e:
         # Error de validación: línea no existe, sesión no existe, etc.
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)
         )
-        
+
     except DomainException as e:
         # Errores de dominio
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
-        
+
     except Exception as e:
         # Error inesperado
         raise HTTPException(
@@ -189,21 +189,21 @@ async def update_feeding_parameters(
         request.line_id = line_id
         await use_case.execute(request)
         return {"message": "Feeding parameters updated successfully"}
-        
+
     except ValueError as e:
         # Error de validación: línea no existe, sesión no existe, etc.
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)
         )
-        
+
     except DomainException as e:
         # Errores de dominio
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
-        
+
     except Exception as e:
         # Error inesperado
         raise HTTPException(

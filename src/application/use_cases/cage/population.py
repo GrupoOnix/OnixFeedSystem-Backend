@@ -258,6 +258,7 @@ def _to_response(cage: Cage) -> CageResponse:
             volume_m3=cage.config.volume_m3,
             max_density_kg_m3=cage.config.max_density_kg_m3,
             transport_time_seconds=cage.config.transport_time_seconds,
+            blower_power=cage.config.blower_power,
         ),
         current_density_kg_m3=cage.current_density_kg_m3,
     )

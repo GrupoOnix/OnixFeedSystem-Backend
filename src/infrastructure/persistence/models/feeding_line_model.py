@@ -84,11 +84,6 @@ class FeedingLineModel(SQLModel, table=True):
 
     def to_domain(self) -> FeedingLine:
         """Convierte modelo de persistencia a entidad de dominio."""
-        from domain.aggregates.feeding_line.blower import Blower
-        from domain.aggregates.feeding_line.cooler import Cooler
-        from domain.aggregates.feeding_line.doser import Doser
-        from domain.aggregates.feeding_line.selector import Selector
-        from domain.aggregates.feeding_line.sensor import Sensor
 
         if not self.blower or not self.selector:
             raise ValueError(

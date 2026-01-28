@@ -12,19 +12,19 @@ class BiometryLogModel(SQLModel, table=True):
 
     biometry_id: UUID = Field(default_factory=uuid4, primary_key=True)
     cage_id: UUID = Field(foreign_key="cages.id", nullable=False, index=True, ondelete="CASCADE")
-    
+
     # Valores anteriores (snapshot)
     old_fish_count: Optional[int] = Field(default=None)
     old_average_weight_g: Optional[float] = Field(default=None)
-    
+
     # Valores nuevos
     new_fish_count: Optional[int] = Field(default=None)
     new_average_weight_g: Optional[float] = Field(default=None)
-    
+
     # Metadata del muestreo
     sampling_date: date = Field(nullable=False)
     note: Optional[str] = Field(default=None)
-    
+
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
 
     @staticmethod

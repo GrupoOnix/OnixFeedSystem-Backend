@@ -21,7 +21,6 @@ from application.use_cases.feeding.start_feeding_use_case import (
 )
 from application.dtos.feeding_dtos import StartFeedingRequest
 from domain.aggregates.feeding_session import FeedingSession
-from domain.aggregates.feeding_line.feeding_line import FeedingLine
 from domain.aggregates.cage import Cage
 from domain.enums import FeedingMode, SessionStatus, OperationStatus
 from domain.value_objects import (
@@ -30,7 +29,6 @@ from domain.value_objects import (
     CageId,
     CageName,
     SiloId,
-    SiloName,
     Weight,
 )
 from domain.factories import ComponentFactory
@@ -454,7 +452,6 @@ class TestStartFeeding_SessionManagement:
         # Verificar que hay 2 operaciones en total
         all_operations = await repositories["operation_repo"].find_all_by_session(
             session_id
-        )
         )
         await use_case.execute(request2)
 

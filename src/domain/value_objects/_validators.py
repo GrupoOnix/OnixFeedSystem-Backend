@@ -18,13 +18,13 @@ def validate_name_format(value: str, field_name: str = "El nombre") -> None:
         raise ValueError(f"{field_name} debe ser una cadena")
 
     trimmed_value = value.strip()
-    
+
     if len(trimmed_value) == 0:
         raise ValueError(f"{field_name} no puede estar vacío")
-    
+
     if len(value) > 100:
         raise ValueError(f"{field_name} no debe exceder 100 caracteres (recibió {len(value)})")
-    
+
     # ^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ\s_-]+$
     # ^                              -> inicio del string
     # [a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ\s_-] -> permite letras (con tildes), ñ, ü, números, espacios, guión bajo, guión

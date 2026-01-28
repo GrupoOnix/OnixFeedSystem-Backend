@@ -10,7 +10,7 @@ from application.services.alert_trigger_service import AlertTriggerService
 from application.use_cases.silo.update_silo_use_case import UpdateSiloUseCase
 from domain.aggregates.silo import Silo
 from domain.repositories import ISiloRepository
-from domain.value_objects import SiloId, SiloName, Weight
+from domain.value_objects import SiloName, Weight
 
 
 @pytest.fixture

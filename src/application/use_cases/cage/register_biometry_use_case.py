@@ -1,4 +1,3 @@
-from datetime import date
 
 from domain.repositories import ICageRepository, IBiometryLogRepository
 from domain.value_objects import CageId, FishCount, Weight
@@ -29,26 +28,26 @@ class RegisterBiometryUseCase:
                 "Debe proporcionar al menos uno de los siguientes campos: "
                 "fish_count o average_weight_g"
             )
-        
+
         cage = await self._cage_repo.find_by_id(CageId.from_string(cage_id))
         if not cage:
             raise ValueError(f"La jaula con ID '{cage_id}' no existe")
-        
+
         old_fish_count = None
         new_fish_count = None
         old_avg_weight = None
         new_avg_weight = None
-        
+
         if request.fish_count is not None:
             old_fish_count = cage.current_fish_count.value if cage.current_fish_count else None
             new_fish_count = request.fish_count
             cage.update_fish_count(FishCount(request.fish_count))
-        
+
         if request.average_weight_g is not None:
             old_avg_weight = cage.avg_fish_weight.as_grams if cage.avg_fish_weight else None
             new_avg_weight = request.average_weight_g
             cage.update_biometry(Weight.from_grams(request.average_weight_g))
-        
+
         log_entry = BiometryLogEntry.create(
             cage_id=cage.id,
             old_fish_count=old_fish_count,
@@ -58,6 +57,6 @@ class RegisterBiometryUseCase:
             sampling_date=request.sampling_date,
             note=request.note
         )
-        
+
         await self._cage_repo.save(cage)
         await self._biometry_log_repo.save(log_entry)

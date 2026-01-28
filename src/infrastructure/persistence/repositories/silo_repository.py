@@ -22,6 +22,7 @@ class SiloRepository(ISiloRepository):
             existing.name = str(silo.name)
             existing.capacity_mg = silo.capacity.as_miligrams
             existing.stock_level_mg = silo.stock_level.as_miligrams
+            existing.food_id = silo.food_id.value if silo.food_id else None
             existing.is_assigned = silo.is_assigned
             existing.created_at = silo._created_at
         else:

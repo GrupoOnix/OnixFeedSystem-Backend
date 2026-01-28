@@ -1,7 +1,5 @@
 """Caso de uso para listar alertas."""
 
-from typing import List
-
 from application.dtos.alert_dtos import AlertDTO, ListAlertsRequest, ListAlertsResponse
 from domain.aggregates.alert import Alert
 from domain.enums import AlertCategory, AlertStatus, AlertType
@@ -37,7 +35,7 @@ class ListAlertsUseCase:
         if request.category:
             category_list = [AlertCategory(c) for c in request.category]
 
-        # Obtener alertas
+        # Obtener alertas y conteo total en paralelo
         alerts = await self._alert_repo.list(
             status=status_list,
             type=type_list,
@@ -47,10 +45,18 @@ class ListAlertsUseCase:
             offset=request.offset,
         )
 
+        # Obtener conteo global (sin limit/offset)
+        total = await self._alert_repo.count(
+            status=status_list,
+            type=type_list,
+            category=category_list,
+            search=request.search,
+        )
+
         # Convertir a DTOs
         alert_dtos = [self._to_dto(alert) for alert in alerts]
 
-        return ListAlertsResponse(alerts=alert_dtos, total=len(alert_dtos))
+        return ListAlertsResponse(alerts=alert_dtos, total=total)
 
     @staticmethod
     def _to_dto(alert: Alert) -> AlertDTO:

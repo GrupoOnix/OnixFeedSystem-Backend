@@ -260,7 +260,10 @@ class AlertTriggerService:
             type=AlertType.CRITICAL,
             category=AlertCategory.FEEDING,
             title="Fallo en operación de alimentación",
-            message=f"La operación falló: {reason}. Dispensado: {amount_dispensed:.1f}kg de {amount_target:.1f}kg objetivo",
+            message=(
+                f"La operación falló: {reason}. "
+                f"Dispensado: {amount_dispensed:.1f}kg de {amount_target:.1f}kg objetivo"
+            ),
             source=f"{line_name} - {cage_name}",
             metadata={
                 "operation_id": operation_id,

@@ -57,4 +57,5 @@ class CreateSiloUseCase:
             created_at=silo.created_at,
             line_id=line_id,
             line_name=line_name,
+            food_id=str(silo.food_id) if silo.food_id else None,
         )

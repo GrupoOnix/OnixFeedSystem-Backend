@@ -1,5 +1,4 @@
 from typing import Optional
-from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from domain.aggregates.feeding_session import FeedingSession
@@ -15,7 +14,7 @@ class FeedingSessionRepository(IFeedingSessionRepository):
 
     async def save(self, feeding_session: FeedingSession) -> None:
         """Guarda solo la sesión (acumuladores y estado)."""
-        
+
         # 1. Intentar recuperar el modelo existente (Para decidir si es UPDATE o INSERT)
         session_model = await self.session.get(FeedingSessionModel, feeding_session.id.value)
 
@@ -41,10 +40,10 @@ class FeedingSessionRepository(IFeedingSessionRepository):
                 dispensed_by_slot=details_json
             )
             self.session.add(session_model)
-        
+
         # 2. Guardar Eventos de Sesión (solo eventos de sesión, no de operación)
         new_events = feeding_session.pop_events()
-        
+
         for event in new_events:
             event_model = FeedingEventModel(
                 session_id=feeding_session.id.value,
@@ -54,12 +53,13 @@ class FeedingSessionRepository(IFeedingSessionRepository):
                 details=event.details
             )
             self.session.add(event_model)
-        
+
         # 3. Flush en lugar de Commit
         await self.session.flush()
 
     async def find_by_id(self, session_id: SessionId) -> Optional[FeedingSession]:
-        result = await self.session.execute(select(FeedingSessionModel).where(FeedingSessionModel.id == session_id.value))
+        query = select(FeedingSessionModel).where(FeedingSessionModel.id == session_id.value)
+        result = await self.session.execute(query)
         model = result.scalars().first()
         if not model:
             return None
@@ -71,10 +71,10 @@ class FeedingSessionRepository(IFeedingSessionRepository):
             FeedingSessionModel.line_id == line_id.value,
             FeedingSessionModel.status == SessionStatus.ACTIVE.value
         ).order_by(desc(FeedingSessionModel.date))
-        
+
         result = await self.session.execute(query)
         model = result.scalars().first()
-        
+
         if not model:
             return None
         return self._to_domain(model)
@@ -82,24 +82,24 @@ class FeedingSessionRepository(IFeedingSessionRepository):
     def _to_domain(self, model: FeedingSessionModel) -> FeedingSession:
         """Reconstruye el aggregate desde el modelo (sin operaciones)."""
         session = FeedingSession(LineId(model.line_id))
-        
+
         # Restaurar identidad y estado (bypass de __init__)
         session._id = SessionId(model.id)
         session._date = model.date
         session._status = SessionStatus(model.status)
         session._total_dispensed_kg = Weight.from_kg(model.total_dispensed_kg)
-        
+
         # Restaurar distribución por slot (JSON -> Dict[int, Weight])
         if model.dispensed_by_slot:
             session._dispensed_by_slot = {
-                int(k): Weight.from_kg(v) 
+                int(k): Weight.from_kg(v)
                 for k, v in model.dispensed_by_slot.items()
             }
         else:
             session._dispensed_by_slot = {}
-        
+
         # current_operation se carga por separado desde FeedingOperationRepository
         session._current_operation = None
         session._session_events = []
-        
+
         return session

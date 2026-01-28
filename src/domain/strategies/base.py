@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import List
 from domain.dtos import MachineConfiguration
 
 class IFeedingStrategy(ABC):

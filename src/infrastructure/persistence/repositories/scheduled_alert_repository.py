@@ -60,7 +60,7 @@ class ScheduledAlertRepository(IScheduledAlertRepository):
         """Obtiene solo las alertas programadas activas."""
         result = await self.session.execute(
             select(ScheduledAlertModel)
-            .where(ScheduledAlertModel.is_active == True)
+            .where(ScheduledAlertModel.is_active.is_(True))
             .order_by(ScheduledAlertModel.next_trigger_date)
         )
         models = result.scalars().all()

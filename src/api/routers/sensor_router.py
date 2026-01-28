@@ -5,7 +5,6 @@ Proporciona acceso a las lecturas en tiempo real de los sensores
 y gestión de configuración de sensores en las líneas de alimentación.
 """
 
-from typing import Dict
 
 from fastapi import APIRouter, HTTPException, status
 

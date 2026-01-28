@@ -139,18 +139,18 @@ async def test_update_existing_system_layout(use_case, repositories):
     - Preservación de IDs reales
     """
     # Arrange: Crear un layout inicial
-    initial_request = SystemLayoutModel(
+    initial_request = SaveSystemLayoutRequest(
         silos=[
-            SiloConfigModel(id="temp_silo_1", name="Silo Original", capacity=1000.0)
+            SiloConfigDTO(id="temp_silo_1", name="Silo Original", capacity=1000.0)
         ],
         cages=[
-            CageConfigModel(id="temp_cage_1", name="Jaula Original")
+            CageConfigDTO(id="temp_cage_1", name="Jaula Original")
         ],
         feeding_lines=[
-            FeedingLineConfigModel(
+            FeedingLineConfigDTO(
                 id="temp_line_1",
                 line_name="Linea Original",
-                blower_config=BlowerConfigModel(
+                blower_config=BlowerConfigDTO(
                     id="temp_blower_1",
                     name="Soplador 1",
                     non_feeding_power=50.0,
@@ -158,7 +158,7 @@ async def test_update_existing_system_layout(use_case, repositories):
                     blow_after_time=3
                 ),
                 dosers_config=[
-                    DoserConfigModel(
+                    DoserConfigDTO(
                         id="temp_doser_1",
                         name="Dosificador 1",
                         assigned_silo_id="temp_silo_1",
@@ -168,7 +168,7 @@ async def test_update_existing_system_layout(use_case, repositories):
                         current_rate=50.0
                     )
                 ],
-                selector_config=SelectorConfigModel(
+                selector_config=SelectorConfigDTO(
                     id="temp_selector_1",
                     name="Selector 1",
                     capacity=2,
@@ -176,10 +176,12 @@ async def test_update_existing_system_layout(use_case, repositories):
                     slow_speed=20.0
                 ),
                 slot_assignments=[
-                    SlotAssignmentModel(slot_number=1, cage_id="temp_cage_1")
+                    SlotAssignmentDTO(slot_number=1, cage_id="temp_cage_1")
                 ]
             )
         ],
+        relations_data={},
+        presentation_data={}
     )
 
     await use_case.execute(initial_request)
@@ -194,18 +196,18 @@ async def test_update_existing_system_layout(use_case, repositories):
     line_id = str(lines[0].id)
 
     # Act: Actualizar con IDs reales
-    update_request = SystemLayoutModel(
+    update_request = SaveSystemLayoutRequest(
         silos=[
-            SiloConfigModel(id=silo_id, name="Silo Actualizado", capacity=1000.0)
+            SiloConfigDTO(id=silo_id, name="Silo Actualizado", capacity=1000.0)
         ],
         cages=[
-            CageConfigModel(id=cage_id, name="Jaula Actualizada")
+            CageConfigDTO(id=cage_id, name="Jaula Actualizada")
         ],
         feeding_lines=[
-            FeedingLineConfigModel(
+            FeedingLineConfigDTO(
                 id=line_id,
                 line_name="Linea Actualizada",
-                blower_config=BlowerConfigModel(
+                blower_config=BlowerConfigDTO(
                     id="temp_blower_2",
                     name="Soplador Actualizado",
                     non_feeding_power=60.0,
@@ -213,7 +215,7 @@ async def test_update_existing_system_layout(use_case, repositories):
                     blow_after_time=4
                 ),
                 dosers_config=[
-                    DoserConfigModel(
+                    DoserConfigDTO(
                         id="temp_doser_2",
                         name="Dosificador Actualizado",
                         assigned_silo_id=silo_id,
@@ -223,7 +225,7 @@ async def test_update_existing_system_layout(use_case, repositories):
                         current_rate=60.0
                     )
                 ],
-                selector_config=SelectorConfigModel(
+                selector_config=SelectorConfigDTO(
                     id="temp_selector_2",
                     name="Selector Actualizado",
                     capacity=3,
@@ -231,10 +233,12 @@ async def test_update_existing_system_layout(use_case, repositories):
                     slow_speed=25.0
                 ),
                 slot_assignments=[
-                    SlotAssignmentModel(slot_number=1, cage_id=cage_id)
+                    SlotAssignmentDTO(slot_number=1, cage_id=cage_id)
                 ]
             )
         ],
+        relations_data={},
+        presentation_data={}
     )
 
     response = await use_case.execute(update_request)
@@ -261,13 +265,15 @@ async def test_delete_aggregates_not_in_request(use_case, repositories):
     - Fase 2: Eliminación de agregados ausentes en el request
     """
     # Arrange: Crear layout inicial con 2 silos
-    initial_request = SystemLayoutModel(
+    initial_request = SaveSystemLayoutRequest(
         silos=[
-            SiloConfigModel(id="temp_silo_1", name="Silo 1", capacity=1000.0),
-            SiloConfigModel(id="temp_silo_2", name="Silo 2", capacity=2000.0)
+            SiloConfigDTO(id="temp_silo_1", name="Silo 1", capacity=1000.0),
+            SiloConfigDTO(id="temp_silo_2", name="Silo 2", capacity=2000.0)
         ],
         cages=[],
         feeding_lines=[],
+        relations_data={},
+        presentation_data={}
     )
 
     await use_case.execute(initial_request)
@@ -279,12 +285,14 @@ async def test_delete_aggregates_not_in_request(use_case, repositories):
     silo_1_id = str(silos[0].id)
 
     # Act: Enviar request solo con 1 silo (el otro debe eliminarse)
-    update_request = SystemLayoutModel(
+    update_request = SaveSystemLayoutRequest(
         silos=[
-            SiloConfigModel(id=silo_1_id, name="Silo 1", capacity=1000.0)
+            SiloConfigDTO(id=silo_1_id, name="Silo 1", capacity=1000.0)
         ],
         cages=[],
         feeding_lines=[],
+        relations_data={},
+        presentation_data={}
     )
 
     response = await use_case.execute(update_request)

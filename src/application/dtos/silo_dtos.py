@@ -15,6 +15,7 @@ class SiloDTO:
     created_at: datetime
     line_id: Optional[str] = None
     line_name: Optional[str] = None
+    food_id: Optional[str] = None
 
 
 @dataclass
@@ -33,6 +34,7 @@ class UpdateSiloRequest:
     name: Optional[str] = None
     capacity_kg: Optional[float] = None
     stock_level_kg: Optional[float] = None
+    food_id: Optional[str] = None
 
 
 @dataclass

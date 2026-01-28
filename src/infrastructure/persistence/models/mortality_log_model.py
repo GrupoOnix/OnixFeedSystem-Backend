@@ -12,11 +12,11 @@ class MortalityLogModel(SQLModel, table=True):
 
     mortality_id: UUID = Field(default_factory=uuid4, primary_key=True)
     cage_id: UUID = Field(foreign_key="cages.id", nullable=False, index=True, ondelete="CASCADE")
-    
+
     dead_fish_count: int = Field(nullable=False)
     mortality_date: date = Field(nullable=False, index=True)
     note: Optional[str] = Field(default=None)
-    
+
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
 
     @staticmethod

@@ -9,18 +9,16 @@ Estos tests verifican que los casos de uso cumplen su contrato:
 - Mantener el estado de la sesión
 """
 
-from uuid import UUID
 
 import pytest
 
 from application.dtos.feeding_dtos import StartFeedingRequest
+from application.use_cases.feeding.resume_feeding_use_case import (
     ResumeFeedingSessionUseCase,
 )
 from application.use_cases.feeding.start_feeding_use_case import (
     StartFeedingSessionUseCase,
 )
-from application.dtos.feeding_dtos import StartFeedingRequest
-from domain.aggregates.feeding_session import FeedingSession
 from domain.aggregates.cage import Cage
 from domain.enums import FeedingMode, OperationStatus
 from domain.value_objects import LineId, LineName, CageId, CageName, SiloId

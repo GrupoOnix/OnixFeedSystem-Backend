@@ -180,6 +180,8 @@ async def test_update_existing_system_layout(use_case, repositories):
                 ]
             )
         ],
+        relations_data={},
+        presentation_data={}
     )
 
     await use_case.execute(initial_request)
@@ -235,6 +237,8 @@ async def test_update_existing_system_layout(use_case, repositories):
                 ]
             )
         ],
+        relations_data={},
+        presentation_data={}
     )
 
     response = await use_case.execute(update_request)
@@ -268,6 +272,8 @@ async def test_delete_aggregates_not_in_request(use_case, repositories):
         ],
         cages=[],
         feeding_lines=[],
+        relations_data={},
+        presentation_data={}
     )
 
     await use_case.execute(initial_request)
@@ -285,6 +291,8 @@ async def test_delete_aggregates_not_in_request(use_case, repositories):
         ],
         cages=[],
         feeding_lines=[],
+        relations_data={},
+        presentation_data={}
     )
 
     response = await use_case.execute(update_request)

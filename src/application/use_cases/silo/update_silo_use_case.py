@@ -4,7 +4,7 @@ from application.dtos.silo_dtos import SiloDTO, UpdateSiloRequest
 from application.services.alert_trigger_service import AlertTriggerService
 from domain.exceptions import DuplicateSiloNameError, SiloNotFoundError
 from domain.repositories import ISiloRepository
-from domain.value_objects import SiloId, SiloName, Weight
+from domain.value_objects import FoodId, SiloId, SiloName, Weight
 
 
 class UpdateSiloUseCase:
@@ -63,6 +63,16 @@ class UpdateSiloUseCase:
             new_stock_level = Weight.from_kg(request.stock_level_kg)
             # El setter valida que el stock <= capacidad
             silo.stock_level = new_stock_level
+
+        # Actualizar food_id si se proporciona
+        if request.food_id is not None:
+            if request.food_id == "":
+                # Si se envía un string vacío, remover la asignación de alimento
+                silo.remove_food()
+            else:
+                # Asignar el nuevo food_id
+                food_id = FoodId.from_string(request.food_id)
+                silo.assign_food(food_id)
 
         # Persistir cambios
         await self._silo_repository.save(silo)
@@ -125,4 +135,5 @@ class UpdateSiloUseCase:
             created_at=silo.created_at,
             line_id=line_id,
             line_name=line_name,
+            food_id=str(silo.food_id) if silo.food_id else None,
         )

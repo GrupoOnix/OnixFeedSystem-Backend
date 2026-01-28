@@ -16,7 +16,7 @@ from infrastructure.persistence.models.operation_event_model import OperationEve
 
 class FeedingOperationRepository(IFeedingOperationRepository):
     """Implementación del repositorio de operaciones de alimentación."""
-    
+
     def __init__(self, session: AsyncSession):
         self.db = session
 

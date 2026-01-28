@@ -20,17 +20,17 @@ class LineDashboardResponse(BaseModel):
     line_id: UUID
     line_name: str
     is_online: bool
-    
+
     # Session Info
     active_session_id: Optional[UUID] = None
     session_status: Optional[SessionStatus] = None
     target_kg: Optional[float] = None
     total_dispensed_kg: Optional[float] = None
     current_mode: Optional[str] = None
-    
+
     # Real-time Telemetry
     current_flow_rate: float = 0.0
     current_pressure: float = 0.0
-    
+
     # Inventory
     silos: List[Dict[str, float]] = [] # {name, current_kg}

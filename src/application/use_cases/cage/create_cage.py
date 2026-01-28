@@ -42,6 +42,7 @@ class CreateCageUseCase:
             volume_m3=request.volume_m3,
             max_density_kg_m3=request.max_density_kg_m3,
             transport_time_seconds=request.transport_time_seconds,
+            blower_power=request.blower_power,
         )
 
         # Crear jaula
@@ -68,6 +69,7 @@ class CreateCageUseCase:
                 volume_m3=cage.config.volume_m3,
                 max_density_kg_m3=cage.config.max_density_kg_m3,
                 transport_time_seconds=cage.config.transport_time_seconds,
+                blower_power=cage.config.blower_power,
             ),
             current_density_kg_m3=cage.current_density_kg_m3,
         )

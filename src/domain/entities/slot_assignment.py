@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
 from uuid import UUID, uuid4
 
 from domain.value_objects.identifiers import CageId, LineId

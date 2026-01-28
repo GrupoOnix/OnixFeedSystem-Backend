@@ -9,7 +9,6 @@ Estos tests verifican que el caso de uso cumple su contrato:
 - Ser idempotente (no fallar si no hay operación activa)
 """
 
-from uuid import UUID
 
 import pytest
 from application.use_cases.feeding.stop_feeding_use_case import (
@@ -20,7 +19,6 @@ from application.use_cases.feeding.start_feeding_use_case import (
 )
 from application.dtos.feeding_dtos import StartFeedingRequest
 from domain.aggregates.feeding_session import FeedingSession
-from domain.aggregates.feeding_line.feeding_line import FeedingLine
 from domain.aggregates.cage import Cage
 from domain.enums import FeedingMode, OperationStatus
 from domain.value_objects import LineId, LineName, CageId, CageName, SiloId, Weight
@@ -291,5 +289,4 @@ class TestStopFeeding_EventLogging:
 
 
         # Último evento debe ser STOPPED
-        from domain.enums import OperationEventType
         assert operation.events[-1].type == OperationEventType.STOPPED

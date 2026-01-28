@@ -37,6 +37,7 @@ class CageRepository(ICageRepository):
             existing.volume_m3 = cage.config.volume_m3
             existing.max_density_kg_m3 = cage.config.max_density_kg_m3
             existing.transport_time_seconds = cage.config.transport_time_seconds
+            existing.blower_power = cage.config.blower_power
         else:
             cage_model = CageModel.from_domain(cage)
             self.session.add(cage_model)

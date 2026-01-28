@@ -54,13 +54,13 @@ class Volume:
     def __str__(self) -> str:
         if self._cubic_millimeters == 0:
             return "0 m³"
-        
+
         if abs(self._cubic_millimeters) >= 1_000_000_000:
             return f"{self.as_cubic_meters:.2f} m³"
-        
+
         if abs(self._cubic_millimeters) >= 1_000_000:
             return f"{self.as_liters:.2f} L"
-        
+
         return f"{self.as_cubic_millimeters} mm³"
 
     def __repr__(self) -> str:
@@ -75,10 +75,10 @@ class Density:
     def __post_init__(self):
         if not isinstance(self.value, (int, float)):
             raise TypeError("La densidad debe ser un valor numérico")
-        
+
         if self.value < 0:
             raise ValueError("La densidad no puede ser negativa")
-        
+
         if self.value > 200:
             raise ValueError("La densidad no puede exceder 200 kg/m³")
 
@@ -113,7 +113,7 @@ class Weight:
             raise TypeError("La cantidad de gramos debe ser un valor numérico.")
         if grams < 0:
             raise ValueError("El peso no puede ser negativo.")
-        
+
         miligrams_value = round(grams * 1000)
         return cls(_miligrams=miligrams_value)
 
@@ -123,7 +123,7 @@ class Weight:
             raise TypeError("La cantidad de kg debe ser un valor numérico.")
         if kg < 0:
             raise ValueError("El peso no puede ser negativo.")
-        
+
         miligrams_value = round(kg * 1_000_000)
         return cls(_miligrams=miligrams_value)
 
@@ -133,10 +133,10 @@ class Weight:
             raise TypeError("La cantidad de toneladas debe ser un valor numérico.")
         if tons < 0:
             raise ValueError("El peso no puede ser negativo.")
-            
+
         miligrams_value = round(tons * 1_000_000_000)
         return cls(_miligrams=miligrams_value)
-    
+
     @classmethod
     def zero(cls) -> Weight:
         return cls(_miligrams=0)
@@ -170,7 +170,7 @@ class Weight:
     def __sub__(self, other: Any) -> Weight:
         if not isinstance(other, Weight):
             return NotImplemented
-        
+
         new_miligrams = self._miligrams - other._miligrams
         if new_miligrams < 0:
             raise ValueError("El resultado de la resta de peso no puede ser negativo (stock insuficiente).")
@@ -181,10 +181,10 @@ class Weight:
             return NotImplemented
         if multiplier < 0:
             raise ValueError("No se puede multiplicar un peso por un número negativo.")
-        
+
         new_miligrams = round(self._miligrams * multiplier)
         return Weight(_miligrams=new_miligrams)
-    
+
     def __rmul__(self, multiplier: int | float) -> Weight:
         return self.__mul__(multiplier)
 
@@ -222,17 +222,17 @@ class Weight:
     def __str__(self) -> str:
         if self._miligrams == 0:
             return "0 kg"
-        
+
         if abs(self._miligrams) >= 1_000_000_000:
             return f"{self.as_tons:.2f} ton"
-        
+
         if abs(self._miligrams) >= 1_000_000:
             return f"{self.as_kg:.2f} kg"
-        
+
         if abs(self._miligrams) >= 1000:
             return f"{self.as_grams:.2f} g"
-        
+
         return f"{self.as_miligrams} mg"
-        
+
     def __repr__(self) -> str:
         return f"Weight(miligrams={self._miligrams})"

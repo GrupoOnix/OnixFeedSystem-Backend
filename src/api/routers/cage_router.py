@@ -63,6 +63,7 @@ async def create_cage(
     - **volume_m3**: Volumen en metros cúbicos (opcional)
     - **max_density_kg_m3**: Densidad máxima en kg/m³ (opcional)
     - **transport_time_seconds**: Tiempo de transporte en segundos (opcional)
+    - **blower_power**: Potencia del blower para alcanzar la jaula (opcional, 30-100)
     """
     try:
         dto = CreateCageRequest(
@@ -71,6 +72,7 @@ async def create_cage(
             volume_m3=request.volume_m3,
             max_density_kg_m3=request.max_density_kg_m3,
             transport_time_seconds=request.transport_time_seconds,
+            blower_power=request.blower_power,
         )
         result = await use_case.execute(dto)
         return CageResponseModel.from_dto(result)
@@ -155,6 +157,7 @@ async def update_cage_config(
     - **volume_m3**: Volumen en metros cúbicos
     - **max_density_kg_m3**: Densidad máxima en kg/m³
     - **transport_time_seconds**: Tiempo de transporte en segundos
+    - **blower_power**: Potencia del blower para alcanzar la jaula (30-100)
     """
     try:
         dto = UpdateCageConfigRequest(
@@ -162,6 +165,7 @@ async def update_cage_config(
             volume_m3=request.volume_m3,
             max_density_kg_m3=request.max_density_kg_m3,
             transport_time_seconds=request.transport_time_seconds,
+            blower_power=request.blower_power,
         )
         result = await use_case.execute(cage_id, dto)
         return CageResponseModel.from_dto(result)

@@ -44,7 +44,11 @@ class ResponseMapper:
     @staticmethod
     def _to_silo_model(silo: Silo) -> SiloConfigModel:
         return SiloConfigModel(
-            id=str(silo.id), name=str(silo.name), capacity=silo.capacity.as_kg
+            id=str(silo.id),
+            name=str(silo.name),
+            capacity=silo.capacity.as_kg,
+            food_id=str(silo.food_id) if silo.food_id else None,
+            stock_level=silo.stock_level.as_kg,
         )
 
     @staticmethod

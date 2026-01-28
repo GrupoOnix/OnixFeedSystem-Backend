@@ -1,6 +1,5 @@
 """Factory para creación de componentes de líneas de alimentación."""
 
-from typing import Dict, Any, List
 
 from ..interfaces import IBlower, IDoser, ISelector, ISensor
 from ..value_objects import (
@@ -27,9 +26,9 @@ class ComponentFactory:
         blow_before_time: BlowDurationInSeconds,
         blow_after_time: BlowDurationInSeconds
     ) -> IBlower:
-        
+
         blower_type_lower = blower_type.lower()
-        
+
         if blower_type_lower == "standard" or blower_type_lower == "blower":
             return Blower(
                 name=name,
@@ -37,9 +36,9 @@ class ComponentFactory:
                 blow_before_time=blow_before_time,
                 blow_after_time=blow_after_time
             )
-        
+
         # TODO: Extender con VariBlower, TurboBlower, etc.
-        
+
         raise ValueError(f"Tipo de blower no soportado: '{blower_type}'")
 
     @staticmethod
@@ -50,15 +49,15 @@ class ComponentFactory:
         dosing_range: DosingRange,
         current_rate: DosingRate
     ) -> IDoser:
-        
+
         # Validar y convertir string a enum
         valid_types = [dt.value for dt in DoserType]
         if doser_type not in valid_types:
             raise ValueError(f"Tipo de doser no soportado: '{doser_type}'")
-        
+
         # Convertir string a enum
         doser_type_enum = DoserType(doser_type)
-        
+
         return Doser(
             name=name,
             assigned_silo_id=assigned_silo_id,
@@ -74,18 +73,18 @@ class ComponentFactory:
         capacity: SelectorCapacity,
         speed_profile: SelectorSpeedProfile
     ) -> ISelector:
-        
+
         selector_type_lower = selector_type.lower()
-        
+
         if selector_type_lower in ["standard", "selector"]:
             return Selector(
                 name=name,
                 capacity=capacity,
                 speed_profile=speed_profile
             )
-        
+
         # TODO: Extender con nuevos tipos de selectoras
-        
+
         raise ValueError(f"Tipo de selector no soportado: '{selector_type}'")
 
     @staticmethod
@@ -93,10 +92,10 @@ class ComponentFactory:
         sensor_type: SensorType,
         name: SensorName
     ) -> ISensor:
-        
+
         return Sensor(
             name=name,
             sensor_type=sensor_type
         )
-        
+
         # TODO: Extender con implementaciones específicas por tipo de sensor

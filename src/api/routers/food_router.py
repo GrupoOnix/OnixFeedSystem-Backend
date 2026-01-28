@@ -138,6 +138,7 @@ async def update_food(
     - **size_mm**: (Opcional) Nuevo tamaño del pellet
     - **energy**: (Opcional) Nueva energía
     - **kg_per_liter**: (Opcional) Nueva densidad
+    - **active**: (Opcional) Nuevo estado activo/inactivo
 
     Validaciones:
     - Si se cambia el nombre, debe ser único

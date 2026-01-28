@@ -10,7 +10,7 @@ from application.use_cases.cage_group.update_cage_group import UpdateCageGroupUs
 from domain.aggregates.cage import Cage
 from domain.aggregates.cage_group import CageGroup
 from domain.repositories import ICageGroupRepository, ICageRepository
-from domain.value_objects import CageGroupId, CageGroupName, CageId, CageName
+from domain.value_objects import CageGroupName, CageId, CageName
 
 
 @pytest.fixture
@@ -46,7 +46,7 @@ class TestUpdateCageGroup:
         """Debe actualizar el nombre del grupo exitosamente."""
         # Arrange
         cage = Cage(name=CageName("Jaula 1"))
-        
+
         group = CageGroup(
             name=CageGroupName("Sector Norte"),
             cage_ids=[CageId(str(cage.id))],
@@ -74,7 +74,7 @@ class TestUpdateCageGroup:
         """Debe actualizar la descripción del grupo."""
         # Arrange
         cage = Cage(name=CageName("Jaula 1"))
-        
+
         group = CageGroup(
             name=CageGroupName("Sector Norte"),
             cage_ids=[CageId(str(cage.id))],
@@ -103,7 +103,7 @@ class TestUpdateCageGroup:
         cage1 = Cage(name=CageName("Jaula 1"))
         cage2 = Cage(name=CageName("Jaula 2"))
         cage3 = Cage(name=CageName("Jaula 3"))
-        
+
         group = CageGroup(
             name=CageGroupName("Sector Norte"),
             cage_ids=[CageId(str(cage1.id))],
@@ -134,7 +134,7 @@ class TestUpdateCageGroup:
         # Arrange
         cage1 = Cage(name=CageName("Jaula 1"))
         cage2 = Cage(name=CageName("Jaula 2"))
-        
+
         group = CageGroup(
             name=CageGroupName("Sector Norte"),
             cage_ids=[CageId(str(cage1.id))],
@@ -180,7 +180,7 @@ class TestUpdateCageGroup:
         """Debe fallar si el nuevo nombre ya existe en otro grupo."""
         # Arrange
         cage = Cage(name=CageName("Jaula 1"))
-        
+
         group = CageGroup(
             name=CageGroupName("Sector Norte"),
             cage_ids=[CageId(str(cage.id))],
@@ -208,7 +208,7 @@ class TestUpdateCageGroup:
         """Debe permitir mantener el mismo nombre (no cambiar)."""
         # Arrange
         cage = Cage(name=CageName("Jaula 1"))
-        
+
         group = CageGroup(
             name=CageGroupName("Sector Norte"),
             cage_ids=[CageId(str(cage.id))],
@@ -235,7 +235,7 @@ class TestUpdateCageGroup:
         # Arrange
         cage1 = Cage(name=CageName("Jaula 1"))
         invalid_cage_id = "00000000-0000-0000-0000-000000000999"
-        
+
         group = CageGroup(
             name=CageGroupName("Sector Norte"),
             cage_ids=[CageId(str(cage1.id))],
@@ -259,7 +259,7 @@ class TestUpdateCageGroup:
         """Debe manejar actualización sin cambios (todos los campos None)."""
         # Arrange
         cage = Cage(name=CageName("Jaula 1"))
-        
+
         group = CageGroup(
             name=CageGroupName("Sector Norte"),
             cage_ids=[CageId(str(cage.id))],
@@ -285,7 +285,7 @@ class TestUpdateCageGroup:
         """Debe permitir limpiar la descripción estableciéndola a None."""
         # Arrange
         cage = Cage(name=CageName("Jaula 1"))
-        
+
         group = CageGroup(
             name=CageGroupName("Sector Norte"),
             cage_ids=[CageId(str(cage.id))],
@@ -312,7 +312,7 @@ class TestUpdateCageGroup:
         """Debe actualizar el timestamp updated_at."""
         # Arrange
         cage = Cage(name=CageName("Jaula 1"))
-        
+
         group = CageGroup(
             name=CageGroupName("Sector Norte"),
             cage_ids=[CageId(str(cage.id))],

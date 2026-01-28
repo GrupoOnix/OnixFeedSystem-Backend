@@ -1,6 +1,5 @@
 """Caso de uso para listar alertas programadas."""
 
-from typing import List
 
 from application.dtos.alert_dtos import ListScheduledAlertsResponse, ScheduledAlertDTO
 from domain.aggregates.scheduled_alert import ScheduledAlert

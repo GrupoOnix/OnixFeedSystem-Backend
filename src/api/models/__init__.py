@@ -8,20 +8,20 @@ Organizados por dominio para escalabilidad.
 from .system_layout import (
     # Request/Response principales
     SystemLayoutModel,
-    
+
     # Agregados independientes
     SiloConfigModel,
     CageConfigModel,
-    
+
     # Agregado dependiente
     FeedingLineConfigModel,
-    
+
     # Componentes
     BlowerConfigModel,
     SensorConfigModel,
     DoserConfigModel,
     SelectorConfigModel,
-    
+
     # Value Objects
     SlotAssignmentModel,
 )
@@ -29,18 +29,18 @@ from .system_layout import (
 __all__ = [
     # Request/Response
     'SystemLayoutModel',
-    
+
     # Agregados
     'SiloConfigModel',
     'CageConfigModel',
     'FeedingLineConfigModel',
-    
+
     # Componentes
     'BlowerConfigModel',
     'SensorConfigModel',
     'DoserConfigModel',
     'SelectorConfigModel',
-    
+
     # Value Objects
     'SlotAssignmentModel',
 ]

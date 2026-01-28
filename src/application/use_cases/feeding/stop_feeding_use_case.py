@@ -18,10 +18,10 @@ class StopFeedingSessionUseCase:
     async def execute(self, line_id: UUID) -> None:
         # 1. Recuperar Sesión Activa
         session = await self.session_repository.find_active_by_line_id(LineId(line_id))
-        
+
         if not session:
             return  # Idempotente
-        
+
         # 2. Cargar operación actual
         current_op = await self.operation_repository.find_current_by_session(session.id)
         if current_op:
@@ -29,7 +29,7 @@ class StopFeedingSessionUseCase:
 
         # 3. Ejecutar Parada
         await session.stop_current_operation(self.machine_service)
-        
+
         # 4. Persistencia (sesión + operación si existe)
         await self.session_repository.save(session)
         if current_op:  # La operación fue cerrada

@@ -6,7 +6,6 @@ from application.dtos.cage_dtos import (
     UpdateCageRequest,
 )
 from domain.aggregates.cage import Cage
-from domain.enums import CageStatus
 from domain.repositories import ICageRepository
 from domain.value_objects.identifiers import CageId
 from domain.value_objects.names import CageName
@@ -83,6 +82,7 @@ class UpdateCageUseCase:
                 volume_m3=cage.config.volume_m3,
                 max_density_kg_m3=cage.config.max_density_kg_m3,
                 transport_time_seconds=cage.config.transport_time_seconds,
+                blower_power=cage.config.blower_power,
             ),
             current_density_kg_m3=cage.current_density_kg_m3,
         )

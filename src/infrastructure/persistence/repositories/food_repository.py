@@ -67,7 +67,7 @@ class FoodRepository(IFoodRepository):
     async def get_active(self) -> List[Food]:
         """Obtiene solo los alimentos activos."""
         result = await self.session.execute(
-            select(FoodModel).where(FoodModel.active == True).order_by(FoodModel.name)
+            select(FoodModel).where(FoodModel.active.is_(True)).order_by(FoodModel.name)
         )
         food_models = result.scalars().all()
         return [model.to_domain() for model in food_models]

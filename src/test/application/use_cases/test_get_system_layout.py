@@ -66,7 +66,7 @@ class TestGetSystemLayout_EmptyDatabase:
     async def test_get_empty_layout(self, get_use_case):
         """Debe devolver un layout vacío cuando la BD está vacía."""
         silos, cages, lines = await get_use_case.execute()
-        
+
         assert len(silos) == 0
         assert len(cages) == 0
         assert len(lines) == 0
@@ -87,13 +87,13 @@ class TestGetSystemLayout_WithData:
             feeding_lines=[]
         )
         await sync_use_case.execute(create_request)
-        
+
         silos, cages, lines = await get_use_case.execute()
-        
+
         assert len(silos) == 2
         assert len(cages) == 0
         assert len(lines) == 0
-        
+
         for silo in silos:
             assert str(silo.id) != "temp-1" and str(silo.id) != "temp-2"
             assert len(str(silo.id)) > 10
@@ -110,13 +110,13 @@ class TestGetSystemLayout_WithData:
             feeding_lines=[]
         )
         await sync_use_case.execute(create_request)
-        
+
         silos, cages, lines = await get_use_case.execute()
-        
+
         assert len(silos) == 0
         assert len(cages) == 2
         assert len(lines) == 0
-        
+
         cage_names = {str(cage.name) for cage in cages}
         assert cage_names == {"Jaula 1", "Jaula 2"}
 
@@ -169,22 +169,22 @@ class TestGetSystemLayout_WithData:
             ]
         )
         await sync_use_case.execute(create_request)
-        
+
         silos, cages, lines = await get_use_case.execute()
-        
+
         assert len(silos) == 1
         assert len(cages) == 1
         assert len(lines) == 1
-        
+
         line = lines[0]
         assert str(line.name) == "Línea 1"
         assert len(line.dosers) == 1
         assert len(line.get_slot_assignments()) == 1
-        
+
         doser = line.dosers[0]
         silo_id = silos[0].id
         assert doser.assigned_silo_id == silo_id
-        
+
         slot = line.get_slot_assignments()[0]
         cage_id = cages[0].id
         assert slot.cage_id == cage_id
@@ -207,18 +207,18 @@ class TestGetSystemLayout_Consistency:
             ],
             feeding_lines=[]
         )
-        
+
         sync_silos, sync_cages, sync_lines = await sync_use_case.execute(request)
         get_silos, get_cages, get_lines = await get_use_case.execute()
-        
+
         assert len(sync_silos) == len(get_silos)
         assert len(sync_cages) == len(get_cages)
         assert len(sync_lines) == len(get_lines)
-        
+
         sync_silo_ids = {silo.id for silo in sync_silos}
         get_silo_ids = {silo.id for silo in get_silos}
         assert sync_silo_ids == get_silo_ids
-        
+
         sync_cage_ids = {cage.id for cage in sync_cages}
         get_cage_ids = {cage.id for cage in get_cages}
         assert sync_cage_ids == get_cage_ids
@@ -233,16 +233,16 @@ class TestGetSystemLayout_Consistency:
         )
         result_silos, _, _ = await sync_use_case.execute(request1)
         silo_id = str(result_silos[0].id)
-        
+
         request2 = SystemLayoutModel(
             silos=[SiloConfigModel(id=silo_id, name="Silo Actualizado", capacity=2000.0)],
             cages=[],
             feeding_lines=[]
         )
         await sync_use_case.execute(request2)
-        
+
         get_silos, _, _ = await get_use_case.execute()
-        
+
         assert len(get_silos) == 1
         assert str(get_silos[0].name) == "Silo Actualizado"
         assert get_silos[0].capacity.as_kg == 2000.0

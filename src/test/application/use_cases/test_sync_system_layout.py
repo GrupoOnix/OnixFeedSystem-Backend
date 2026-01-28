@@ -60,9 +60,9 @@ class TestSyncSystemLayout_Create:
             cages=[],
             feeding_lines=[]
         )
-        
+
         result = await use_case.execute(request)
-        
+
         assert len(result.silos) == 0
         assert len(result.cages) == 0
         assert len(result.feeding_lines) == 0
@@ -81,9 +81,9 @@ class TestSyncSystemLayout_Create:
             cages=[],
             feeding_lines=[]
         )
-        
+
         result = await use_case.execute(request)
-        
+
         assert len(result.silos) == 1
         assert result.silos[0].name == "Silo A"
         assert result.silos[0].capacity == 1000.0
@@ -102,9 +102,9 @@ class TestSyncSystemLayout_Create:
             ],
             feeding_lines=[]
         )
-        
+
         result = await use_case.execute(request)
-        
+
         assert len(result.cages) == 1
         assert result.cages[0].name == "Jaula 1"
         assert result.cages[0].id != "temp-cage-1"
@@ -155,9 +155,9 @@ class TestSyncSystemLayout_Create:
                 )
             ]
         )
-        
+
         result = await use_case.execute(request)
-        
+
         assert len(result.feeding_lines) == 1
         line = result.feeding_lines[0]
         assert line.line_name == "Línea 1"
@@ -180,7 +180,7 @@ class TestSyncSystemLayout_Update:
         )
         create_result = await use_case.execute(create_request)
         silo_id = create_result.silos[0].id
-        
+
         # Actualizar nombre
         update_request = SystemLayoutModel(
             silos=[SiloConfigModel(id=silo_id, name="Silo Actualizado", capacity=1000.0)],
@@ -188,7 +188,7 @@ class TestSyncSystemLayout_Update:
             feeding_lines=[]
         )
         update_result = await use_case.execute(update_request)
-        
+
         assert len(update_result.silos) == 1
         assert update_result.silos[0].name == "Silo Actualizado"
         assert update_result.silos[0].id == silo_id
@@ -204,7 +204,7 @@ class TestSyncSystemLayout_Update:
         )
         create_result = await use_case.execute(create_request)
         silo_id = create_result.silos[0].id
-        
+
         # Actualizar capacidad
         update_request = SystemLayoutModel(
             silos=[SiloConfigModel(id=silo_id, name="Silo A", capacity=2000.0)],
@@ -212,7 +212,7 @@ class TestSyncSystemLayout_Update:
             feeding_lines=[]
         )
         update_result = await use_case.execute(update_request)
-        
+
         assert update_result.silos[0].capacity == 2000.0
 
 
@@ -229,11 +229,11 @@ class TestSyncSystemLayout_Delete:
             feeding_lines=[]
         )
         await use_case.execute(create_request)
-        
+
         # Enviar request vacío (elimina todo)
         delete_request = SystemLayoutModel(silos=[], cages=[], feeding_lines=[])
         result = await use_case.execute(delete_request)
-        
+
         assert len(result.silos) == 0
 
     @pytest.mark.asyncio
@@ -246,11 +246,11 @@ class TestSyncSystemLayout_Delete:
             feeding_lines=[]
         )
         await use_case.execute(create_request)
-        
+
         # Enviar request vacío
         delete_request = SystemLayoutModel(silos=[], cages=[], feeding_lines=[])
         result = await use_case.execute(delete_request)
-        
+
         assert len(result.cages) == 0
 
 
@@ -267,7 +267,7 @@ class TestSyncSystemLayout_BusinessRules:
             feeding_lines=[]
         )
         await use_case.execute(request1)
-        
+
         # Intentar crear otro silo con el mismo nombre
         request2 = SystemLayoutModel(
             silos=[
@@ -277,10 +277,10 @@ class TestSyncSystemLayout_BusinessRules:
             cages=[],
             feeding_lines=[]
         )
-        
+
         with pytest.raises(Exception) as exc_info:
             await use_case.execute(request2)
-        
+
         assert "Ya existe un silo con el nombre" in str(exc_info.value)
 
     @pytest.mark.asyncio
@@ -293,7 +293,7 @@ class TestSyncSystemLayout_BusinessRules:
             feeding_lines=[]
         )
         await use_case.execute(request1)
-        
+
         # Intentar crear otra jaula con el mismo nombre
         request2 = SystemLayoutModel(
             silos=[],
@@ -303,10 +303,10 @@ class TestSyncSystemLayout_BusinessRules:
             ],
             feeding_lines=[]
         )
-        
+
         with pytest.raises(Exception) as exc_info:
             await use_case.execute(request2)
-        
+
         assert "Ya existe una jaula con el nombre" in str(exc_info.value)
 
     @pytest.mark.asyncio
@@ -353,7 +353,7 @@ class TestSyncSystemLayout_BusinessRules:
             ]
         )
         result1 = await use_case.execute(base_request)
-        
+
         # Intentar crear otra línea con el mismo nombre
         duplicate_request = SystemLayoutModel(
             silos=[
@@ -433,10 +433,10 @@ class TestSyncSystemLayout_BusinessRules:
                 )
             ]
         )
-        
+
         with pytest.raises(Exception) as exc_info:
             await use_case.execute(duplicate_request)
-        
+
         assert "Ya existe una línea con el nombre" in str(exc_info.value)
 
 
@@ -489,9 +489,9 @@ class TestSyncSystemLayout_IDMapping:
                 )
             ]
         )
-        
+
         result = await use_case.execute(request)
-        
+
         # El doser debe tener el ID real del silo, no el temporal
         doser = result.feeding_lines[0].dosers_config[0]
         silo_id = result.silos[0].id
@@ -544,9 +544,9 @@ class TestSyncSystemLayout_IDMapping:
                 )
             ]
         )
-        
+
         result = await use_case.execute(request)
-        
+
         # El slot debe tener el ID real de la jaula, no el temporal
         slot = result.feeding_lines[0].slot_assignments[0]
         cage_id = result.cages[0].id

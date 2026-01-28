@@ -76,7 +76,7 @@ async def silo_monitor_job():
     4. Hace commit de los cambios
     """
     logger.info("Iniciando job de monitoreo de silos")
-    
+
     # Esperar 30 segundos antes de la primera ejecución
     # para dar tiempo a que el sistema se inicialice
     await asyncio.sleep(30)
@@ -130,19 +130,19 @@ async def lifespan_with_scheduler(app: FastAPI):
 
     # Shutdown
     logger.info("Deteniendo background tasks...")
-    
+
     if _scheduler_task:
         _scheduler_task.cancel()
         try:
             await _scheduler_task
         except asyncio.CancelledError:
             pass
-    
+
     if _silo_monitor_task:
         _silo_monitor_task.cancel()
         try:
             await _silo_monitor_task
         except asyncio.CancelledError:
             pass
-    
+
     logger.info("Background tasks detenidos")

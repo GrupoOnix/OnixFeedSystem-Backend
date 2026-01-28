@@ -8,9 +8,8 @@ from unittest.mock import AsyncMock, MagicMock
 from application.dtos.cage_group_dtos import CreateCageGroupRequest
 from application.use_cases.cage_group.create_cage_group import CreateCageGroupUseCase
 from domain.aggregates.cage import Cage
-from domain.aggregates.cage_group import CageGroup
 from domain.repositories import ICageGroupRepository, ICageRepository
-from domain.value_objects import CageId, CageName
+from domain.value_objects import CageName
 
 
 @pytest.fixture
@@ -47,7 +46,7 @@ class TestCreateCageGroup:
         # Arrange: Configurar mocks
         cage1 = Cage(name=CageName("Jaula 1"))
         cage2 = Cage(name=CageName("Jaula 2"))
-        
+
         mock_group_repo.exists_by_name = AsyncMock(return_value=False)
         mock_cage_repo.find_by_id = AsyncMock(side_effect=[cage1, cage2])
         mock_group_repo.save = AsyncMock()
@@ -80,7 +79,7 @@ class TestCreateCageGroup:
         """Debe crear un grupo con una sola jaula (mínimo permitido)."""
         # Arrange
         cage = Cage(name=CageName("Jaula 1"))
-        
+
         mock_group_repo.exists_by_name = AsyncMock(return_value=False)
         mock_cage_repo.find_by_id = AsyncMock(return_value=cage)
         mock_group_repo.save = AsyncMock()
@@ -123,7 +122,7 @@ class TestCreateCageGroup:
         """Debe fallar si alguna jaula no existe."""
         # Arrange
         cage_id = "00000000-0000-0000-0000-000000000001"
-        
+
         mock_group_repo.exists_by_name = AsyncMock(return_value=False)
         mock_cage_repo.find_by_id = AsyncMock(return_value=None)
 
@@ -176,7 +175,7 @@ class TestCreateCageGroup:
         # Arrange
         cages = [Cage(name=CageName(f"Jaula {i}")) for i in range(1, 6)]
         cage_ids = [str(c.id) for c in cages]
-        
+
         mock_group_repo.exists_by_name = AsyncMock(return_value=False)
         mock_cage_repo.find_by_id = AsyncMock(side_effect=cages)
         mock_group_repo.save = AsyncMock()
@@ -220,7 +219,7 @@ class TestCreateCageGroup:
         # Arrange
         cage = Cage(name=CageName("Jaula 1"))
         long_description = "A" * 500  # Descripción larga
-        
+
         mock_group_repo.exists_by_name = AsyncMock(return_value=False)
         mock_cage_repo.find_by_id = AsyncMock(return_value=cage)
         mock_group_repo.save = AsyncMock()

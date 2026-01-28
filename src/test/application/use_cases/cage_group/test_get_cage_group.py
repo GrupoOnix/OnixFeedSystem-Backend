@@ -46,7 +46,7 @@ class TestGetCageGroup:
         # Arrange
         cage1 = Cage(name=CageName("Jaula 1"))
         cage1.set_population(count=1000, avg_weight_g=200.0)
-        
+
         cage2 = Cage(name=CageName("Jaula 2"))
         cage2.set_population(count=1500, avg_weight_g=250.0)
 
@@ -146,7 +146,7 @@ class TestGetCageGroup:
         """Debe manejar grupos sin descripción."""
         # Arrange
         cage = Cage(name=CageName("Jaula 1"))
-        
+
         group = CageGroup(
             name=CageGroupName("Sector Norte"),
             cage_ids=[CageId(str(cage.id))],
@@ -173,7 +173,7 @@ class TestGetCageGroup:
             cage.set_population(count=500, avg_weight_g=150.0)
 
         cage_ids = [CageId(str(c.id)) for c in cages]
-        
+
         group = CageGroup(
             name=CageGroupName("Sector Grande"),
             cage_ids=cage_ids,
@@ -208,7 +208,7 @@ class TestGetCageGroup:
         """Debe incluir timestamps de creación y actualización."""
         # Arrange
         cage = Cage(name=CageName("Jaula 1"))
-        
+
         group = CageGroup(
             name=CageGroupName("Sector Norte"),
             cage_ids=[CageId(str(cage.id))],

@@ -109,15 +109,15 @@ class MockFeedingSessionRepository(IFeedingSessionRepository):
 
     def __init__(self):
         self._sessions: Dict[SessionId, FeedingSession] = {}
-    
+
     async def save(self, session: FeedingSession) -> None:
         self._sessions[session.id] = session
         # Clear events (simulate persistence)
         session.pop_events()
-    
+
     async def find_by_id(self, session_id: SessionId) -> Optional[FeedingSession]:
         return self._sessions.get(session_id)
-    
+
     async def find_active_by_line_id(self, line_id: LineId) -> Optional[FeedingSession]:
         from domain.enums import SessionStatus
         for session in self._sessions.values():
@@ -131,15 +131,15 @@ class MockFeedingOperationRepository(IFeedingOperationRepository):
 
     def __init__(self):
         self._operations: Dict[OperationId, FeedingOperation] = {}
-    
+
     async def save(self, operation: FeedingOperation) -> None:
         self._operations[operation.id] = operation
         # Clear new events (simulate persistence)
         operation.pop_new_events()
-    
+
     async def find_by_id(self, operation_id: OperationId) -> Optional[FeedingOperation]:
         return self._operations.get(operation_id)
-    
+
     async def find_current_by_session(self, session_id: SessionId) -> Optional[FeedingOperation]:
         """Find active operation (RUNNING or PAUSED) for a session."""
         for operation in self._operations.values():
@@ -147,7 +147,7 @@ class MockFeedingOperationRepository(IFeedingOperationRepository):
                 if operation.status in [OperationStatus.RUNNING, OperationStatus.PAUSED]:
                     return operation
         return None
-    
+
     async def find_all_by_session(self, session_id: SessionId) -> List[FeedingOperation]:
         """Get all operations for a session."""
         return [

@@ -100,6 +100,50 @@ class AlertRepository(IAlertRepository):
         alert_models = result.scalars().all()
         return [model.to_domain() for model in alert_models]
 
+    async def count(
+        self,
+        status: Optional[List[AlertStatus]] = None,
+        type: Optional[List[AlertType]] = None,
+        category: Optional[List[AlertCategory]] = None,
+        search: Optional[str] = None,
+    ) -> int:
+        """Cuenta alertas con filtros opcionales (sin paginación). Excluye silenciadas."""
+        from sqlalchemy import func
+
+        query = select(func.count(AlertModel.id))
+
+        # Excluir alertas silenciadas (snoozed_until > now)
+        now = datetime.utcnow()
+        query = query.where(
+            or_(AlertModel.snoozed_until.is_(None), AlertModel.snoozed_until <= now)
+        )
+
+        # Aplicar filtros
+        if status:
+            status_values = [s.value for s in status]
+            query = query.where(AlertModel.status.in_(status_values))
+
+        if type:
+            type_values = [t.value for t in type]
+            query = query.where(AlertModel.type.in_(type_values))
+
+        if category:
+            category_values = [c.value for c in category]
+            query = query.where(AlertModel.category.in_(category_values))
+
+        if search:
+            search_pattern = f"%{search}%"
+            query = query.where(
+                or_(
+                    AlertModel.title.ilike(search_pattern),
+                    AlertModel.message.ilike(search_pattern),
+                    AlertModel.source.ilike(search_pattern),
+                )
+            )
+
+        result = await self.session.execute(query)
+        return result.scalar() or 0
+
     async def count_unread(self) -> int:
         """Cuenta la cantidad de alertas no leídas (excluyendo silenciadas)."""
         from sqlalchemy import func

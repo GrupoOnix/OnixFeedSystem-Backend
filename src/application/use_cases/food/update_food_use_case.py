@@ -76,6 +76,13 @@ class UpdateFoodUseCase:
         if request.energy is not None:
             food.update_energy(request.energy)
 
+        # Actualizar estado activo
+        if request.active is not None:
+            if request.active and not food.active:
+                food.activate()
+            elif not request.active and food.active:
+                food.deactivate()
+
         # Persistir cambios
         await self._food_repository.save(food)
 

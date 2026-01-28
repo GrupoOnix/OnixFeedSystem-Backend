@@ -12,7 +12,7 @@ Estos tests verifican la lógica de negocio del agregado:
 """
 
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -49,6 +49,7 @@ def mock_machine():
 @pytest.fixture
 def manual_strategy():
     """Fixture que proporciona una estrategia manual."""
+    return ManualFeedingStrategy(
         target_slot=1, blower_speed=70.0, doser_speed=50.0, target_amount_kg=100.0
     )
 
@@ -267,7 +268,6 @@ class TestFeedingSession_PauseResume:
 
     @pytest.mark.asyncio
     async def test_pause_operation_rejects_if_no_operation(self, line_id, mock_machine):
-    ):
         """Debe fallar si no hay operación activa."""
         session = FeedingSession(line_id=line_id)
 

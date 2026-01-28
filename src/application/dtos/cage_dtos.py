@@ -18,6 +18,7 @@ class CreateCageRequest:
     volume_m3: Optional[float] = None
     max_density_kg_m3: Optional[float] = None
     transport_time_seconds: Optional[int] = None
+    blower_power: Optional[int] = None
 
 
 @dataclass
@@ -36,6 +37,7 @@ class UpdateCageConfigRequest:
     volume_m3: Optional[float] = None
     max_density_kg_m3: Optional[float] = None
     transport_time_seconds: Optional[int] = None
+    blower_power: Optional[int] = None
 
 
 @dataclass
@@ -107,6 +109,7 @@ class CageConfigResponse:
     volume_m3: Optional[float]
     max_density_kg_m3: Optional[float]
     transport_time_seconds: Optional[int]
+    blower_power: Optional[int]
 
 
 @dataclass

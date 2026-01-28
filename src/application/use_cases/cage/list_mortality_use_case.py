@@ -30,17 +30,17 @@ class ListMortalityUseCase:
             Respuesta paginada con registros de mortalidad ordenados por fecha DESC
         """
         cage_id_vo = CageId.from_string(cage_id)
-        
+
         # Obtener registros del repositorio
         log_entries = await self._mortality_log_repo.list_by_cage(
             cage_id_vo,
             limit=limit,
             offset=offset
         )
-        
+
         # Obtener total de registros
         total = await self._mortality_log_repo.count_by_cage(cage_id_vo)
-        
+
         # Mapear a DTOs
         log_dtos = [
             MortalityLogItemResponse(
@@ -53,11 +53,11 @@ class ListMortalityUseCase:
             )
             for entry in log_entries
         ]
-        
+
         # Calcular información de paginación
         has_next = (offset + limit) < total
         has_previous = offset > 0
-        
+
         pagination = PaginationInfo(
             total=total,
             limit=limit,
@@ -65,5 +65,5 @@ class ListMortalityUseCase:
             has_next=has_next,
             has_previous=has_previous
         )
-        
+
         return PaginatedMortalityResponse(logs=log_dtos, pagination=pagination)

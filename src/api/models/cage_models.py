@@ -37,6 +37,9 @@ class CreateCageRequestModel(BaseModel):
     transport_time_seconds: Optional[int] = Field(
         None, ge=0, description="Tiempo de transporte en segundos"
     )
+    blower_power: Optional[int] = Field(
+        None, ge=30, le=100, description="Potencia del blower (30-100)"
+    )
 
 
 class UpdateCageRequestModel(BaseModel):
@@ -64,6 +67,9 @@ class UpdateCageConfigRequestModel(BaseModel):
     )
     transport_time_seconds: Optional[int] = Field(
         None, ge=0, description="Tiempo de transporte en segundos"
+    )
+    blower_power: Optional[int] = Field(
+        None, ge=30, le=100, description="Potencia del blower (30-100)"
     )
 
 
@@ -120,6 +126,7 @@ class CageConfigResponseModel(BaseModel):
     volume_m3: Optional[float] = None
     max_density_kg_m3: Optional[float] = None
     transport_time_seconds: Optional[int] = None
+    blower_power: Optional[int] = None
 
 
 class CageResponseModel(BaseModel):
@@ -157,6 +164,7 @@ class CageResponseModel(BaseModel):
                 volume_m3=dto.config.volume_m3,
                 max_density_kg_m3=dto.config.max_density_kg_m3,
                 transport_time_seconds=dto.config.transport_time_seconds,
+                blower_power=dto.config.blower_power,
             ),
             current_density_kg_m3=dto.current_density_kg_m3,
         )

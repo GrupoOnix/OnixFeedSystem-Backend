@@ -39,10 +39,10 @@ class RegisterMortalityUseCase:
         cage = await self._cage_repo.find_by_id(CageId.from_string(cage_id))
         if not cage:
             raise ValueError(f"La jaula con ID '{cage_id}' no existe")
-        
+
         # Validar mortalidad (solo validación, NO modifica current_fish_count)
         cage.register_mortality(FishCount(request.dead_fish_count))
-        
+
         # Crear registro en el log
         log_entry = MortalityLogEntry.create(
             cage_id=cage.id,
@@ -50,6 +50,6 @@ class RegisterMortalityUseCase:
             mortality_date=request.mortality_date,
             note=request.note
         )
-        
+
         # Persistir solo el log (NO se modifica la jaula)
         await self._mortality_log_repo.save(log_entry)

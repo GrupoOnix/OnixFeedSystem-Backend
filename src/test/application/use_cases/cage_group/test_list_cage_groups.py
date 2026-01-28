@@ -46,7 +46,7 @@ class TestListCageGroups:
         # Arrange
         cage1 = Cage(name=CageName("Jaula 1"))
         cage2 = Cage(name=CageName("Jaula 2"))
-        
+
         group1 = CageGroup(
             name=CageGroupName("Sector Norte"),
             cage_ids=[CageId(str(cage1.id))],
@@ -150,7 +150,7 @@ class TestListCageGroups:
         # Arrange
         cage1 = Cage(name=CageName("Jaula 1"))
         cage1.set_population(count=1000, avg_weight_g=200.0)
-        
+
         cage2 = Cage(name=CageName("Jaula 2"))
         cage2.set_population(count=1500, avg_weight_g=250.0)
 
@@ -169,7 +169,7 @@ class TestListCageGroups:
         # Assert
         assert len(result.groups) == 1
         metrics = result.groups[0].metrics
-        
+
         assert metrics.total_population == 2500  # 1000 + 1500
         assert metrics.total_biomass == 575.0  # (1000*200 + 1500*250) / 1000
         assert metrics.avg_weight > 0  # Promedio ponderado
@@ -180,7 +180,7 @@ class TestListCageGroups:
         """Debe manejar jaulas faltantes sin fallar."""
         # Arrange
         cage1 = Cage(name=CageName("Jaula 1"))
-        
+
         group = CageGroup(
             name=CageGroupName("Sector Norte"),
             cage_ids=[
@@ -224,7 +224,7 @@ class TestListCageGroups:
         # Arrange
         cages = [Cage(name=CageName(f"Jaula {i}")) for i in range(1, 6)]
         cage_ids = [CageId(str(c.id)) for c in cages]
-        
+
         group = CageGroup(
             name=CageGroupName("Sector Grande"),
             cage_ids=cage_ids,

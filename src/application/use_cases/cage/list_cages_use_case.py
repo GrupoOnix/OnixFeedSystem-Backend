@@ -12,19 +12,19 @@ class ListCagesUseCase:
 
     def __init__(self, cage_repository: ICageRepository):
         self._cage_repository = cage_repository
-    
+
     async def execute(self, request: ListCagesRequest) -> ListCagesResponse:
 
         line_id_filter: Optional[LineId] = None
         if request.line_id:
             line_id_filter = LineId.from_string(request.line_id)
-        
+
         cages_with_info = await self._cage_repository.list_with_line_info(line_id=line_id_filter)
-        
+
         cage_dtos = [self._to_dto(cage, line_name) for cage, line_name in cages_with_info]
-        
+
         return ListCagesResponse(cages=cage_dtos)
-    
+
     def _to_dto(self, cage, line_name: Optional[str]) -> CageListItemResponse:
         return CageListItemResponse(
             cage_id=str(cage.id),

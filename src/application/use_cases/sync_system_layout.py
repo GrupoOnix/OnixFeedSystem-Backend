@@ -1,15 +1,12 @@
 import uuid
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 from api.models.system_layout import (
     BlowerConfigModel,
-    CageConfigModel,
     CoolerConfigModel,
     DoserConfigModel,
-    FeedingLineConfigModel,
     SelectorConfigModel,
     SensorConfigModel,
-    SiloConfigModel,
     SlotAssignmentModel,
     SystemLayoutModel,
 )
@@ -20,7 +17,7 @@ from domain.aggregates.feeding_line.feeding_line import FeedingLine
 from domain.aggregates.silo import Silo
 from domain.entities.slot_assignment import SlotAssignment
 from domain.enums import CageStatus, SensorType
-from domain.exceptions import CageNotAvailableException, DuplicateLineNameException
+from domain.exceptions import CageNotAvailableException
 from domain.factories import ComponentFactory
 from domain.interfaces import IBlower, ICooler, IDoser, ISelector, ISensor
 from domain.repositories import (
@@ -40,6 +37,7 @@ from domain.value_objects import (
     DoserName,
     DosingRange,
     DosingRate,
+    FoodId,
     LineId,
     LineName,
     SelectorCapacity,
@@ -265,9 +263,15 @@ class SyncSystemLayoutUseCase:
 
             name = SiloName(dto.name)
             capacity = Weight.from_kg(dto.capacity)
-            stock_level = Weight.zero()
+            stock_level = Weight.from_kg(dto.stock_level) if dto.stock_level else Weight.zero()
+            food_id = FoodId.from_string(dto.food_id) if dto.food_id else None
 
-            new_silo = Silo(name=name, capacity=capacity, stock_level=stock_level)
+            new_silo = Silo(
+                name=name,
+                capacity=capacity,
+                stock_level=stock_level,
+                food_id=food_id,
+            )
 
             await self.silo_repo.save(new_silo)
             id_map[dto.id] = new_silo.id
@@ -408,6 +412,18 @@ class SyncSystemLayoutUseCase:
                 silo.name = SiloName(dto.name)
 
             silo.capacity = Weight.from_kg(dto.capacity)
+            
+            # Actualizar stock_level si está presente
+            if hasattr(dto, 'stock_level') and dto.stock_level is not None:
+                silo.stock_level = Weight.from_kg(dto.stock_level)
+            
+            # Actualizar food_id
+            if hasattr(dto, 'food_id'):
+                if dto.food_id:
+                    silo.assign_food(FoodId.from_string(dto.food_id))
+                else:
+                    silo.remove_food()
+            
             await self.silo_repo.save(silo)
 
     async def _update_cages(self, cages_to_update) -> None:

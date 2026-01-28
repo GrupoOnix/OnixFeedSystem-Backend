@@ -1,11 +1,10 @@
 """Aggregate Root para Jaulas."""
 
-from dataclasses import field
 from datetime import date, datetime
 from typing import Optional
 
 from domain.entities.population_event import PopulationEvent
-from domain.enums import CageStatus, PopulationEventType
+from domain.enums import CageStatus
 from domain.value_objects.cage_configuration import CageConfiguration
 from domain.value_objects.identifiers import CageId
 from domain.value_objects.names import CageName

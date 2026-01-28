@@ -106,7 +106,7 @@ class TestFA3_CageAlreadyAssigned:
         )
         result = await use_case.execute(base_request)
         cage_id = result.cages[0].id
-        
+
         # Intentar crear segunda línea con la misma jaula
         duplicate_request = SystemLayoutModel(
             silos=[
@@ -187,10 +187,10 @@ class TestFA3_CageAlreadyAssigned:
                 )
             ]
         )
-        
+
         with pytest.raises(Exception) as exc_info:
             await use_case.execute(duplicate_request)
-        
+
         # Verifica que la excepción menciona que la jaula no está disponible
         error_msg = str(exc_info.value).lower()
         assert "jaula" in error_msg
@@ -249,10 +249,10 @@ class TestFA4_DuplicateSlot:
                 )
             ]
         )
-        
+
         with pytest.raises(Exception) as exc_info:
             await use_case.execute(request)
-        
+
         error_msg = str(exc_info.value).lower()
         assert "slot" in error_msg
         assert ("duplicado" in error_msg or "asignado" in error_msg)
@@ -303,10 +303,10 @@ class TestFA4_DuplicateSlot:
                 )
             ]
         )
-        
+
         with pytest.raises(Exception) as exc_info:
             await use_case.execute(request)
-        
+
         assert "slot" in str(exc_info.value).lower() or "capacidad" in str(exc_info.value).lower()
 
 
@@ -369,10 +369,10 @@ class TestFA5_SiloAlreadyAssigned:
                 )
             ]
         )
-        
+
         with pytest.raises(Exception) as exc_info:
             await use_case.execute(request)
-        
+
         assert "silo" in str(exc_info.value).lower()
         assert "asignado" in str(exc_info.value).lower()
 
@@ -426,7 +426,7 @@ class TestFA5_SiloAlreadyAssigned:
             ]
         )
         result = await use_case.execute(first_request)
-        
+
         # Intentar crear segunda línea usando el mismo silo
         second_request = SystemLayoutModel(
             silos=[
@@ -508,10 +508,10 @@ class TestFA5_SiloAlreadyAssigned:
                 )
             ]
         )
-        
+
         with pytest.raises(Exception) as exc_info:
             await use_case.execute(second_request)
-        
+
         assert "silo" in str(exc_info.value).lower()
         assert "asignado" in str(exc_info.value).lower()
 
@@ -566,13 +566,13 @@ class TestFA6_BrokenReferences:
                 )
             ]
         )
-        
+
         with pytest.raises(Exception) as exc_info:
             await use_case.execute(request)
-        
+
         error_msg = str(exc_info.value).lower()
         assert "silo" in error_msg
-        assert ("no existe" in error_msg or 
+        assert ("no existe" in error_msg or
                 "no encontrado" in error_msg or
                 "inexistente" in error_msg or
                 "no fue creado" in error_msg)
@@ -623,13 +623,13 @@ class TestFA6_BrokenReferences:
                 )
             ]
         )
-        
+
         with pytest.raises(Exception) as exc_info:
             await use_case.execute(request)
-        
+
         error_msg = str(exc_info.value).lower()
         assert "jaula" in error_msg or "cage" in error_msg
-        assert ("no existe" in error_msg or 
+        assert ("no existe" in error_msg or
                 "no encontrado" in error_msg or
                 "inexistente" in error_msg or
                 "no fue creada" in error_msg)
@@ -696,12 +696,12 @@ class TestFA7_DuplicateSensorTypes:
                 )
             ]
         )
-        
+
         with pytest.raises(Exception) as exc_info:
             await use_case.execute(request)
-        
+
         assert "sensor" in str(exc_info.value).lower()
-        assert ("duplicado" in str(exc_info.value).lower() or 
+        assert ("duplicado" in str(exc_info.value).lower() or
                 "tipo" in str(exc_info.value).lower())
 
     @pytest.mark.asyncio
@@ -766,10 +766,10 @@ class TestFA7_DuplicateSensorTypes:
                 )
             ]
         )
-        
+
         # No debe lanzar excepción
         result = await use_case.execute(request)
-        
+
         assert len(result.feeding_lines[0].sensors_config) == 3
 
 
@@ -823,10 +823,10 @@ class TestRangeValidations:
                 )
             ]
         )
-        
+
         with pytest.raises(Exception) as exc_info:
             await use_case.execute(request)
-        
+
         error_msg = str(exc_info.value).lower()
         assert ("rate" in error_msg or "rango" in error_msg or "tasa" in error_msg)
 
@@ -876,10 +876,10 @@ class TestRangeValidations:
                 )
             ]
         )
-        
+
         with pytest.raises(Exception) as exc_info:
             await use_case.execute(request)
-        
+
         assert "current_rate" in str(exc_info.value).lower() or "rango" in str(exc_info.value).lower()
 
     @pytest.mark.asyncio
@@ -928,10 +928,10 @@ class TestRangeValidations:
                 )
             ]
         )
-        
+
         with pytest.raises(Exception) as exc_info:
             await use_case.execute(request)
-        
+
         assert "speed" in str(exc_info.value).lower() or "velocidad" in str(exc_info.value).lower()
 
     @pytest.mark.asyncio
@@ -944,10 +944,10 @@ class TestRangeValidations:
             cages=[],
             feeding_lines=[]
         )
-        
+
         with pytest.raises(Exception) as exc_info:
             await use_case.execute(request)
-        
+
         error_msg = str(exc_info.value).lower()
         assert ("capacidad" in error_msg or "capacity" in error_msg or "peso" in error_msg or "negativo" in error_msg)
 
@@ -997,9 +997,9 @@ class TestRangeValidations:
                 )
             ]
         )
-        
+
         with pytest.raises(Exception) as exc_info:
             await use_case.execute(request)
-        
+
         assert "capacidad" in str(exc_info.value).lower() or "capacity" in str(exc_info.value).lower()
 

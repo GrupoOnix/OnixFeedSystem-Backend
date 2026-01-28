@@ -81,7 +81,7 @@ class TestDeleteCageGroup:
         """Debe eliminar grupo que contiene múltiples jaulas."""
         # Arrange
         cage_ids = [CageId(f"00000000-0000-0000-0000-00000000000{i}") for i in range(1, 6)]
-        
+
         group = CageGroup(
             name=CageGroupName("Sector Grande"),
             cage_ids=cage_ids,
@@ -172,7 +172,7 @@ class TestDeleteCageGroup:
 
         # Verificar que find_by_id fue llamado
         mock_group_repo.find_by_id.assert_called_once()
-        
+
         # Verificar que delete NO fue llamado
         mock_group_repo.delete.assert_not_called()
 

@@ -13,7 +13,7 @@ class FishCount:
     def __post_init__(self):
         if not isinstance(self.value, int):
             raise TypeError("La cantidad de peces debe ser un entero")
-        
+
         if self.value < 0:
             raise ValueError("La cantidad de peces no puede ser negativa")
 
@@ -35,10 +35,10 @@ class FCR:
     def __post_init__(self):
         if not isinstance(self.value, (int, float)):
             raise TypeError("El FCR debe ser un valor numérico")
-        
+
         if self.value < 0.5:
             raise ValueError("El FCR no puede ser menor a 0.5")
-        
+
         if self.value > 3.0:
             raise ValueError("El FCR no puede exceder 3.0")
 

@@ -9,6 +9,8 @@ class SiloConfigModel(BaseModel):
     id: str
     name: str = Field(min_length=1, max_length=100)
     capacity: float = Field(gt=0)
+    food_id: Optional[str] = Field(default=None)
+    stock_level: Optional[float] = Field(default=None, ge=0)
 
 
 class CageConfigModel(BaseModel):

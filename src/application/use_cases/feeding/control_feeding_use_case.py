@@ -19,14 +19,14 @@ class PauseFeedingSessionUseCase:
         session = await self.session_repository.find_active_by_line_id(LineId(line_id))
         if not session:
             return  # Idempotente
-        
+
         # Cargar operación actual
         current_op = await self.operation_repository.find_current_by_session(session.id)
         if current_op:
             session._current_operation = current_op
 
         await session.pause_current_operation(self.machine_service)
-        
+
         # Guardar operación (sesión no cambia)
         await self.operation_repository.save(session.current_operation)
 
@@ -46,13 +46,13 @@ class ResumeFeedingSessionUseCase:
         session = await self.session_repository.find_active_by_line_id(LineId(line_id))
         if not session:
             raise ValueError("No active session to resume.")
-        
+
         # Cargar operación actual
         current_op = await self.operation_repository.find_current_by_session(session.id)
         if current_op:
             session._current_operation = current_op
 
         await session.resume_current_operation(self.machine_service)
-        
+
         # Guardar operación (sesión no cambia)
         await self.operation_repository.save(session.current_operation)

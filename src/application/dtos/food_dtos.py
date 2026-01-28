@@ -46,6 +46,7 @@ class UpdateFoodRequest:
     size_mm: Optional[float] = None
     energy: Optional[float] = None
     kg_per_liter: Optional[float] = None
+    active: Optional[bool] = None
 
 
 @dataclass

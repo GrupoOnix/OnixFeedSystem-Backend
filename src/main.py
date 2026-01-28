@@ -35,7 +35,6 @@ async def root():
     return {
         "version": "1.0.0",
         "message": "Feeding System API is running",
-        "version": "1.0.0"
     }
 
 

@@ -53,6 +53,9 @@ class UpdateCageConfigUseCase:
             transport_time_seconds=request.transport_time_seconds
             if request.transport_time_seconds is not None
             else current_config.transport_time_seconds,
+            blower_power=request.blower_power
+            if request.blower_power is not None
+            else current_config.blower_power,
         )
 
         # Actualizar configuración
@@ -78,6 +81,7 @@ class UpdateCageConfigUseCase:
                 volume_m3=cage.config.volume_m3,
                 max_density_kg_m3=cage.config.max_density_kg_m3,
                 transport_time_seconds=cage.config.transport_time_seconds,
+                blower_power=cage.config.blower_power,
             ),
             current_density_kg_m3=cage.current_density_kg_m3,
         )

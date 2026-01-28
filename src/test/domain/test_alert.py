@@ -175,7 +175,7 @@ class TestAlertStatusTransitions:
 
         alert.update_status(AlertStatus.RESOLVED)
         assert alert.status == AlertStatus.RESOLVED
-        
+
     def test_cannot_modify_archived_alert(self):
         """Test que no se puede modificar una alerta archivada."""
         alert = Alert(
