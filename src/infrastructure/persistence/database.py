@@ -1,16 +1,14 @@
 import os
 from typing import AsyncGenerator
 
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 
 def _get_required_env(key: str) -> str:
     value = os.getenv(key)
     if value is None:
         raise ValueError(
-            f"Variable de entorno '{key}' no encontrada. "
-            f"Configura el archivo .env con todas las variables requeridas."
+            f"Variable de entorno '{key}' no encontrada. Configura el archivo .env con todas las variables requeridas."
         )
     return value
 
@@ -22,9 +20,7 @@ DB_PASSWORD = _get_required_env("DB_PASSWORD")
 DB_NAME = _get_required_env("DB_NAME")
 DB_ECHO = os.getenv("DB_ECHO", "false").lower() == "true"
 
-DATABASE_URL = (
-    f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-)
+DATABASE_URL = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 async_engine = create_async_engine(
     DATABASE_URL,
@@ -37,7 +33,7 @@ async_engine = create_async_engine(
     pool_pre_ping=True,
 )
 
-async_session_maker = sessionmaker(
+async_session_maker = async_sessionmaker(
     bind=async_engine,
     class_=AsyncSession,
     expire_on_commit=False,

@@ -25,9 +25,7 @@ class SetPopulationUseCase:
         self.cage_repository = cage_repository
         self.event_repository = event_repository
 
-    async def execute(
-        self, cage_id: str, request: SetPopulationRequest
-    ) -> CageResponse:
+    async def execute(self, cage_id: str, request: SetPopulationRequest) -> CageResponse:
         """
         Establece la población inicial de una jaula.
 
@@ -71,9 +69,7 @@ class RegisterMortalityUseCase:
         self.cage_repository = cage_repository
         self.event_repository = event_repository
 
-    async def execute(
-        self, cage_id: str, request: RegisterMortalityRequest
-    ) -> CageResponse:
+    async def execute(self, cage_id: str, request: RegisterMortalityRequest) -> CageResponse:
         """
         Registra mortalidad y resta los peces del total.
 
@@ -116,9 +112,7 @@ class UpdateBiometryUseCase:
         self.cage_repository = cage_repository
         self.event_repository = event_repository
 
-    async def execute(
-        self, cage_id: str, request: UpdateBiometryRequest
-    ) -> CageResponse:
+    async def execute(self, cage_id: str, request: UpdateBiometryRequest) -> CageResponse:
         """
         Actualiza el peso promedio de los peces.
 
@@ -204,9 +198,7 @@ class AdjustPopulationUseCase:
         self.cage_repository = cage_repository
         self.event_repository = event_repository
 
-    async def execute(
-        self, cage_id: str, request: AdjustPopulationRequest
-    ) -> CageResponse:
+    async def execute(self, cage_id: str, request: AdjustPopulationRequest) -> CageResponse:
         """
         Ajusta manualmente la población (corrección de inventario).
 
@@ -244,7 +236,12 @@ class AdjustPopulationUseCase:
 
 
 def _to_response(cage: Cage) -> CageResponse:
-    """Convierte la entidad a response DTO."""
+    """Convierte la entidad a response DTO.
+
+    Note: today_feeding_kg is set to 0.0 for population operations since
+    these operations don't need real-time feeding data. The actual value
+    is calculated in GetCageUseCase and ListCagesUseCase.
+    """
     return CageResponse(
         id=str(cage.id.value),
         name=str(cage.name),
@@ -259,6 +256,8 @@ def _to_response(cage: Cage) -> CageResponse:
             max_density_kg_m3=cage.config.max_density_kg_m3,
             transport_time_seconds=cage.config.transport_time_seconds,
             blower_power=cage.config.blower_power,
+            daily_feeding_target_kg=cage.config.daily_feeding_target_kg,
         ),
         current_density_kg_m3=cage.current_density_kg_m3,
+        today_feeding_kg=0.0,
     )

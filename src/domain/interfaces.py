@@ -127,6 +127,14 @@ class IDoser(ABC):
 
     @property
     @abstractmethod
+    def speed_percentage(self) -> int: ...
+
+    @speed_percentage.setter
+    @abstractmethod
+    def speed_percentage(self, value: int) -> None: ...
+
+    @property
+    @abstractmethod
     def is_on(self) -> bool: ...
 
     @abstractmethod

@@ -33,6 +33,7 @@ class CageModel(SQLModel, table=True):
     max_density_kg_m3: Optional[float] = Field(default=None)
     transport_time_seconds: Optional[int] = Field(default=None)
     blower_power: Optional[int] = Field(default=None)
+    daily_feeding_target_kg: Optional[float] = Field(default=None)
 
     @staticmethod
     def from_domain(cage: Cage) -> "CageModel":
@@ -51,6 +52,7 @@ class CageModel(SQLModel, table=True):
             max_density_kg_m3=cage.config.max_density_kg_m3,
             transport_time_seconds=cage.config.transport_time_seconds,
             blower_power=cage.config.blower_power,
+            daily_feeding_target_kg=cage.config.daily_feeding_target_kg,
         )
 
     def to_domain(self) -> Cage:
@@ -61,6 +63,7 @@ class CageModel(SQLModel, table=True):
             max_density_kg_m3=self.max_density_kg_m3,
             transport_time_seconds=self.transport_time_seconds,
             blower_power=self.blower_power,
+            daily_feeding_target_kg=self.daily_feeding_target_kg,
         )
 
         cage = Cage(

@@ -1,11 +1,19 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 from uuid import UUID
 
 from sqlmodel import Field, Relationship, SQLModel
 
 from domain.aggregates.feeding_line.feeding_line import FeedingLine
 from domain.value_objects import LineId, LineName
+
+if TYPE_CHECKING:
+    from .blower_model import BlowerModel
+    from .cooler_model import CoolerModel
+    from .doser_model import DoserModel
+    from .feeding_session_model import FeedingSessionModel
+    from .selector_model import SelectorModel
+    from .sensor_model import SensorModel
 
 
 class FeedingLineModel(SQLModel, table=True):
@@ -61,18 +69,12 @@ class FeedingLineModel(SQLModel, table=True):
         if line._blower:
             line_model.blower = BlowerModel.from_domain(line._blower, line.id.value)
 
-        line_model.dosers = [
-            DoserModel.from_domain(doser, line.id.value) for doser in line.dosers
-        ]
+        line_model.dosers = [DoserModel.from_domain(doser, line.id.value) for doser in line.dosers]
 
         if line._selector:
-            line_model.selector = SelectorModel.from_domain(
-                line._selector, line.id.value
-            )
+            line_model.selector = SelectorModel.from_domain(line._selector, line.id.value)
 
-        line_model.sensors = [
-            SensorModel.from_domain(sensor, line.id.value) for sensor in line._sensors
-        ]
+        line_model.sensors = [SensorModel.from_domain(sensor, line.id.value) for sensor in line._sensors]
 
         if line._cooler:
             line_model.cooler = CoolerModel.from_domain(line._cooler, line.id.value)
@@ -86,9 +88,7 @@ class FeedingLineModel(SQLModel, table=True):
         """Convierte modelo de persistencia a entidad de dominio."""
 
         if not self.blower or not self.selector:
-            raise ValueError(
-                "FeedingLine debe tener blower y selector para reconstruir el dominio"
-            )
+            raise ValueError("FeedingLine debe tener blower y selector para reconstruir el dominio")
 
         blower_domain = self.blower.to_domain()
         dosers_domain = [doser.to_domain() for doser in self.dosers]

@@ -16,6 +16,7 @@ class Doser(IDoser):
                  dosing_range: DosingRange,
                  current_rate: DosingRate,
                  is_on: bool = True,
+                 speed_percentage: int = 50,
                  *,
                  _skip_validation: bool = False):
         """
@@ -46,6 +47,7 @@ class Doser(IDoser):
         self._dosing_range = dosing_range
         self._current_rate = current_rate
         self._is_on = is_on
+        self._speed_percentage = speed_percentage
         self._calibration_data: Dict[str, Any] = {"status": "uncalibrated"}
 
     @property
@@ -92,6 +94,17 @@ class Doser(IDoser):
             raise ValueError(f"La tasa {new_rate} está fuera del rango {self._dosing_range}")
 
         self._current_rate = new_rate
+
+    @property
+    def speed_percentage(self) -> int:
+        """Porcentaje de velocidad del motor (1-100)."""
+        return self._speed_percentage
+
+    @speed_percentage.setter
+    def speed_percentage(self, value: int) -> None:
+        if not (1 <= value <= 100):
+            raise ValueError(f"speed_percentage debe estar entre 1 y 100, recibido: {value}")
+        self._speed_percentage = value
 
     @property
     def is_on(self) -> bool:

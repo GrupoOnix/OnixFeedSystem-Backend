@@ -38,6 +38,7 @@ class UpdateCageConfigRequest:
     max_density_kg_m3: Optional[float] = None
     transport_time_seconds: Optional[int] = None
     blower_power: Optional[int] = None
+    daily_feeding_target_kg: Optional[float] = None
 
 
 @dataclass
@@ -56,7 +57,7 @@ class AddFishRequest:
 
     count: int
     avg_weight_grams: Optional[float] = None
-    event_date: date = None
+    event_date: Optional[date] = None
     note: Optional[str] = None
 
 
@@ -110,6 +111,7 @@ class CageConfigResponse:
     max_density_kg_m3: Optional[float]
     transport_time_seconds: Optional[int]
     blower_power: Optional[int]
+    daily_feeding_target_kg: Optional[float]
 
 
 @dataclass
@@ -132,6 +134,9 @@ class CageResponse:
     # Calculados
     current_density_kg_m3: Optional[float]
 
+    # Alimentación del día (calculado)
+    today_feeding_kg: float = 0.0
+
 
 @dataclass
 class CageListItemResponse:
@@ -144,6 +149,15 @@ class CageListItemResponse:
     avg_weight_grams: Optional[float]
     biomass_kg: float
     created_at: datetime
+
+    # Configuración
+    config: CageConfigResponse
+
+    # Calculados
+    current_density_kg_m3: Optional[float]
+
+    # Alimentación del día (calculado)
+    today_feeding_kg: float = 0.0
 
 
 @dataclass

@@ -8,6 +8,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 if TYPE_CHECKING:
     from .feeding_event_model import FeedingEventModel
+    from .feeding_line_model import FeedingLineModel
     from .feeding_operation_model import FeedingOperationModel
 
 
@@ -30,22 +31,17 @@ class FeedingSessionModel(SQLModel, table=True):
     total_dispensed_kg: float = Field(default=0.0)
 
     # JSON Fields (PostgreSQL JSONB)
-    dispensed_by_slot: Dict[str, float] = Field(
-        default_factory=dict,
-        sa_column=Column(JSONB)
-    )
+    dispensed_by_slot: Dict[str, float] = Field(default_factory=dict, sa_column=Column(JSONB))
     # applied_strategy_config ELIMINADO (ahora está en FeedingOperation)
 
     feeding_line: "FeedingLineModel" = Relationship(back_populates="feeding_sessions")
 
     # Relationships
     events: List["FeedingEventModel"] = Relationship(
-        back_populates="session",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        back_populates="session", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
     operations: List["FeedingOperationModel"] = Relationship(
-        back_populates="session",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        back_populates="session", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
 
     class Config:

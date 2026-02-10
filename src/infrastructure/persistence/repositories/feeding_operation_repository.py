@@ -1,9 +1,12 @@
 """
 Repositorio para operaciones de alimentación.
 """
+
+from datetime import datetime, date
 from typing import Optional, List
-from uuid import uuid4
-from sqlalchemy import select, desc
+from uuid import UUID, uuid4
+
+from sqlalchemy import select, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.entities.feeding_operation import FeedingOperation, OperationEvent
@@ -44,7 +47,7 @@ class FeedingOperationRepository(IFeedingOperationRepository):
                 status=operation.status.value,
                 started_at=operation.started_at,
                 ended_at=operation.ended_at,
-                applied_config=operation.applied_config
+                applied_config=operation.applied_config,
             )
             self.db.add(op_model)
 
@@ -56,7 +59,7 @@ class FeedingOperationRepository(IFeedingOperationRepository):
                 timestamp=event.timestamp,
                 type=event.type.value,
                 description=event.description,
-                details=event.details
+                details=event.details,
             )
             self.db.add(event_model)
 
@@ -65,21 +68,21 @@ class FeedingOperationRepository(IFeedingOperationRepository):
     async def find_by_id(self, operation_id: OperationId) -> Optional[FeedingOperation]:
         """Busca una operación por su ID."""
         result = await self.db.execute(
-            select(FeedingOperationModel)
-            .where(FeedingOperationModel.id == operation_id.value)
+            select(FeedingOperationModel).where(FeedingOperationModel.id == operation_id.value)
         )
         model = result.scalar_one_or_none()
         return self._to_domain(model) if model else None
 
     async def find_current_by_session(self, session_id: SessionId) -> Optional[FeedingOperation]:
         """Encuentra la operación activa (RUNNING o PAUSED) de una sesión."""
-        query = select(FeedingOperationModel).where(
-            FeedingOperationModel.session_id == session_id.value,
-            FeedingOperationModel.status.in_([
-                OperationStatus.RUNNING.value,
-                OperationStatus.PAUSED.value
-            ])
-        ).order_by(desc(FeedingOperationModel.started_at))
+        query = (
+            select(FeedingOperationModel)
+            .where(
+                FeedingOperationModel.session_id == session_id.value,
+                FeedingOperationModel.status.in_([OperationStatus.RUNNING.value, OperationStatus.PAUSED.value]),
+            )
+            .order_by(desc(FeedingOperationModel.started_at))
+        )
 
         result = await self.db.execute(query)
         model = result.scalar_one_or_none()
@@ -88,9 +91,11 @@ class FeedingOperationRepository(IFeedingOperationRepository):
 
     async def find_all_by_session(self, session_id: SessionId) -> List[FeedingOperation]:
         """Obtiene todas las operaciones de una sesión (para reportes)."""
-        query = select(FeedingOperationModel).where(
-            FeedingOperationModel.session_id == session_id.value
-        ).order_by(FeedingOperationModel.started_at)
+        query = (
+            select(FeedingOperationModel)
+            .where(FeedingOperationModel.session_id == session_id.value)
+            .order_by(FeedingOperationModel.started_at)
+        )
 
         result = await self.db.execute(query)
         models = result.scalars().all()
@@ -114,13 +119,74 @@ class FeedingOperationRepository(IFeedingOperationRepository):
         # Reconstruir eventos (todos)
         operation._events = [
             OperationEvent(
-                timestamp=ev.timestamp,
-                type=OperationEventType(ev.type),
-                description=ev.description,
-                details=ev.details
+                timestamp=ev.timestamp, type=OperationEventType(ev.type), description=ev.description, details=ev.details
             )
             for ev in model.events
         ]
         operation._new_events = []  # No hay eventos nuevos al cargar
 
         return operation
+
+    async def get_today_dispensed_by_cage(self, cage_id: CageId) -> float:
+        """
+        Calcula el total de alimento dispensado a una jaula en el día actual.
+
+        Args:
+            cage_id: ID de la jaula
+
+        Returns:
+            Total de kg dispensados hoy (desde las 00:00 UTC)
+        """
+        # Inicio del día actual (naive datetime para compatibilidad con DB)
+        today_start = datetime.combine(date.today(), datetime.min.time())
+
+        query = select(func.coalesce(func.sum(FeedingOperationModel.dispensed_kg), 0)).where(
+            FeedingOperationModel.cage_id == cage_id.value,
+            FeedingOperationModel.started_at >= today_start,
+        )
+
+        result = await self.db.execute(query)
+        total = result.scalar_one()
+
+        return float(total)
+
+    async def get_today_dispensed_by_cages(self, cage_ids: List[CageId]) -> dict[str, float]:
+        """
+        Calcula el total de alimento dispensado para múltiples jaulas en el día actual.
+
+        Args:
+            cage_ids: Lista de IDs de jaulas
+
+        Returns:
+            Diccionario con cage_id (string) como clave y kg dispensados como valor
+        """
+        if not cage_ids:
+            return {}
+
+        # Inicio del día actual (naive datetime para compatibilidad con DB)
+        today_start = datetime.combine(date.today(), datetime.min.time())
+
+        # Convertir CageIds a UUIDs
+        cage_uuid_list: List[UUID] = [cid.value for cid in cage_ids]
+
+        query = (
+            select(
+                FeedingOperationModel.cage_id,
+                func.coalesce(func.sum(FeedingOperationModel.dispensed_kg), 0).label("total_dispensed"),
+            )
+            .where(
+                FeedingOperationModel.cage_id.in_(cage_uuid_list),
+                FeedingOperationModel.started_at >= today_start,
+            )
+            .group_by(FeedingOperationModel.cage_id)
+        )
+
+        result = await self.db.execute(query)
+        rows = result.all()
+
+        # Construir diccionario con todos los cage_ids, defaulting a 0
+        dispensed_map: dict[str, float] = {str(cid.value): 0.0 for cid in cage_ids}
+        for row in rows:
+            dispensed_map[str(row.cage_id)] = float(row.total_dispensed)
+
+        return dispensed_map

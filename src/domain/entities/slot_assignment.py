@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Optional
 from uuid import UUID, uuid4
 
 from domain.value_objects.identifiers import CageId, LineId
@@ -22,8 +23,8 @@ class SlotAssignment:
     line_id: LineId
     cage_id: CageId
     slot_number: int
-    id: UUID = None
-    assigned_at: datetime = None
+    id: Optional[UUID] = None
+    assigned_at: Optional[datetime] = None
 
     def __post_init__(self) -> None:
         """Inicializa valores por defecto y valida."""

@@ -74,5 +74,6 @@ class DoserRepository:
         doser_model.max_rate_value = doser.dosing_range.max_rate
         doser_model.rate_unit = doser.dosing_range.unit
         doser_model.is_on = doser.is_on
+        doser_model.speed_percentage = doser.speed_percentage
 
         await self.session.flush()

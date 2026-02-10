@@ -2,6 +2,7 @@
 Aggregate Root: FeedingSession
 Representa una sesión operativa diaria de alimentación.
 """
+
 from dataclasses import asdict
 from datetime import datetime
 from typing import Optional, Dict, Any, List
@@ -85,11 +86,7 @@ class FeedingSession:
 
     # Métodos de negocio
     async def start_operation(
-        self,
-        cage_id: CageId,
-        target_slot: int,
-        strategy: IFeedingStrategy,
-        machine: IFeedingMachine
+        self, cage_id: CageId, target_slot: int, strategy: IFeedingStrategy, machine: IFeedingMachine
     ) -> OperationId:
         """Inicia una nueva operación de alimentación."""
 
@@ -97,8 +94,7 @@ class FeedingSession:
         if self._current_operation is not None:
             if self._current_operation.status in [OperationStatus.RUNNING, OperationStatus.PAUSED]:
                 raise ValueError(
-                    f"Ya hay una operación activa (status: {self._current_operation.status}). "
-                    "Debes hacer STOP primero."
+                    f"Ya hay una operación activa (status: {self._current_operation.status}). Debes hacer STOP primero."
                 )
 
         # Obtener configuración del PLC
@@ -112,7 +108,7 @@ class FeedingSession:
             cage_id=cage_id,
             target_slot=target_slot,
             target_amount=Weight.from_kg(config_dto.target_amount_kg),
-            applied_config=config_serialized
+            applied_config=config_serialized,
         )
 
         # Inicializar contador de slot si no existe
@@ -129,7 +125,7 @@ class FeedingSession:
         self._log_session_event(
             FeedingEventType.COMMAND,
             f"Nueva operación iniciada en jaula {cage_id}",
-            {"operation_id": str(operation.id), "target_kg": config_dto.target_amount_kg}
+            {"operation_id": str(operation.id), "target_kg": config_dto.target_amount_kg},
         )
 
         return operation.id
@@ -150,7 +146,7 @@ class FeedingSession:
         self._log_session_event(
             FeedingEventType.COMMAND,
             f"Operación finalizada: {self._current_operation.dispensed.as_kg}kg",
-            {"operation_id": str(self._current_operation.id)}
+            {"operation_id": str(self._current_operation.id)},
         )
 
         # Liberar slot (la sesión sigue ACTIVE)
@@ -180,11 +176,7 @@ class FeedingSession:
         await machine.resume(self._line_id)
         self._current_operation.resume()
 
-    async def update_current_operation_params(
-        self,
-        new_strategy: IFeedingStrategy,
-        machine: IFeedingMachine
-    ) -> None:
+    async def update_current_operation_params(self, new_strategy: IFeedingStrategy, machine: IFeedingMachine) -> None:
         """Actualiza parámetros de la operación actual en caliente."""
 
         if self._current_operation is None:
@@ -199,15 +191,15 @@ class FeedingSession:
 
         # Detectar cambios
         changes = {}
-        if new_config_dto.blower_speed_percentage != old_config.get('blower_speed_percentage'):
-            changes['blower_speed'] = {
-                'from': old_config.get('blower_speed_percentage'),
-                'to': new_config_dto.blower_speed_percentage
+        if new_config_dto.blower_speed_percentage != old_config.get("blower_speed_percentage"):
+            changes["blower_speed"] = {
+                "from": old_config.get("blower_speed_percentage"),
+                "to": new_config_dto.blower_speed_percentage,
             }
-        if new_config_dto.doser_speed_percentage != old_config.get('doser_speed_percentage'):
-            changes['doser_speed'] = {
-                'from': old_config.get('doser_speed_percentage'),
-                'to': new_config_dto.doser_speed_percentage
+        if new_config_dto.doser_speed_percentage != old_config.get("doser_speed_percentage"):
+            changes["doser_speed"] = {
+                "from": old_config.get("doser_speed_percentage"),
+                "to": new_config_dto.doser_speed_percentage,
             }
 
         # Aplicar
@@ -242,7 +234,7 @@ class FeedingSession:
         # Sincronizar estado (simplificado por ahora)
         if plc_status.has_error:
             if self._current_operation.status != OperationStatus.FAILED:
-                self._current_operation.fail(plc_status.error_code)
+                self._current_operation.fail(str(plc_status.error_code) if plc_status.error_code else "unknown")
 
     def close_session(self) -> None:
         """Cierra la sesión al final del día."""
@@ -252,13 +244,8 @@ class FeedingSession:
         self._status = SessionStatus.CLOSED
         self._log_session_event(FeedingEventType.SYSTEM_STATUS, "Sesión cerrada (fin del día)")
 
-    def _log_session_event(self, type: FeedingEventType, description: str, details: Dict[str, Any] = None):
-        event = FeedingEvent(
-            timestamp=datetime.utcnow(),
-            type=type,
-            description=description,
-            details=details or {}
-        )
+    def _log_session_event(self, type: FeedingEventType, description: str, details: Optional[Dict[str, Any]] = None):
+        event = FeedingEvent(timestamp=datetime.utcnow(), type=type, description=description, details=details or {})
         self._session_events.append(event)
 
     def pop_events(self) -> List[FeedingEvent]:
@@ -275,15 +262,14 @@ class FeedingSession:
             "date": self._date.isoformat(),
             "status": self._status.value,
             "total_kg": self._total_dispensed_kg.as_kg,
-            "details_by_slot": {
-                slot: weight.as_kg
-                for slot, weight in self._dispensed_by_slot.items()
-            },
+            "details_by_slot": {slot: weight.as_kg for slot, weight in self._dispensed_by_slot.items()},
             "current_operation": {
                 "operation_id": str(self._current_operation.id),
                 "cage_id": str(self._current_operation.cage_id),
                 "status": self._current_operation.status.value,
                 "dispensed_kg": self._current_operation.dispensed.as_kg,
-                "target_kg": self._current_operation.target_amount.as_kg
-            } if self._current_operation else None
+                "target_kg": self._current_operation.target_amount.as_kg,
+            }
+            if self._current_operation
+            else None,
         }

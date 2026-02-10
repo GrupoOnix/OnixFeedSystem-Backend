@@ -25,6 +25,7 @@ class DoserDTO:
     current_rate: float
     dosing_range_min: float
     dosing_range_max: float
+    speed_percentage: int = 50
     silo_id: Optional[str] = None
     silo_name: Optional[str] = None
 
@@ -85,9 +86,12 @@ class UpdateDoserRequest:
     current_rate: Optional[float] = None
     dosing_range_min: Optional[float] = None
     dosing_range_max: Optional[float] = None
+    speed_percentage: Optional[int] = None
 
     def __post_init__(self):
         """Validaciones del request."""
+        if self.speed_percentage is not None and not (1 <= self.speed_percentage <= 100):
+            raise ValueError("speed_percentage debe estar entre 1 y 100")
         if self.current_rate is not None and self.current_rate < 0:
             raise ValueError("current_rate debe ser mayor o igual a 0")
         if self.dosing_range_min is not None and self.dosing_range_min < 0:

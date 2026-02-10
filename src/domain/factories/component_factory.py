@@ -47,7 +47,8 @@ class ComponentFactory:
         name: DoserName,
         assigned_silo_id: SiloId,
         dosing_range: DosingRange,
-        current_rate: DosingRate
+        current_rate: DosingRate,
+        speed_percentage: int = 50,
     ) -> IDoser:
 
         # Validar y convertir string a enum
@@ -63,7 +64,8 @@ class ComponentFactory:
             assigned_silo_id=assigned_silo_id,
             doser_type=doser_type_enum,
             dosing_range=dosing_range,
-            current_rate=current_rate
+            current_rate=current_rate,
+            speed_percentage=speed_percentage,
         )
 
     @staticmethod

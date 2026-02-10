@@ -15,6 +15,8 @@ if TYPE_CHECKING:
     from domain.aggregates.feeding_line.selector import Selector
     from domain.interfaces import ISelector
 
+    from .feeding_line_model import FeedingLineModel
+
 
 class SelectorModel(SQLModel, table=True):
     __tablename__ = "selectors"

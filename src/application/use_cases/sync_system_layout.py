@@ -160,6 +160,7 @@ class SyncSystemLayoutUseCase:
                 assigned_silo_id=silo_id,
                 dosing_range=dosing_range,
                 current_rate=current_rate,
+                speed_percentage=model.speed_percentage,
             )
 
             dosers.append(doser)

@@ -158,6 +158,7 @@ async def update_cage_config(
     - **max_density_kg_m3**: Densidad máxima en kg/m³
     - **transport_time_seconds**: Tiempo de transporte en segundos
     - **blower_power**: Potencia del blower para alcanzar la jaula (30-100)
+    - **daily_feeding_target_kg**: Meta de alimentación diaria en kg
     """
     try:
         dto = UpdateCageConfigRequest(
@@ -166,6 +167,7 @@ async def update_cage_config(
             max_density_kg_m3=request.max_density_kg_m3,
             transport_time_seconds=request.transport_time_seconds,
             blower_power=request.blower_power,
+            daily_feeding_target_kg=request.daily_feeding_target_kg,
         )
         result = await use_case.execute(cage_id, dto)
         return CageResponseModel.from_dto(result)
@@ -316,9 +318,7 @@ async def adjust_population(
 async def get_population_history(
     cage_id: str,
     use_case: GetPopulationHistoryUseCaseDep,
-    event_types: Optional[List[str]] = Query(
-        None, description="Filtrar por tipos de evento"
-    ),
+    event_types: Optional[List[str]] = Query(None, description="Filtrar por tipos de evento"),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ) -> PopulationHistoryResponseModel:

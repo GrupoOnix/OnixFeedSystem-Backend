@@ -22,55 +22,30 @@ from application.dtos.cage_dtos import (
 class CreateCageRequestModel(BaseModel):
     """Request para crear una jaula."""
 
-    name: str = Field(
-        ..., min_length=1, max_length=100, description="Nombre de la jaula"
-    )
-    fcr: Optional[float] = Field(
-        None, ge=0.5, le=3.0, description="Feed Conversion Ratio"
-    )
-    volume_m3: Optional[float] = Field(
-        None, gt=0, description="Volumen en metros cúbicos"
-    )
-    max_density_kg_m3: Optional[float] = Field(
-        None, gt=0, description="Densidad máxima en kg/m³"
-    )
-    transport_time_seconds: Optional[int] = Field(
-        None, ge=0, description="Tiempo de transporte en segundos"
-    )
-    blower_power: Optional[int] = Field(
-        None, ge=30, le=100, description="Potencia del blower (30-100)"
-    )
+    name: str = Field(..., min_length=1, max_length=100, description="Nombre de la jaula")
+    fcr: Optional[float] = Field(None, ge=0.5, le=3.0, description="Feed Conversion Ratio")
+    volume_m3: Optional[float] = Field(None, gt=0, description="Volumen en metros cúbicos")
+    max_density_kg_m3: Optional[float] = Field(None, gt=0, description="Densidad máxima en kg/m³")
+    transport_time_seconds: Optional[int] = Field(None, ge=0, description="Tiempo de transporte en segundos")
+    blower_power: Optional[int] = Field(None, ge=30, le=100, description="Potencia del blower (30-100)")
 
 
 class UpdateCageRequestModel(BaseModel):
     """Request para actualizar una jaula."""
 
-    name: Optional[str] = Field(
-        None, min_length=1, max_length=100, description="Nuevo nombre"
-    )
-    status: Optional[str] = Field(
-        None, description="Nuevo estado: AVAILABLE, IN_USE, MAINTENANCE"
-    )
+    name: Optional[str] = Field(None, min_length=1, max_length=100, description="Nuevo nombre")
+    status: Optional[str] = Field(None, description="Nuevo estado: AVAILABLE, IN_USE, MAINTENANCE")
 
 
 class UpdateCageConfigRequestModel(BaseModel):
     """Request para actualizar la configuración."""
 
-    fcr: Optional[float] = Field(
-        None, ge=0.5, le=3.0, description="Feed Conversion Ratio"
-    )
-    volume_m3: Optional[float] = Field(
-        None, gt=0, description="Volumen en metros cúbicos"
-    )
-    max_density_kg_m3: Optional[float] = Field(
-        None, gt=0, description="Densidad máxima en kg/m³"
-    )
-    transport_time_seconds: Optional[int] = Field(
-        None, ge=0, description="Tiempo de transporte en segundos"
-    )
-    blower_power: Optional[int] = Field(
-        None, ge=30, le=100, description="Potencia del blower (30-100)"
-    )
+    fcr: Optional[float] = Field(None, ge=0.5, le=3.0, description="Feed Conversion Ratio")
+    volume_m3: Optional[float] = Field(None, gt=0, description="Volumen en metros cúbicos")
+    max_density_kg_m3: Optional[float] = Field(None, gt=0, description="Densidad máxima en kg/m³")
+    transport_time_seconds: Optional[int] = Field(None, ge=0, description="Tiempo de transporte en segundos")
+    blower_power: Optional[int] = Field(None, ge=30, le=100, description="Potencia del blower (30-100)")
+    daily_feeding_target_kg: Optional[float] = Field(None, ge=0, description="Meta de alimentación diaria en kg")
 
 
 class SetPopulationRequestModel(BaseModel):
@@ -127,6 +102,7 @@ class CageConfigResponseModel(BaseModel):
     max_density_kg_m3: Optional[float] = None
     transport_time_seconds: Optional[int] = None
     blower_power: Optional[int] = None
+    daily_feeding_target_kg: Optional[float] = None
 
 
 class CageResponseModel(BaseModel):
@@ -148,6 +124,9 @@ class CageResponseModel(BaseModel):
     # Calculados
     current_density_kg_m3: Optional[float]
 
+    # Alimentación del día (calculado)
+    today_feeding_kg: float = 0.0
+
     @classmethod
     def from_dto(cls, dto: CageResponse) -> "CageResponseModel":
         """Convierte DTO a modelo de API."""
@@ -165,8 +144,10 @@ class CageResponseModel(BaseModel):
                 max_density_kg_m3=dto.config.max_density_kg_m3,
                 transport_time_seconds=dto.config.transport_time_seconds,
                 blower_power=dto.config.blower_power,
+                daily_feeding_target_kg=dto.config.daily_feeding_target_kg,
             ),
             current_density_kg_m3=dto.current_density_kg_m3,
+            today_feeding_kg=dto.today_feeding_kg,
         )
 
 
@@ -181,6 +162,15 @@ class CageListItemResponseModel(BaseModel):
     biomass_kg: float
     created_at: datetime
 
+    # Configuración
+    config: CageConfigResponseModel
+
+    # Calculados
+    current_density_kg_m3: Optional[float]
+
+    # Alimentación del día (calculado)
+    today_feeding_kg: float = 0.0
+
     @classmethod
     def from_dto(cls, dto: CageListItemResponse) -> "CageListItemResponseModel":
         """Convierte DTO a modelo de API."""
@@ -192,6 +182,16 @@ class CageListItemResponseModel(BaseModel):
             avg_weight_grams=dto.avg_weight_grams,
             biomass_kg=dto.biomass_kg,
             created_at=dto.created_at,
+            config=CageConfigResponseModel(
+                fcr=dto.config.fcr,
+                volume_m3=dto.config.volume_m3,
+                max_density_kg_m3=dto.config.max_density_kg_m3,
+                transport_time_seconds=dto.config.transport_time_seconds,
+                blower_power=dto.config.blower_power,
+                daily_feeding_target_kg=dto.config.daily_feeding_target_kg,
+            ),
+            current_density_kg_m3=dto.current_density_kg_m3,
+            today_feeding_kg=dto.today_feeding_kg,
         )
 
 
@@ -269,9 +269,7 @@ class PopulationHistoryResponseModel(BaseModel):
     pagination: PaginationInfoModel
 
     @classmethod
-    def from_dto(
-        cls, dto: PopulationHistoryResponse
-    ) -> "PopulationHistoryResponseModel":
+    def from_dto(cls, dto: PopulationHistoryResponse) -> "PopulationHistoryResponseModel":
         """Convierte DTO a modelo de API."""
         return cls(
             events=[PopulationEventResponseModel.from_dto(e) for e in dto.events],

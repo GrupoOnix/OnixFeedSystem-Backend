@@ -1,6 +1,7 @@
 """
 Entidad FeedingOperation - Representa una operación atómica de alimentación.
 """
+
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional, Dict, Any, List
@@ -12,6 +13,7 @@ from domain.value_objects import CageId, Weight, OperationId, SessionId
 @dataclass
 class OperationEvent:
     """Evento específico de una operación."""
+
     timestamp: datetime
     type: OperationEventType
     description: str
@@ -30,7 +32,7 @@ class FeedingOperation:
         cage_id: CageId,
         target_slot: int,
         target_amount: Weight,
-        applied_config: Dict[str, Any]
+        applied_config: Dict[str, Any],
     ):
         self._id: OperationId = OperationId.generate()
         self._session_id: SessionId = session_id  # Necesario para persistencia
@@ -48,7 +50,7 @@ class FeedingOperation:
         self._log_event(
             OperationEventType.STARTED,
             f"Operación iniciada en jaula {cage_id}",
-            {"target_kg": target_amount.as_kg, "slot": target_slot}
+            {"target_kg": target_amount.as_kg, "slot": target_slot},
         )
 
     # Properties
@@ -98,13 +100,8 @@ class FeedingOperation:
         return self._events.copy()
 
     # Métodos de negocio
-    def _log_event(self, type: OperationEventType, description: str, details: Dict[str, Any] = None):
-        event = OperationEvent(
-            timestamp=datetime.utcnow(),
-            type=type,
-            description=description,
-            details=details or {}
-        )
+    def _log_event(self, type: OperationEventType, description: str, details: Optional[Dict[str, Any]] = None):
+        event = OperationEvent(timestamp=datetime.utcnow(), type=type, description=description, details=details or {})
         self._events.append(event)
         self._new_events.append(event)  # También a la cola de nuevos
 
@@ -146,7 +143,7 @@ class FeedingOperation:
         self._log_event(
             OperationEventType.COMPLETED,
             f"Operación completada: {self._dispensed.as_kg}kg de {self._target_amount.as_kg}kg",
-            {"dispensed": self._dispensed.as_kg, "target": self._target_amount.as_kg}
+            {"dispensed": self._dispensed.as_kg, "target": self._target_amount.as_kg},
         )
 
     def stop(self):
@@ -159,7 +156,7 @@ class FeedingOperation:
         self._log_event(
             OperationEventType.STOPPED,
             f"Operación detenida: {self._dispensed.as_kg}kg de {self._target_amount.as_kg}kg",
-            {"dispensed": self._dispensed.as_kg, "target": self._target_amount.as_kg}
+            {"dispensed": self._dispensed.as_kg, "target": self._target_amount.as_kg},
         )
 
     def fail(self, error_code: str):

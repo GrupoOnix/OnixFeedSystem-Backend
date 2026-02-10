@@ -41,6 +41,7 @@ class DoserConfigModel(BaseModel):
     min_rate: float = Field(ge=0.0)
     max_rate: float = Field(gt=0.0)
     current_rate: float = Field(ge=0.0)
+    speed_percentage: int = Field(default=50, ge=1, le=100)
 
 
 class SelectorConfigModel(BaseModel):

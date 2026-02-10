@@ -15,6 +15,8 @@ if TYPE_CHECKING:
     from domain.aggregates.feeding_line.doser import Doser
     from domain.interfaces import IDoser
 
+    from .feeding_line_model import FeedingLineModel
+
 
 class DoserModel(SQLModel, table=True):
     __tablename__ = "dosers"
@@ -30,6 +32,7 @@ class DoserModel(SQLModel, table=True):
     max_rate_value: float
     rate_unit: str
     is_on: bool = Field(default=True)
+    speed_percentage: int = Field(default=50)
 
     feeding_line: "FeedingLineModel" = Relationship(back_populates="dosers")
 
@@ -48,6 +51,7 @@ class DoserModel(SQLModel, table=True):
             max_rate_value=doser.dosing_range.max_rate,
             rate_unit=doser.dosing_range.unit,
             is_on=doser.is_on,
+            speed_percentage=doser.speed_percentage,
         )
 
     def to_domain(self) -> "Doser":
@@ -67,10 +71,9 @@ class DoserModel(SQLModel, table=True):
                 max_rate=self.max_rate_value,
                 unit=self.rate_unit,
             ),
-            current_rate=DosingRate(
-                value=self.dosing_rate_value, unit=self.dosing_rate_unit
-            ),
+            current_rate=DosingRate(value=self.dosing_rate_value, unit=self.dosing_rate_unit),
             is_on=self.is_on,
+            speed_percentage=self.speed_percentage,
             _skip_validation=True,  # Permitir cargar dosers con rate=0 desde DB
         )
         doser._id = DoserId(self.id)

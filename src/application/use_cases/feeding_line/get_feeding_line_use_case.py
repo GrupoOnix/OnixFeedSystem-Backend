@@ -80,6 +80,7 @@ class GetFeedingLineUseCase:
                 current_rate=doser.current_rate.value,
                 dosing_range_min=doser.dosing_range.min_rate,
                 dosing_range_max=doser.dosing_range.max_rate,
+                speed_percentage=doser.speed_percentage,
                 silo_id=str(doser.assigned_silo_id),
                 silo_name=None,  # Se puede agregar join si es necesario
             )

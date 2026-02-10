@@ -38,6 +38,7 @@ class CageRepository(ICageRepository):
             existing.max_density_kg_m3 = cage.config.max_density_kg_m3
             existing.transport_time_seconds = cage.config.transport_time_seconds
             existing.blower_power = cage.config.blower_power
+            existing.daily_feeding_target_kg = cage.config.daily_feeding_target_kg
         else:
             cage_model = CageModel.from_domain(cage)
             self.session.add(cage_model)
@@ -51,9 +52,7 @@ class CageRepository(ICageRepository):
 
     async def find_by_name(self, name: CageName) -> Optional[Cage]:
         """Busca una jaula por su nombre."""
-        result = await self.session.execute(
-            select(CageModel).where(CageModel.name == str(name))
-        )
+        result = await self.session.execute(select(CageModel).where(CageModel.name == str(name)))
         cage_model = result.scalar_one_or_none()
         return cage_model.to_domain() if cage_model else None
 

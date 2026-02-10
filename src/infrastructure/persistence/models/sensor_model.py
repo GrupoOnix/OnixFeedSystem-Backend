@@ -10,6 +10,8 @@ if TYPE_CHECKING:
     from domain.aggregates.feeding_line.sensor import Sensor
     from domain.interfaces import ISensor
 
+    from .feeding_line_model import FeedingLineModel
+
 
 class SensorModel(SQLModel, table=True):
     __tablename__ = "sensors"

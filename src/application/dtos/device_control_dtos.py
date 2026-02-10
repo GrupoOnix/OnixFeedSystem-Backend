@@ -19,6 +19,14 @@ class SetDoserRateRequest(BaseModel):
     )
 
 
+class SetDoserSpeedRequest(BaseModel):
+    """Request para establecer la velocidad del motor del dosificador."""
+
+    speed_percentage: int = Field(
+        ..., ge=1, le=100, description="Velocidad del motor del dosificador (1-100%)"
+    )
+
+
 class MoveSelectorRequest(BaseModel):
     """Request para mover el selector a un slot específico."""
 

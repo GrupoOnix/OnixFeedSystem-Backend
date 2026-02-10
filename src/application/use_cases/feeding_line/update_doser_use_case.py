@@ -85,6 +85,10 @@ class UpdateDoserUseCase:
             # Actualizar el doser
             doser.dosing_range = new_range
 
+        # Actualizar speed_percentage si se proporciona
+        if request.speed_percentage is not None:
+            doser.speed_percentage = request.speed_percentage
+
         # Actualizar tasa actual si se proporciona
         if request.current_rate is not None:
             # La validación del rango se hace en el setter del doser

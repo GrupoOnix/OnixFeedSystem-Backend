@@ -18,6 +18,7 @@ class CageConfiguration:
     max_density_kg_m3: Optional[float] = None  # Densidad máxima en kg/m³
     transport_time_seconds: Optional[int] = None  # Tiempo de transporte en segundos
     blower_power: Optional[int] = None  # Potencia del blower (30-100)
+    daily_feeding_target_kg: Optional[float] = None  # Meta de alimentación diaria en kg
 
     def __post_init__(self) -> None:
         """Valida los valores de configuración."""
@@ -41,6 +42,10 @@ class CageConfiguration:
             if not (30 <= self.blower_power <= 100):
                 raise ValueError("La potencia del blower debe estar entre 30 y 100")
 
+        if self.daily_feeding_target_kg is not None:
+            if self.daily_feeding_target_kg < 0:
+                raise ValueError("La meta de alimentación diaria no puede ser negativa")
+
     def with_fcr(self, fcr: Optional[float]) -> "CageConfiguration":
         """Retorna una nueva configuración con el FCR actualizado."""
         return CageConfiguration(
@@ -49,6 +54,7 @@ class CageConfiguration:
             max_density_kg_m3=self.max_density_kg_m3,
             transport_time_seconds=self.transport_time_seconds,
             blower_power=self.blower_power,
+            daily_feeding_target_kg=self.daily_feeding_target_kg,
         )
 
     def with_volume(self, volume_m3: Optional[float]) -> "CageConfiguration":
@@ -59,11 +65,10 @@ class CageConfiguration:
             max_density_kg_m3=self.max_density_kg_m3,
             transport_time_seconds=self.transport_time_seconds,
             blower_power=self.blower_power,
+            daily_feeding_target_kg=self.daily_feeding_target_kg,
         )
 
-    def with_max_density(
-        self, max_density_kg_m3: Optional[float]
-    ) -> "CageConfiguration":
+    def with_max_density(self, max_density_kg_m3: Optional[float]) -> "CageConfiguration":
         """Retorna una nueva configuración con la densidad máxima actualizada."""
         return CageConfiguration(
             fcr=self.fcr,
@@ -71,11 +76,10 @@ class CageConfiguration:
             max_density_kg_m3=max_density_kg_m3,
             transport_time_seconds=self.transport_time_seconds,
             blower_power=self.blower_power,
+            daily_feeding_target_kg=self.daily_feeding_target_kg,
         )
 
-    def with_transport_time(
-        self, transport_time_seconds: Optional[int]
-    ) -> "CageConfiguration":
+    def with_transport_time(self, transport_time_seconds: Optional[int]) -> "CageConfiguration":
         """Retorna una nueva configuración con el tiempo de transporte actualizado."""
         return CageConfiguration(
             fcr=self.fcr,
@@ -83,6 +87,7 @@ class CageConfiguration:
             max_density_kg_m3=self.max_density_kg_m3,
             transport_time_seconds=transport_time_seconds,
             blower_power=self.blower_power,
+            daily_feeding_target_kg=self.daily_feeding_target_kg,
         )
 
     def with_blower_power(self, blower_power: Optional[int]) -> "CageConfiguration":
@@ -93,6 +98,18 @@ class CageConfiguration:
             max_density_kg_m3=self.max_density_kg_m3,
             transport_time_seconds=self.transport_time_seconds,
             blower_power=blower_power,
+            daily_feeding_target_kg=self.daily_feeding_target_kg,
+        )
+
+    def with_daily_feeding_target(self, daily_feeding_target_kg: Optional[float]) -> "CageConfiguration":
+        """Retorna una nueva configuración con la meta de alimentación diaria actualizada."""
+        return CageConfiguration(
+            fcr=self.fcr,
+            volume_m3=self.volume_m3,
+            max_density_kg_m3=self.max_density_kg_m3,
+            transport_time_seconds=self.transport_time_seconds,
+            blower_power=self.blower_power,
+            daily_feeding_target_kg=daily_feeding_target_kg,
         )
 
     @classmethod
@@ -108,4 +125,5 @@ class CageConfiguration:
             and self.max_density_kg_m3 is None
             and self.transport_time_seconds is None
             and self.blower_power is None
+            and self.daily_feeding_target_kg is None
         )

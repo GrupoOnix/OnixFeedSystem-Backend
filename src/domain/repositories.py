@@ -143,9 +143,7 @@ class ICageGroupRepository(ABC):
         ...
 
     @abstractmethod
-    async def exists_by_name(
-        self, name: str, exclude_id: Optional[CageGroupId] = None
-    ) -> bool:
+    async def exists_by_name(self, name: str, exclude_id: Optional[CageGroupId] = None) -> bool:
         """
         Verifica si existe un grupo con el nombre dado.
 
@@ -208,9 +206,7 @@ class ISlotAssignmentRepository(ABC):
         ...
 
     @abstractmethod
-    async def find_by_line_and_slot(
-        self, line_id: LineId, slot_number: int
-    ) -> Optional[SlotAssignment]:
+    async def find_by_line_and_slot(self, line_id: LineId, slot_number: int) -> Optional[SlotAssignment]:
         """Busca una asignación por línea y número de slot."""
         ...
 
@@ -265,9 +261,7 @@ class IFeedingSessionRepository(ABC):
     async def find_by_id(self, session_id: SessionId) -> Optional[FeedingSession]: ...
 
     @abstractmethod
-    async def find_active_by_line_id(
-        self, line_id: LineId
-    ) -> Optional[FeedingSession]: ...
+    async def find_active_by_line_id(self, line_id: LineId) -> Optional[FeedingSession]: ...
 
 
 class IBiometryLogRepository(ABC):
@@ -279,9 +273,7 @@ class IBiometryLogRepository(ABC):
         ...
 
     @abstractmethod
-    async def list_by_cage(
-        self, cage_id: CageId, limit: int = 50, offset: int = 0
-    ) -> List[BiometryLogEntry]:
+    async def list_by_cage(self, cage_id: CageId, limit: int = 50, offset: int = 0) -> List[BiometryLogEntry]:
         """Lista registros de biometría de una jaula, ordenados por fecha DESC."""
         ...
 
@@ -300,9 +292,7 @@ class IMortalityLogRepository(ABC):
         ...
 
     @abstractmethod
-    async def list_by_cage(
-        self, cage_id: CageId, limit: int = 50, offset: int = 0
-    ) -> List[MortalityLogEntry]:
+    async def list_by_cage(self, cage_id: CageId, limit: int = 50, offset: int = 0) -> List[MortalityLogEntry]:
         """Lista registros de mortalidad de una jaula, ordenados por fecha DESC."""
         ...
 
@@ -326,9 +316,7 @@ class IConfigChangeLogRepository(ABC):
         ...
 
     @abstractmethod
-    async def list_by_cage(
-        self, cage_id: CageId, limit: int = 50, offset: int = 0
-    ) -> List[ConfigChangeLogEntry]:
+    async def list_by_cage(self, cage_id: CageId, limit: int = 50, offset: int = 0) -> List[ConfigChangeLogEntry]:
         """Lista registros de cambios de configuración de una jaula, ordenados por fecha DESC."""
         ...
 
@@ -352,17 +340,39 @@ class IFeedingOperationRepository(ABC):
         ...
 
     @abstractmethod
-    async def find_current_by_session(
-        self, session_id: SessionId
-    ) -> Optional[FeedingOperation]:
+    async def find_current_by_session(self, session_id: SessionId) -> Optional[FeedingOperation]:
         """Encuentra la operación activa (RUNNING o PAUSED) de una sesión."""
         ...
 
     @abstractmethod
-    async def find_all_by_session(
-        self, session_id: SessionId
-    ) -> List[FeedingOperation]:
+    async def find_all_by_session(self, session_id: SessionId) -> List[FeedingOperation]:
         """Obtiene todas las operaciones de una sesión (para reportes)."""
+        ...
+
+    @abstractmethod
+    async def get_today_dispensed_by_cage(self, cage_id: CageId) -> float:
+        """
+        Calcula el total de alimento dispensado a una jaula en el día actual.
+
+        Args:
+            cage_id: ID de la jaula
+
+        Returns:
+            Total de kg dispensados hoy (desde las 00:00 UTC)
+        """
+        ...
+
+    @abstractmethod
+    async def get_today_dispensed_by_cages(self, cage_ids: List[CageId]) -> dict[str, float]:
+        """
+        Calcula el total de alimento dispensado para múltiples jaulas en el día actual.
+
+        Args:
+            cage_ids: Lista de IDs de jaulas
+
+        Returns:
+            Diccionario con cage_id (string) como clave y kg dispensados como valor
+        """
         ...
 
 

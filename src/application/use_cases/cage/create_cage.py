@@ -70,6 +70,8 @@ class CreateCageUseCase:
                 max_density_kg_m3=cage.config.max_density_kg_m3,
                 transport_time_seconds=cage.config.transport_time_seconds,
                 blower_power=cage.config.blower_power,
+                daily_feeding_target_kg=cage.config.daily_feeding_target_kg,
             ),
             current_density_kg_m3=cage.current_density_kg_m3,
+            today_feeding_kg=0.0,  # Nueva jaula, sin alimentación aún
         )

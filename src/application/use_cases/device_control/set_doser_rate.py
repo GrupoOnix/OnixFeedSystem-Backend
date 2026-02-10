@@ -51,16 +51,13 @@ class SetDoserRateUseCase:
         # Actualizar tasa del doser (valida que esté dentro del rango)
         doser.current_rate = rate
 
-        # Calcular porcentaje para el PLC
-        rate_percentage = self._calculate_rate_percentage(doser)
-
-        # Crear comando con contexto completo
+        # Crear comando usando speed_percentage configurado por el operador
         command = DoserCommand(
             doser_id=str(doser_uuid),
             doser_name=str(doser.name),
             line_id=str(result.line_id),
             line_name=result.line_name,
-            rate_percentage=rate_percentage,
+            rate_percentage=float(doser.speed_percentage),
         )
 
         # Enviar comando al PLC
@@ -68,22 +65,3 @@ class SetDoserRateUseCase:
 
         # Guardar cambios en DB
         await self._doser_repo.update(doser_uuid, doser)
-
-    def _calculate_rate_percentage(self, doser) -> float:
-        """Calcula el porcentaje de velocidad basado en el rango del doser."""
-        dosing_range = doser.dosing_range
-        current_rate = doser.current_rate.value
-
-        if current_rate == 0:
-            return 0.0
-
-        if dosing_range.max_rate == dosing_range.min_rate:
-            return 100.0 if current_rate > 0 else 0.0
-
-        # Mapear de kg/min a porcentaje (0-100%)
-        range_span = dosing_range.max_rate - dosing_range.min_rate
-        rate_in_range = current_rate - dosing_range.min_rate
-        percentage = (rate_in_range / range_span) * 100.0
-
-        # Asegurar que esté en rango válido
-        return max(0.0, min(100.0, percentage))

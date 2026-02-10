@@ -51,6 +51,7 @@ from application.use_cases.device_control import (
     ResetSelectorDirectUseCase,
     SetBlowerPowerUseCase,
     SetDoserRateUseCase,
+    SetDoserSpeedUseCase,
     TurnBlowerOffUseCase,
     TurnBlowerOnUseCase,
     TurnDoserOffUseCase,
@@ -147,9 +148,7 @@ async def get_cage_repo(session: AsyncSession = Depends(get_session)) -> CageRep
     return CageRepository(session)
 
 
-async def get_cage_group_repo(
-    session: AsyncSession = Depends(get_session)
-) -> CageGroupRepository:
+async def get_cage_group_repo(session: AsyncSession = Depends(get_session)) -> CageGroupRepository:
     """Crea instancia del repositorio de grupos de jaulas."""
     return CageGroupRepository(session)
 
@@ -356,6 +355,17 @@ async def get_set_doser_rate_use_case(
     )
 
 
+async def get_set_doser_speed_use_case(
+    doser_repo: DoserRepository = Depends(get_doser_repo),
+    machine_service: IFeedingMachine = Depends(get_machine_service),
+) -> SetDoserSpeedUseCase:
+    """Crea instancia del caso de uso de control de velocidad de motor del doser."""
+    return SetDoserSpeedUseCase(
+        doser_repository=doser_repo,
+        machine_service=machine_service,
+    )
+
+
 async def get_move_selector_direct_use_case(
     selector_repo: SelectorRepository = Depends(get_selector_repo),
     machine_service: IFeedingMachine = Depends(get_machine_service),
@@ -434,9 +444,7 @@ async def get_alert_trigger_service(
     return AlertTriggerService(alert_repository=alert_repo)
 
 
-AlertTriggerServiceDep = Annotated[
-    AlertTriggerService, Depends(get_alert_trigger_service)
-]
+AlertTriggerServiceDep = Annotated[AlertTriggerService, Depends(get_alert_trigger_service)]
 
 
 # ============================================================================
@@ -470,9 +478,7 @@ async def get_update_silo_use_case(
     alert_trigger_service: "AlertTriggerService" = Depends(get_alert_trigger_service),
 ) -> UpdateSiloUseCase:
     """Crea instancia del caso de uso de actualización de silo."""
-    return UpdateSiloUseCase(
-        silo_repository=silo_repo, alert_trigger_service=alert_trigger_service
-    )
+    return UpdateSiloUseCase(silo_repository=silo_repo, alert_trigger_service=alert_trigger_service)
 
 
 async def get_delete_silo_use_case(
@@ -580,23 +586,26 @@ async def get_create_cage_use_case(
 
 async def get_get_cage_use_case(
     cage_repo: CageRepository = Depends(get_cage_repo),
+    operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),
 ) -> GetCageUseCase:
     """Crea instancia del caso de uso de obtención de jaula."""
-    return GetCageUseCase(cage_repository=cage_repo)
+    return GetCageUseCase(cage_repository=cage_repo, operation_repository=operation_repo)
 
 
 async def get_list_cages_use_case(
     cage_repo: CageRepository = Depends(get_cage_repo),
+    operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),
 ) -> ListCagesUseCase:
     """Crea instancia del caso de uso de listado de jaulas."""
-    return ListCagesUseCase(cage_repository=cage_repo)
+    return ListCagesUseCase(cage_repository=cage_repo, operation_repository=operation_repo)
 
 
 async def get_update_cage_use_case(
     cage_repo: CageRepository = Depends(get_cage_repo),
+    operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),
 ) -> UpdateCageUseCase:
     """Crea instancia del caso de uso de actualización de jaula."""
-    return UpdateCageUseCase(cage_repository=cage_repo)
+    return UpdateCageUseCase(cage_repository=cage_repo, operation_repository=operation_repo)
 
 
 async def get_delete_cage_use_case(
@@ -608,9 +617,10 @@ async def get_delete_cage_use_case(
 
 async def get_update_cage_config_use_case(
     cage_repo: CageRepository = Depends(get_cage_repo),
+    operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),
 ) -> UpdateCageConfigUseCase:
     """Crea instancia del caso de uso de actualización de configuración."""
-    return UpdateCageConfigUseCase(cage_repository=cage_repo)
+    return UpdateCageConfigUseCase(cage_repository=cage_repo, operation_repository=operation_repo)
 
 
 async def get_set_population_use_case(
@@ -626,9 +636,7 @@ async def get_register_mortality_use_case(
     event_repo: PopulationEventRepository = Depends(get_population_event_repo),
 ) -> RegisterMortalityUseCase:
     """Crea instancia del caso de uso de registro de mortalidad."""
-    return RegisterMortalityUseCase(
-        cage_repository=cage_repo, event_repository=event_repo
-    )
+    return RegisterMortalityUseCase(cage_repository=cage_repo, event_repository=event_repo)
 
 
 async def get_update_biometry_use_case(
@@ -652,9 +660,7 @@ async def get_adjust_population_use_case(
     event_repo: PopulationEventRepository = Depends(get_population_event_repo),
 ) -> AdjustPopulationUseCase:
     """Crea instancia del caso de uso de ajuste de población."""
-    return AdjustPopulationUseCase(
-        cage_repository=cage_repo, event_repository=event_repo
-    )
+    return AdjustPopulationUseCase(cage_repository=cage_repo, event_repository=event_repo)
 
 
 async def get_population_history_use_case(
@@ -795,45 +801,25 @@ GetUseCaseDep = Annotated[GetSystemLayoutUseCase, Depends(get_get_use_case)]
 # Type Aliases para Endpoints - Feeding Line
 # ============================================================================
 
-ListFeedingLinesUseCaseDep = Annotated[
-    ListFeedingLinesUseCase, Depends(get_list_feeding_lines_use_case)
-]
+ListFeedingLinesUseCaseDep = Annotated[ListFeedingLinesUseCase, Depends(get_list_feeding_lines_use_case)]
 
-GetFeedingLineUseCaseDep = Annotated[
-    GetFeedingLineUseCase, Depends(get_get_feeding_line_use_case)
-]
+GetFeedingLineUseCaseDep = Annotated[GetFeedingLineUseCase, Depends(get_get_feeding_line_use_case)]
 
-UpdateSelectorUseCaseDep = Annotated[
-    UpdateSelectorUseCase, Depends(get_update_selector_use_case)
-]
+UpdateSelectorUseCaseDep = Annotated[UpdateSelectorUseCase, Depends(get_update_selector_use_case)]
 
-MoveSelectorToSlotUseCaseDep = Annotated[
-    MoveSelectorToSlotUseCase, Depends(get_move_selector_to_slot_use_case)
-]
+MoveSelectorToSlotUseCaseDep = Annotated[MoveSelectorToSlotUseCase, Depends(get_move_selector_to_slot_use_case)]
 
-ResetSelectorPositionUseCaseDep = Annotated[
-    ResetSelectorPositionUseCase, Depends(get_reset_selector_position_use_case)
-]
+ResetSelectorPositionUseCaseDep = Annotated[ResetSelectorPositionUseCase, Depends(get_reset_selector_position_use_case)]
 
-UpdateBlowerUseCaseDep = Annotated[
-    UpdateBlowerUseCase, Depends(get_update_blower_use_case)
-]
+UpdateBlowerUseCaseDep = Annotated[UpdateBlowerUseCase, Depends(get_update_blower_use_case)]
 
-UpdateDoserUseCaseDep = Annotated[
-    UpdateDoserUseCase, Depends(get_update_doser_use_case)
-]
+UpdateDoserUseCaseDep = Annotated[UpdateDoserUseCase, Depends(get_update_doser_use_case)]
 
-GetSensorReadingsUseCaseDep = Annotated[
-    GetSensorReadingsUseCase, Depends(get_sensor_readings_use_case)
-]
+GetSensorReadingsUseCaseDep = Annotated[GetSensorReadingsUseCase, Depends(get_sensor_readings_use_case)]
 
-GetLineSensorsUseCaseDep = Annotated[
-    GetLineSensorsUseCase, Depends(get_line_sensors_use_case)
-]
+GetLineSensorsUseCaseDep = Annotated[GetLineSensorsUseCase, Depends(get_line_sensors_use_case)]
 
-UpdateSensorUseCaseDep = Annotated[
-    UpdateSensorUseCase, Depends(get_update_sensor_use_case)
-]
+UpdateSensorUseCaseDep = Annotated[UpdateSensorUseCase, Depends(get_update_sensor_use_case)]
 
 
 # ============================================================================
@@ -865,9 +851,7 @@ UpdateFoodUseCaseDep = Annotated[UpdateFoodUseCase, Depends(get_update_food_use_
 
 DeleteFoodUseCaseDep = Annotated[DeleteFoodUseCase, Depends(get_delete_food_use_case)]
 
-ToggleFoodActiveUseCaseDep = Annotated[
-    ToggleFoodActiveUseCase, Depends(get_toggle_food_active_use_case)
-]
+ToggleFoodActiveUseCaseDep = Annotated[ToggleFoodActiveUseCase, Depends(get_toggle_food_active_use_case)]
 
 
 # ============================================================================
@@ -884,118 +868,72 @@ UpdateCageUseCaseDep = Annotated[UpdateCageUseCase, Depends(get_update_cage_use_
 
 DeleteCageUseCaseDep = Annotated[DeleteCageUseCase, Depends(get_delete_cage_use_case)]
 
-UpdateCageConfigUseCaseDep = Annotated[
-    UpdateCageConfigUseCase, Depends(get_update_cage_config_use_case)
-]
+UpdateCageConfigUseCaseDep = Annotated[UpdateCageConfigUseCase, Depends(get_update_cage_config_use_case)]
 
-SetPopulationUseCaseDep = Annotated[
-    SetPopulationUseCase, Depends(get_set_population_use_case)
-]
+SetPopulationUseCaseDep = Annotated[SetPopulationUseCase, Depends(get_set_population_use_case)]
 
-RegisterMortalityUseCaseDep = Annotated[
-    RegisterMortalityUseCase, Depends(get_register_mortality_use_case)
-]
+RegisterMortalityUseCaseDep = Annotated[RegisterMortalityUseCase, Depends(get_register_mortality_use_case)]
 
-UpdateBiometryUseCaseDep = Annotated[
-    UpdateBiometryUseCase, Depends(get_update_biometry_use_case)
-]
+UpdateBiometryUseCaseDep = Annotated[UpdateBiometryUseCase, Depends(get_update_biometry_use_case)]
 
 HarvestUseCaseDep = Annotated[HarvestUseCase, Depends(get_harvest_use_case)]
 
-AdjustPopulationUseCaseDep = Annotated[
-    AdjustPopulationUseCase, Depends(get_adjust_population_use_case)
-]
+AdjustPopulationUseCaseDep = Annotated[AdjustPopulationUseCase, Depends(get_adjust_population_use_case)]
 
-GetPopulationHistoryUseCaseDep = Annotated[
-    GetPopulationHistoryUseCase, Depends(get_population_history_use_case)
-]
+GetPopulationHistoryUseCaseDep = Annotated[GetPopulationHistoryUseCase, Depends(get_population_history_use_case)]
 
 
 # ============================================================================
 # Type Aliases para Endpoints - Cage Group
 # ============================================================================
 
-CreateCageGroupUseCaseDep = Annotated[
-    CreateCageGroupUseCase, Depends(get_create_cage_group_use_case)
-]
+CreateCageGroupUseCaseDep = Annotated[CreateCageGroupUseCase, Depends(get_create_cage_group_use_case)]
 
-ListCageGroupsUseCaseDep = Annotated[
-    ListCageGroupsUseCase, Depends(get_list_cage_groups_use_case)
-]
+ListCageGroupsUseCaseDep = Annotated[ListCageGroupsUseCase, Depends(get_list_cage_groups_use_case)]
 
-GetCageGroupUseCaseDep = Annotated[
-    GetCageGroupUseCase, Depends(get_get_cage_group_use_case)
-]
+GetCageGroupUseCaseDep = Annotated[GetCageGroupUseCase, Depends(get_get_cage_group_use_case)]
 
-UpdateCageGroupUseCaseDep = Annotated[
-    UpdateCageGroupUseCase, Depends(get_update_cage_group_use_case)
-]
+UpdateCageGroupUseCaseDep = Annotated[UpdateCageGroupUseCase, Depends(get_update_cage_group_use_case)]
 
-DeleteCageGroupUseCaseDep = Annotated[
-    DeleteCageGroupUseCase, Depends(get_delete_cage_group_use_case)
-]
+DeleteCageGroupUseCaseDep = Annotated[DeleteCageGroupUseCase, Depends(get_delete_cage_group_use_case)]
 
 
 # ============================================================================
 # Type Aliases para Endpoints - Feeding
 # ============================================================================
 
-StartFeedingUseCaseDep = Annotated[
-    StartFeedingSessionUseCase, Depends(get_start_feeding_use_case)
-]
+StartFeedingUseCaseDep = Annotated[StartFeedingSessionUseCase, Depends(get_start_feeding_use_case)]
 
-StopFeedingUseCaseDep = Annotated[
-    StopFeedingSessionUseCase, Depends(get_stop_feeding_use_case)
-]
+StopFeedingUseCaseDep = Annotated[StopFeedingSessionUseCase, Depends(get_stop_feeding_use_case)]
 
-PauseFeedingUseCaseDep = Annotated[
-    PauseFeedingSessionUseCase, Depends(get_pause_feeding_use_case)
-]
+PauseFeedingUseCaseDep = Annotated[PauseFeedingSessionUseCase, Depends(get_pause_feeding_use_case)]
 
-ResumeFeedingUseCaseDep = Annotated[
-    ResumeFeedingSessionUseCase, Depends(get_resume_feeding_use_case)
-]
+ResumeFeedingUseCaseDep = Annotated[ResumeFeedingSessionUseCase, Depends(get_resume_feeding_use_case)]
 
-UpdateFeedingParamsUseCaseDep = Annotated[
-    UpdateFeedingParametersUseCase, Depends(get_update_feeding_params_use_case)
-]
+UpdateFeedingParamsUseCaseDep = Annotated[UpdateFeedingParametersUseCase, Depends(get_update_feeding_params_use_case)]
 
 
 # ============================================================================
 # Type Aliases para Endpoints - Device Control
 # ============================================================================
 
-SetBlowerPowerUseCaseDep = Annotated[
-    SetBlowerPowerUseCase, Depends(get_set_blower_power_use_case)
-]
+SetBlowerPowerUseCaseDep = Annotated[SetBlowerPowerUseCase, Depends(get_set_blower_power_use_case)]
 
-SetDoserRateUseCaseDep = Annotated[
-    SetDoserRateUseCase, Depends(get_set_doser_rate_use_case)
-]
+SetDoserRateUseCaseDep = Annotated[SetDoserRateUseCase, Depends(get_set_doser_rate_use_case)]
 
-MoveSelectorDirectUseCaseDep = Annotated[
-    MoveSelectorToSlotDirectUseCase, Depends(get_move_selector_direct_use_case)
-]
+SetDoserSpeedUseCaseDep = Annotated[SetDoserSpeedUseCase, Depends(get_set_doser_speed_use_case)]
 
-ResetSelectorDirectUseCaseDep = Annotated[
-    ResetSelectorDirectUseCase, Depends(get_reset_selector_direct_use_case)
-]
+MoveSelectorDirectUseCaseDep = Annotated[MoveSelectorToSlotDirectUseCase, Depends(get_move_selector_direct_use_case)]
 
-TurnBlowerOnUseCaseDep = Annotated[
-    TurnBlowerOnUseCase, Depends(get_turn_blower_on_use_case)
-]
+ResetSelectorDirectUseCaseDep = Annotated[ResetSelectorDirectUseCase, Depends(get_reset_selector_direct_use_case)]
 
-TurnBlowerOffUseCaseDep = Annotated[
-    TurnBlowerOffUseCase, Depends(get_turn_blower_off_use_case)
-]
+TurnBlowerOnUseCaseDep = Annotated[TurnBlowerOnUseCase, Depends(get_turn_blower_on_use_case)]
 
-TurnDoserOnUseCaseDep = Annotated[
-    TurnDoserOnUseCase, Depends(get_turn_doser_on_use_case)
-]
+TurnBlowerOffUseCaseDep = Annotated[TurnBlowerOffUseCase, Depends(get_turn_blower_off_use_case)]
 
-TurnDoserOffUseCaseDep = Annotated[
-    TurnDoserOffUseCase, Depends(get_turn_doser_off_use_case)
-]
+TurnDoserOnUseCaseDep = Annotated[TurnDoserOnUseCase, Depends(get_turn_doser_on_use_case)]
+
+TurnDoserOffUseCaseDep = Annotated[TurnDoserOffUseCase, Depends(get_turn_doser_off_use_case)]
 
 
 # ============================================================================
@@ -1126,67 +1064,37 @@ async def get_toggle_scheduled_alert_use_case(
 
 ListAlertsUseCaseDep = Annotated[ListAlertsUseCase, Depends(get_list_alerts_use_case)]
 
-GetUnreadCountUseCaseDep = Annotated[
-    GetUnreadCountUseCase, Depends(get_unread_count_use_case)
-]
+GetUnreadCountUseCaseDep = Annotated[GetUnreadCountUseCase, Depends(get_unread_count_use_case)]
 
-UpdateAlertUseCaseDep = Annotated[
-    UpdateAlertUseCase, Depends(get_update_alert_use_case)
-]
+UpdateAlertUseCaseDep = Annotated[UpdateAlertUseCase, Depends(get_update_alert_use_case)]
 
-MarkAlertReadUseCaseDep = Annotated[
-    MarkAlertReadUseCase, Depends(get_mark_alert_read_use_case)
-]
+MarkAlertReadUseCaseDep = Annotated[MarkAlertReadUseCase, Depends(get_mark_alert_read_use_case)]
 
-SnoozeAlertUseCaseDep = Annotated[
-    SnoozeAlertUseCase, Depends(get_snooze_alert_use_case)
-]
+SnoozeAlertUseCaseDep = Annotated[SnoozeAlertUseCase, Depends(get_snooze_alert_use_case)]
 
-MarkAllAlertsReadUseCaseDep = Annotated[
-    MarkAllAlertsReadUseCase, Depends(get_mark_all_alerts_read_use_case)
-]
+MarkAllAlertsReadUseCaseDep = Annotated[MarkAllAlertsReadUseCase, Depends(get_mark_all_alerts_read_use_case)]
 
-CreateAlertUseCaseDep = Annotated[
-    CreateAlertUseCase, Depends(get_create_alert_use_case)
-]
+CreateAlertUseCaseDep = Annotated[CreateAlertUseCase, Depends(get_create_alert_use_case)]
 
-ListSnoozedAlertsUseCaseDep = Annotated[
-    ListSnoozedAlertsUseCase, Depends(get_list_snoozed_alerts_use_case)
-]
+ListSnoozedAlertsUseCaseDep = Annotated[ListSnoozedAlertsUseCase, Depends(get_list_snoozed_alerts_use_case)]
 
-UnsnoozeAlertUseCaseDep = Annotated[
-    UnsnoozeAlertUseCase, Depends(get_unsnooze_alert_use_case)
-]
+UnsnoozeAlertUseCaseDep = Annotated[UnsnoozeAlertUseCase, Depends(get_unsnooze_alert_use_case)]
 
-GetAlertCountsUseCaseDep = Annotated[
-    GetAlertCountsUseCase, Depends(get_alert_counts_use_case)
-]
+GetAlertCountsUseCaseDep = Annotated[GetAlertCountsUseCase, Depends(get_alert_counts_use_case)]
 
-GetSnoozedCountUseCaseDep = Annotated[
-    GetSnoozedCountUseCase, Depends(get_snoozed_count_use_case)
-]
+GetSnoozedCountUseCaseDep = Annotated[GetSnoozedCountUseCase, Depends(get_snoozed_count_use_case)]
 
 
 # ============================================================================
 # Type Aliases para Endpoints - Scheduled Alerts
 # ============================================================================
 
-ListScheduledAlertsUseCaseDep = Annotated[
-    ListScheduledAlertsUseCase, Depends(get_list_scheduled_alerts_use_case)
-]
+ListScheduledAlertsUseCaseDep = Annotated[ListScheduledAlertsUseCase, Depends(get_list_scheduled_alerts_use_case)]
 
-CreateScheduledAlertUseCaseDep = Annotated[
-    CreateScheduledAlertUseCase, Depends(get_create_scheduled_alert_use_case)
-]
+CreateScheduledAlertUseCaseDep = Annotated[CreateScheduledAlertUseCase, Depends(get_create_scheduled_alert_use_case)]
 
-UpdateScheduledAlertUseCaseDep = Annotated[
-    UpdateScheduledAlertUseCase, Depends(get_update_scheduled_alert_use_case)
-]
+UpdateScheduledAlertUseCaseDep = Annotated[UpdateScheduledAlertUseCase, Depends(get_update_scheduled_alert_use_case)]
 
-DeleteScheduledAlertUseCaseDep = Annotated[
-    DeleteScheduledAlertUseCase, Depends(get_delete_scheduled_alert_use_case)
-]
+DeleteScheduledAlertUseCaseDep = Annotated[DeleteScheduledAlertUseCase, Depends(get_delete_scheduled_alert_use_case)]
 
-ToggleScheduledAlertUseCaseDep = Annotated[
-    ToggleScheduledAlertUseCase, Depends(get_toggle_scheduled_alert_use_case)
-]
+ToggleScheduledAlertUseCaseDep = Annotated[ToggleScheduledAlertUseCase, Depends(get_toggle_scheduled_alert_use_case)]

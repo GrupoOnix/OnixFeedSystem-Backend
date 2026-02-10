@@ -9,6 +9,7 @@ from api.dependencies import (
     ResetSelectorDirectUseCaseDep,
     SetBlowerPowerUseCaseDep,
     SetDoserRateUseCaseDep,
+    SetDoserSpeedUseCaseDep,
     TurnBlowerOffUseCaseDep,
     TurnBlowerOnUseCaseDep,
     TurnDoserOffUseCaseDep,
@@ -18,6 +19,7 @@ from application.dtos.device_control_dtos import (
     MoveSelectorRequest,
     SetBlowerPowerRequest,
     SetDoserRateRequest,
+    SetDoserSpeedRequest,
 )
 from domain.exceptions import DomainException
 
@@ -209,6 +211,41 @@ async def set_doser_rate(
         return {
             "message": f"Doser rate set to {request.rate_kg_min} kg/min successfully"
         }
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+
+    except DomainException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}",
+        )
+
+
+@router.post("/dosers/{doser_id}/set-speed", status_code=status.HTTP_200_OK)
+async def set_doser_speed(
+    doser_id: str,
+    request: SetDoserSpeedRequest,
+    use_case: SetDoserSpeedUseCaseDep,
+) -> Dict[str, str]:
+    """
+    Establece la velocidad del motor de un doser específico.
+
+    Envía el porcentaje de velocidad directamente al PLC.
+    Útil para calibración de dosificadores.
+
+    - **doser_id**: ID del doser (UUID)
+    - **speed_percentage**: Velocidad del motor (1-100%)
+    """
+    try:
+        await use_case.execute(doser_id, request.speed_percentage)
+        return {"message": f"Doser speed set to {request.speed_percentage}%"}
 
     except ValueError as e:
         raise HTTPException(

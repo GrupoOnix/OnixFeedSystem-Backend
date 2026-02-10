@@ -15,13 +15,11 @@ class SiloModel(SQLModel, table=True):
 
     id: PyUUID = Field(primary_key=True)
     name: str = Field(unique=True, max_length=100)
-    capacity_mg: int = Field(sa_type=BigInteger())
-    stock_level_mg: int = Field(sa_type=BigInteger())
+    capacity_mg: int = Field(sa_column=Column(BigInteger(), nullable=False))
+    stock_level_mg: int = Field(sa_column=Column(BigInteger(), nullable=False))
     food_id: Optional[PyUUID] = Field(
         default=None,
-        sa_column=Column(
-            UUID(as_uuid=True), ForeignKey("foods.id", ondelete="SET NULL")
-        ),
+        sa_column=Column(UUID(as_uuid=True), ForeignKey("foods.id", ondelete="SET NULL")),
     )
     is_assigned: bool
     warning_threshold_percentage: float = Field(default=20.0)

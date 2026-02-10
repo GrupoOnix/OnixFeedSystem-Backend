@@ -2,15 +2,20 @@
 
 from application.dtos.cage_dtos import CageConfigResponse, CageResponse
 from domain.aggregates.cage import Cage
-from domain.repositories import ICageRepository
+from domain.repositories import ICageRepository, IFeedingOperationRepository
 from domain.value_objects.identifiers import CageId
 
 
 class GetCageUseCase:
     """Caso de uso para obtener una jaula por ID."""
 
-    def __init__(self, cage_repository: ICageRepository):
+    def __init__(
+        self,
+        cage_repository: ICageRepository,
+        operation_repository: IFeedingOperationRepository,
+    ):
         self.cage_repository = cage_repository
+        self.operation_repository = operation_repository
 
     async def execute(self, cage_id: str) -> CageResponse:
         """
@@ -25,14 +30,18 @@ class GetCageUseCase:
         Raises:
             ValueError: Si la jaula no existe
         """
-        cage = await self.cage_repository.find_by_id(CageId.from_string(cage_id))
+        cage_id_vo = CageId.from_string(cage_id)
+        cage = await self.cage_repository.find_by_id(cage_id_vo)
 
         if not cage:
             raise ValueError(f"No existe una jaula con ID '{cage_id}'")
 
-        return self._to_response(cage)
+        # Obtener alimentación del día
+        today_feeding_kg = await self.operation_repository.get_today_dispensed_by_cage(cage_id_vo)
 
-    def _to_response(self, cage: Cage) -> CageResponse:
+        return self._to_response(cage, today_feeding_kg)
+
+    def _to_response(self, cage: Cage, today_feeding_kg: float = 0.0) -> CageResponse:
         """Convierte la entidad a response DTO."""
         return CageResponse(
             id=str(cage.id.value),
@@ -48,6 +57,8 @@ class GetCageUseCase:
                 max_density_kg_m3=cage.config.max_density_kg_m3,
                 transport_time_seconds=cage.config.transport_time_seconds,
                 blower_power=cage.config.blower_power,
+                daily_feeding_target_kg=cage.config.daily_feeding_target_kg,
             ),
             current_density_kg_m3=cage.current_density_kg_m3,
+            today_feeding_kg=today_feeding_kg,
         )

@@ -16,6 +16,8 @@ if TYPE_CHECKING:
     from domain.aggregates.feeding_line.blower import Blower
     from domain.interfaces import IBlower
 
+    from .feeding_line_model import FeedingLineModel
+
 
 class BlowerModel(SQLModel, table=True):
     __tablename__ = "blowers"

@@ -121,6 +121,7 @@ class ResponseMapper:
             min_rate=doser.dosing_range.min_rate,
             max_rate=doser.dosing_range.max_rate,
             current_rate=doser.current_rate.value,
+            speed_percentage=doser.speed_percentage,
         )
 
     @staticmethod
