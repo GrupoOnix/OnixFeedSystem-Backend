@@ -5,6 +5,7 @@ from domain.aggregates.feeding_line.feeding_line import FeedingLine
 from domain.aggregates.feeding_session import FeedingSession
 from domain.aggregates.silo import Silo
 from domain.entities.feeding_operation import FeedingOperation
+from domain.entities.slot_assignment import SlotAssignment
 from domain.enums import OperationStatus
 from domain.repositories import (
     ICageRepository,
@@ -12,6 +13,7 @@ from domain.repositories import (
     IFeedingOperationRepository,
     IFeedingSessionRepository,
     ISiloRepository,
+    ISlotAssignmentRepository,
 )
 from domain.value_objects import (
     CageId,
@@ -28,6 +30,7 @@ from domain.value_objects import (
 class MockFeedingLineRepository(IFeedingLineRepository):
     def __init__(self):
         self._lines: Dict[LineId, FeedingLine] = {}
+        self._slot_assignments: Dict[str, int] = {}  # "line_id:cage_id" -> slot_number
 
     async def save(self, feeding_line: FeedingLine) -> None:
         self._lines[feeding_line.id] = feeding_line
@@ -48,6 +51,16 @@ class MockFeedingLineRepository(IFeedingLineRepository):
         if line_id in self._lines:
             del self._lines[line_id]
 
+    def assign_slot(self, line_id: LineId, cage_id: CageId, slot_number: int) -> None:
+        """Helper for tests: register a cage-to-slot assignment."""
+        key = f"{line_id.value}:{cage_id.value}"
+        self._slot_assignments[key] = slot_number
+
+    async def get_slot_number(self, line_id: LineId, cage_id: CageId) -> Optional[int]:
+        """Returns the slot number for a cage on a line."""
+        key = f"{line_id.value}:{cage_id.value}"
+        return self._slot_assignments.get(key)
+
 
 class MockCageRepository(ICageRepository):
     def __init__(self):
@@ -64,6 +77,12 @@ class MockCageRepository(ICageRepository):
             if cage.name == name:
                 return cage
         return None
+
+    async def list(self) -> List[Cage]:
+        return list(self._cages.values())
+
+    async def exists(self, cage_id: CageId) -> bool:
+        return cage_id in self._cages
 
     async def get_all(self) -> List[Cage]:
         return list(self._cages.values())
@@ -102,6 +121,52 @@ class MockSiloRepository(ISiloRepository):
         if silo_id in self._silos:
             del self._silos[silo_id]
 
+
+class MockSlotAssignmentRepository(ISlotAssignmentRepository):
+    """Mock repository for slot assignments."""
+
+    def __init__(self):
+        self._assignments: Dict[str, SlotAssignment] = {}
+        self._next_id = 0
+
+    def _key(self, assignment: SlotAssignment) -> str:
+        return f"{assignment.line_id}:{assignment.slot_number}"
+
+    async def save(self, assignment: SlotAssignment) -> None:
+        self._assignments[self._key(assignment)] = assignment
+
+    async def find_by_line_and_slot(self, line_id: LineId, slot_number: int) -> Optional[SlotAssignment]:
+        for a in self._assignments.values():
+            if a.line_id == line_id and a.slot_number == slot_number:
+                return a
+        return None
+
+    async def find_by_cage(self, cage_id: CageId) -> Optional[SlotAssignment]:
+        for a in self._assignments.values():
+            if a.cage_id == cage_id:
+                return a
+        return None
+
+    async def find_by_line(self, line_id: LineId) -> List[SlotAssignment]:
+        return [a for a in self._assignments.values() if a.line_id == line_id]
+
+    async def delete(self, assignment_id) -> None:
+        self._assignments = {
+            k: v for k, v in self._assignments.items()
+            if getattr(v, 'id', None) != assignment_id
+        }
+
+    async def delete_by_line(self, line_id: LineId) -> None:
+        self._assignments = {
+            k: v for k, v in self._assignments.items()
+            if v.line_id != line_id
+        }
+
+    async def delete_by_cage(self, cage_id: CageId) -> None:
+        self._assignments = {
+            k: v for k, v in self._assignments.items()
+            if v.cage_id != cage_id
+        }
 
 
 class MockFeedingSessionRepository(IFeedingSessionRepository):
@@ -155,3 +220,10 @@ class MockFeedingOperationRepository(IFeedingOperationRepository):
             if op.session_id == session_id
         ]
 
+    async def get_today_dispensed_by_cage(self, cage_id: CageId) -> float:
+        """Returns 0.0 for mock."""
+        return 0.0
+
+    async def get_today_dispensed_by_cages(self, cage_ids: List[CageId]) -> dict[str, float]:
+        """Returns empty dict for mock."""
+        return {str(cid.value): 0.0 for cid in cage_ids}

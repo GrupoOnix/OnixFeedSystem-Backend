@@ -25,6 +25,7 @@ from infrastructure.persistence.mock_repositories import (
     MockFeedingLineRepository,
     MockSiloRepository,
     MockCageRepository,
+    MockSlotAssignmentRepository,
 )
 
 
@@ -35,6 +36,7 @@ def repositories():
         'line_repo': MockFeedingLineRepository(),
         'silo_repo': MockSiloRepository(),
         'cage_repo': MockCageRepository(),
+        'slot_assignment_repo': MockSlotAssignmentRepository(),
     }
 
 
@@ -44,7 +46,8 @@ def get_use_case(repositories):
     return GetSystemLayoutUseCase(
         repositories['line_repo'],
         repositories['silo_repo'],
-        repositories['cage_repo']
+        repositories['cage_repo'],
+        repositories['slot_assignment_repo'],
     )
 
 
@@ -55,6 +58,7 @@ def sync_use_case(repositories):
         repositories['line_repo'],
         repositories['silo_repo'],
         repositories['cage_repo'],
+        repositories['slot_assignment_repo'],
         ComponentFactory()
     )
 
@@ -65,7 +69,7 @@ class TestGetSystemLayout_EmptyDatabase:
     @pytest.mark.asyncio
     async def test_get_empty_layout(self, get_use_case):
         """Debe devolver un layout vacío cuando la BD está vacía."""
-        silos, cages, lines = await get_use_case.execute()
+        silos, cages, lines, _ = await get_use_case.execute()
 
         assert len(silos) == 0
         assert len(cages) == 0
@@ -88,7 +92,7 @@ class TestGetSystemLayout_WithData:
         )
         await sync_use_case.execute(create_request)
 
-        silos, cages, lines = await get_use_case.execute()
+        silos, cages, lines, _ = await get_use_case.execute()
 
         assert len(silos) == 2
         assert len(cages) == 0
@@ -111,7 +115,7 @@ class TestGetSystemLayout_WithData:
         )
         await sync_use_case.execute(create_request)
 
-        silos, cages, lines = await get_use_case.execute()
+        silos, cages, lines, _ = await get_use_case.execute()
 
         assert len(silos) == 0
         assert len(cages) == 2
@@ -148,7 +152,7 @@ class TestGetSystemLayout_WithData:
                             id="temp-doser-1",
                             name="Dosificador 1",
                             assigned_silo_id="temp-silo-1",
-                            doser_type="volumetric",
+                            doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
                             current_rate=50.0
@@ -170,7 +174,7 @@ class TestGetSystemLayout_WithData:
         )
         await sync_use_case.execute(create_request)
 
-        silos, cages, lines = await get_use_case.execute()
+        silos, cages, lines, slots_by_line = await get_use_case.execute()
 
         assert len(silos) == 1
         assert len(cages) == 1
@@ -179,13 +183,14 @@ class TestGetSystemLayout_WithData:
         line = lines[0]
         assert str(line.name) == "Línea 1"
         assert len(line.dosers) == 1
-        assert len(line.get_slot_assignments()) == 1
+        line_slots = slots_by_line.get(line.id, [])
+        assert len(line_slots) == 1
 
         doser = line.dosers[0]
         silo_id = silos[0].id
         assert doser.assigned_silo_id == silo_id
 
-        slot = line.get_slot_assignments()[0]
+        slot = line_slots[0]
         cage_id = cages[0].id
         assert slot.cage_id == cage_id
 
@@ -208,8 +213,8 @@ class TestGetSystemLayout_Consistency:
             feeding_lines=[]
         )
 
-        sync_silos, sync_cages, sync_lines = await sync_use_case.execute(request)
-        get_silos, get_cages, get_lines = await get_use_case.execute()
+        sync_silos, sync_cages, sync_lines, _ = await sync_use_case.execute(request)
+        get_silos, get_cages, get_lines, _ = await get_use_case.execute()
 
         assert len(sync_silos) == len(get_silos)
         assert len(sync_cages) == len(get_cages)
@@ -231,7 +236,7 @@ class TestGetSystemLayout_Consistency:
             cages=[],
             feeding_lines=[]
         )
-        result_silos, _, _ = await sync_use_case.execute(request1)
+        result_silos, _, _, _ = await sync_use_case.execute(request1)
         silo_id = str(result_silos[0].id)
 
         request2 = SystemLayoutModel(
@@ -241,7 +246,7 @@ class TestGetSystemLayout_Consistency:
         )
         await sync_use_case.execute(request2)
 
-        get_silos, _, _ = await get_use_case.execute()
+        get_silos, _, _, _ = await get_use_case.execute()
 
         assert len(get_silos) == 1
         assert str(get_silos[0].name) == "Silo Actualizado"

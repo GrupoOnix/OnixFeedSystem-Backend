@@ -5,6 +5,10 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+from application.dtos.biometry_dtos import (
+    BiometryLogItemResponse,
+    PaginatedBiometryResponse,
+)
 from application.dtos.cage_dtos import (
     CageListItemResponse,
     CageResponse,
@@ -12,6 +16,14 @@ from application.dtos.cage_dtos import (
     PaginationInfo,
     PopulationEventResponse,
     PopulationHistoryResponse,
+)
+from application.dtos.config_dtos import (
+    ConfigChangeLogItemResponse,
+    PaginatedConfigChangesResponse,
+)
+from application.dtos.mortality_dtos import (
+    MortalityLogItemResponse,
+    PaginatedMortalityResponse,
 )
 
 # =============================================================================
@@ -273,5 +285,142 @@ class PopulationHistoryResponseModel(BaseModel):
         """Convierte DTO a modelo de API."""
         return cls(
             events=[PopulationEventResponseModel.from_dto(e) for e in dto.events],
+            pagination=PaginationInfoModel.from_dto(dto.pagination),
+        )
+
+
+# =============================================================================
+# BIOMETRY HISTORY RESPONSE MODELS
+# =============================================================================
+
+
+class BiometryLogItemResponseModel(BaseModel):
+    """Response para un registro de biometría."""
+
+    biometry_id: str
+    cage_id: str
+    old_fish_count: Optional[int]
+    new_fish_count: Optional[int]
+    old_average_weight_g: Optional[float]
+    new_average_weight_g: Optional[float]
+    sampling_date: date
+    note: Optional[str]
+    created_at: datetime
+
+    @classmethod
+    def from_dto(cls, dto: BiometryLogItemResponse) -> "BiometryLogItemResponseModel":
+        """Convierte DTO a modelo de API."""
+        return cls(
+            biometry_id=dto.biometry_id,
+            cage_id=dto.cage_id,
+            old_fish_count=dto.old_fish_count,
+            new_fish_count=dto.new_fish_count,
+            old_average_weight_g=dto.old_average_weight_g,
+            new_average_weight_g=dto.new_average_weight_g,
+            sampling_date=dto.sampling_date,
+            note=dto.note,
+            created_at=dto.created_at,
+        )
+
+
+class PaginatedBiometryResponseModel(BaseModel):
+    """Response paginado para registros de biometría."""
+
+    logs: List[BiometryLogItemResponseModel]
+    pagination: PaginationInfoModel
+
+    @classmethod
+    def from_dto(cls, dto: PaginatedBiometryResponse) -> "PaginatedBiometryResponseModel":
+        """Convierte DTO a modelo de API."""
+        return cls(
+            logs=[BiometryLogItemResponseModel.from_dto(e) for e in dto.logs],
+            pagination=PaginationInfoModel.from_dto(dto.pagination),
+        )
+
+
+# =============================================================================
+# MORTALITY HISTORY RESPONSE MODELS
+# =============================================================================
+
+
+class MortalityLogItemResponseModel(BaseModel):
+    """Response para un registro de mortalidad."""
+
+    mortality_id: str
+    cage_id: str
+    dead_fish_count: int
+    mortality_date: date
+    note: Optional[str]
+    created_at: datetime
+
+    @classmethod
+    def from_dto(cls, dto: MortalityLogItemResponse) -> "MortalityLogItemResponseModel":
+        """Convierte DTO a modelo de API."""
+        return cls(
+            mortality_id=dto.mortality_id,
+            cage_id=dto.cage_id,
+            dead_fish_count=dto.dead_fish_count,
+            mortality_date=dto.mortality_date,
+            note=dto.note,
+            created_at=dto.created_at,
+        )
+
+
+class PaginatedMortalityResponseModel(BaseModel):
+    """Response paginado para registros de mortalidad."""
+
+    logs: List[MortalityLogItemResponseModel]
+    pagination: PaginationInfoModel
+
+    @classmethod
+    def from_dto(cls, dto: PaginatedMortalityResponse) -> "PaginatedMortalityResponseModel":
+        """Convierte DTO a modelo de API."""
+        return cls(
+            logs=[MortalityLogItemResponseModel.from_dto(e) for e in dto.logs],
+            pagination=PaginationInfoModel.from_dto(dto.pagination),
+        )
+
+
+# =============================================================================
+# CONFIG CHANGES HISTORY RESPONSE MODELS
+# =============================================================================
+
+
+class ConfigChangeLogItemResponseModel(BaseModel):
+    """Response para un registro de cambio de configuración."""
+
+    change_id: str
+    cage_id: str
+    field_name: str
+    old_value: str
+    new_value: str
+    change_reason: Optional[str]
+    created_at: datetime
+
+    @classmethod
+    def from_dto(cls, dto: ConfigChangeLogItemResponse) -> "ConfigChangeLogItemResponseModel":
+        """Convierte DTO a modelo de API."""
+        return cls(
+            change_id=dto.change_id,
+            cage_id=dto.cage_id,
+            field_name=dto.field_name,
+            old_value=dto.old_value,
+            new_value=dto.new_value,
+            change_reason=dto.change_reason,
+            created_at=dto.created_at,
+        )
+
+
+class PaginatedConfigChangesResponseModel(BaseModel):
+    """Response paginado para cambios de configuración."""
+
+    logs: List[ConfigChangeLogItemResponseModel]
+    pagination: PaginationInfoModel
+
+    @classmethod
+    def from_dto(cls, dto: PaginatedConfigChangesResponse) -> "PaginatedConfigChangesResponseModel":
+        """Convierte DTO a modelo de API."""
+        return cls(
+            logs=[ConfigChangeLogItemResponseModel.from_dto(e) for e in dto.logs],
             pagination=PaginationInfoModel.from_dto(dto.pagination),
         )

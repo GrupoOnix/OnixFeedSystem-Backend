@@ -49,14 +49,14 @@ class TestListCageGroups:
 
         group1 = CageGroup(
             name=CageGroupName("Sector Norte"),
-            cage_ids=[CageId(str(cage1.id))],
+            cage_ids=[cage1.id],
         )
         group2 = CageGroup(
             name=CageGroupName("Sector Sur"),
-            cage_ids=[CageId(str(cage2.id))],
+            cage_ids=[cage2.id],
         )
 
-        mock_group_repo.search = AsyncMock(return_value=[group1, group2])
+        mock_group_repo.list = AsyncMock(return_value=[group1, group2])
         mock_group_repo.count = AsyncMock(return_value=2)
         mock_cage_repo.find_by_id = AsyncMock(side_effect=[cage1, cage2])
 
@@ -69,10 +69,10 @@ class TestListCageGroups:
         assert result.groups[0].name == "Sector Norte"
         assert result.groups[1].name == "Sector Sur"
 
-        mock_group_repo.search.assert_called_once_with(
-            search_term=None, limit=50, offset=0
+        mock_group_repo.list.assert_called_once_with(
+            search=None, limit=50, offset=0
         )
-        mock_group_repo.count.assert_called_once_with(search_term=None)
+        mock_group_repo.count.assert_called_once_with(search=None)
 
     async def test_list_groups_with_search_term(
         self, use_case, mock_group_repo, mock_cage_repo
@@ -82,10 +82,10 @@ class TestListCageGroups:
         cage = Cage(name=CageName("Jaula 1"))
         group = CageGroup(
             name=CageGroupName("Sector Norte Premium"),
-            cage_ids=[CageId(str(cage.id))],
+            cage_ids=[cage.id],
         )
 
-        mock_group_repo.search = AsyncMock(return_value=[group])
+        mock_group_repo.list = AsyncMock(return_value=[group])
         mock_group_repo.count = AsyncMock(return_value=1)
         mock_cage_repo.find_by_id = AsyncMock(return_value=cage)
 
@@ -97,10 +97,10 @@ class TestListCageGroups:
         assert len(result.groups) == 1
         assert "Premium" in result.groups[0].name
 
-        mock_group_repo.search.assert_called_once_with(
-            search_term="premium", limit=50, offset=0
+        mock_group_repo.list.assert_called_once_with(
+            search="premium", limit=50, offset=0
         )
-        mock_group_repo.count.assert_called_once_with(search_term="premium")
+        mock_group_repo.count.assert_called_once_with(search="premium")
 
     async def test_list_groups_with_pagination(
         self, use_case, mock_group_repo, mock_cage_repo
@@ -110,10 +110,10 @@ class TestListCageGroups:
         cage = Cage(name=CageName("Jaula 1"))
         group = CageGroup(
             name=CageGroupName("Sector Centro"),
-            cage_ids=[CageId(str(cage.id))],
+            cage_ids=[cage.id],
         )
 
-        mock_group_repo.search = AsyncMock(return_value=[group])
+        mock_group_repo.list = AsyncMock(return_value=[group])
         mock_group_repo.count = AsyncMock(return_value=100)  # Total mayor
         mock_cage_repo.find_by_id = AsyncMock(return_value=cage)
 
@@ -124,8 +124,8 @@ class TestListCageGroups:
         assert result.total == 100
         assert len(result.groups) == 1
 
-        mock_group_repo.search.assert_called_once_with(
-            search_term=None, limit=10, offset=20
+        mock_group_repo.list.assert_called_once_with(
+            search=None, limit=10, offset=20
         )
 
     async def test_list_empty_when_no_groups_exist(
@@ -133,7 +133,7 @@ class TestListCageGroups:
     ):
         """Debe retornar lista vacía cuando no hay grupos."""
         # Arrange
-        mock_group_repo.search = AsyncMock(return_value=[])
+        mock_group_repo.list = AsyncMock(return_value=[])
         mock_group_repo.count = AsyncMock(return_value=0)
 
         # Act
@@ -149,17 +149,19 @@ class TestListCageGroups:
         """Debe calcular métricas para cada grupo."""
         # Arrange
         cage1 = Cage(name=CageName("Jaula 1"))
-        cage1.set_population(count=1000, avg_weight_g=200.0)
+        cage1._set_fish_count(1000)
+        cage1._set_avg_weight_grams(200.0)
 
         cage2 = Cage(name=CageName("Jaula 2"))
-        cage2.set_population(count=1500, avg_weight_g=250.0)
+        cage2._set_fish_count(1500)
+        cage2._set_avg_weight_grams(250.0)
 
         group = CageGroup(
             name=CageGroupName("Sector Norte"),
-            cage_ids=[CageId(str(cage1.id)), CageId(str(cage2.id))],
+            cage_ids=[cage1.id, cage2.id],
         )
 
-        mock_group_repo.search = AsyncMock(return_value=[group])
+        mock_group_repo.list = AsyncMock(return_value=[group])
         mock_group_repo.count = AsyncMock(return_value=1)
         mock_cage_repo.find_by_id = AsyncMock(side_effect=[cage1, cage2])
 
@@ -184,12 +186,12 @@ class TestListCageGroups:
         group = CageGroup(
             name=CageGroupName("Sector Norte"),
             cage_ids=[
-                CageId(str(cage1.id)),
-                CageId("00000000-0000-0000-0000-000000000999"),  # No existe
+                cage1.id,
+                CageId.from_string("00000000-0000-0000-0000-000000000999"),  # No existe
             ],
         )
 
-        mock_group_repo.search = AsyncMock(return_value=[group])
+        mock_group_repo.list = AsyncMock(return_value=[group])
         mock_group_repo.count = AsyncMock(return_value=1)
         # Retornar None para la jaula que no existe
         mock_cage_repo.find_by_id = AsyncMock(side_effect=[cage1, None])
@@ -206,15 +208,15 @@ class TestListCageGroups:
     ):
         """Debe usar valores por defecto de paginación."""
         # Arrange
-        mock_group_repo.search = AsyncMock(return_value=[])
+        mock_group_repo.list = AsyncMock(return_value=[])
         mock_group_repo.count = AsyncMock(return_value=0)
 
         # Act
         result = await use_case.execute()
 
         # Assert: Verificar valores por defecto (limit=50, offset=0)
-        mock_group_repo.search.assert_called_once_with(
-            search_term=None, limit=50, offset=0
+        mock_group_repo.list.assert_called_once_with(
+            search=None, limit=50, offset=0
         )
 
     async def test_list_groups_with_multiple_cages(
@@ -223,14 +225,14 @@ class TestListCageGroups:
         """Debe listar grupos con múltiples jaulas correctamente."""
         # Arrange
         cages = [Cage(name=CageName(f"Jaula {i}")) for i in range(1, 6)]
-        cage_ids = [CageId(str(c.id)) for c in cages]
+        cage_ids = [c.id for c in cages]
 
         group = CageGroup(
             name=CageGroupName("Sector Grande"),
             cage_ids=cage_ids,
         )
 
-        mock_group_repo.search = AsyncMock(return_value=[group])
+        mock_group_repo.list = AsyncMock(return_value=[group])
         mock_group_repo.count = AsyncMock(return_value=1)
         mock_cage_repo.find_by_id = AsyncMock(side_effect=cages)
 
@@ -247,13 +249,13 @@ class TestListCageGroups:
     ):
         """Debe respetar límite personalizado."""
         # Arrange
-        mock_group_repo.search = AsyncMock(return_value=[])
+        mock_group_repo.list = AsyncMock(return_value=[])
         mock_group_repo.count = AsyncMock(return_value=0)
 
         # Act
         result = await use_case.execute(limit=100, offset=0)
 
         # Assert
-        mock_group_repo.search.assert_called_once_with(
-            search_term=None, limit=100, offset=0
+        mock_group_repo.list.assert_called_once_with(
+            search=None, limit=100, offset=0
         )

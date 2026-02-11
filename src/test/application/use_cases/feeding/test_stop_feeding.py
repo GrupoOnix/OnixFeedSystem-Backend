@@ -19,9 +19,26 @@ from application.use_cases.feeding.start_feeding_use_case import (
 )
 from application.dtos.feeding_dtos import StartFeedingRequest
 from domain.aggregates.feeding_session import FeedingSession
+from domain.aggregates.feeding_line.feeding_line import FeedingLine
 from domain.aggregates.cage import Cage
 from domain.enums import FeedingMode, OperationStatus
-from domain.value_objects import LineId, LineName, CageId, CageName, SiloId, Weight
+from domain.value_objects import (
+    LineId,
+    LineName,
+    CageId,
+    CageName,
+    SiloId,
+    Weight,
+    BlowerName,
+    DoserName,
+    SelectorName,
+    SelectorCapacity,
+    SelectorSpeedProfile,
+    BlowerPowerPercentage,
+    BlowDurationInSeconds,
+    DosingRange,
+    DosingRate,
+)
 from domain.factories import ComponentFactory
 from infrastructure.persistence.mock_repositories import (
     MockFeedingLineRepository,
@@ -30,6 +47,39 @@ from infrastructure.persistence.mock_repositories import (
     MockFeedingOperationRepository,
 )
 from infrastructure.services.plc_simulator import PLCSimulator
+
+
+def _create_feeding_line(factory: ComponentFactory, line_id: LineId = None) -> FeedingLine:
+    """Helper: crea una FeedingLine usando ComponentFactory + FeedingLine.create()."""
+    blower = factory.create_blower(
+        blower_type="standard",
+        name=BlowerName("Soplador 1"),
+        non_feeding_power=BlowerPowerPercentage(50.0),
+        blow_before_time=BlowDurationInSeconds(5),
+        blow_after_time=BlowDurationInSeconds(3),
+    )
+    doser = factory.create_doser(
+        doser_type="PULSE_DOSER",
+        name=DoserName("Dosificador 1"),
+        assigned_silo_id=SiloId.generate(),
+        dosing_range=DosingRange(min_rate=10.0, max_rate=100.0),
+        current_rate=DosingRate(50.0),
+    )
+    selector = factory.create_selector(
+        selector_type="standard",
+        name=SelectorName("Selector 1"),
+        capacity=SelectorCapacity(4),
+        speed_profile=SelectorSpeedProfile(fast_speed=BlowerPowerPercentage(80.0), slow_speed=BlowerPowerPercentage(20.0)),
+    )
+    line = FeedingLine.create(
+        name=LineName("Línea Test"),
+        blower=blower,
+        dosers=[doser],
+        selector=selector,
+    )
+    if line_id:
+        line._id = line_id
+    return line
 
 
 @pytest.fixture
@@ -76,41 +126,19 @@ async def setup_active_operation(repositories, start_use_case):
     """Fixture que configura una operación activa lista para detener."""
     factory = ComponentFactory()
 
-    # Crear línea
+    # Crear línea de alimentación
     line_id = LineId.generate()
-    line = factory.create_feeding_line(
-        line_id=line_id,
-        line_name=LineName("Línea Test"),
-        blower_name="Soplador 1",
-        blower_non_feeding_power=50.0,
-        blower_blow_before=5,
-        blower_blow_after=3,
-        selector_name="Selector 1",
-        selector_capacity=4,
-        selector_fast_speed=80.0,
-        selector_slow_speed=20.0,
-        doser_configs=[
-            {
-                "name": "Dosificador 1",
-                "assigned_silo_id": SiloId.generate(),
-                "doser_type": "volumetric",
-                "min_rate": 10.0,
-                "max_rate": 100.0,
-                "current_rate": 50.0,
-            }
-        ],
-        sensor_configs=[],
-    )
+    line = _create_feeding_line(factory, line_id=line_id)
     await repositories["line_repo"].save(line)
 
-    # Crear jaula con slot
+    # Crear jaula
     cage_id = CageId.generate()
     cage = Cage(name=CageName("Jaula Test"))
     cage._id = cage_id
-    cage.assign_to_line(line_id, slot_number=1)
     await repositories["cage_repo"].save(cage)
-    line.assign_cage_to_slot(slot_number=1, cage_id=cage_id)
-    await repositories["line_repo"].save(line)
+
+    # Asignar jaula al slot 1 de la línea
+    repositories["line_repo"].assign_slot(line_id, cage_id, slot_number=1)
 
     # Iniciar operación
     request = StartFeedingRequest(
@@ -134,7 +162,7 @@ class TestStopFeeding_BasicFlow:
         self, stop_use_case, setup_active_operation, repositories
     ):
         """Debe detener la operación activa correctamente."""
-        infra = await setup_active_operation
+        infra = setup_active_operation
 
         await stop_use_case.execute(infra["line_id"].value)
 
@@ -157,7 +185,7 @@ class TestStopFeeding_BasicFlow:
         self, stop_use_case, setup_active_operation, machine_service
     ):
         """Debe enviar comando STOP al PLC."""
-        infra = await setup_active_operation
+        infra = setup_active_operation
 
         # Verificar que PLC está corriendo antes
         status_before = await machine_service.get_status(infra["line_id"])
@@ -174,7 +202,7 @@ class TestStopFeeding_BasicFlow:
         self, stop_use_case, setup_active_operation, repositories
     ):
         """Debe mantener la sesión activa después de detener la operación."""
-        infra = await setup_active_operation
+        infra = setup_active_operation
 
         session_before = await repositories["session_repo"].find_active_by_line_id(
             infra["line_id"]
@@ -195,20 +223,16 @@ class TestStopFeeding_BasicFlow:
         self, stop_use_case, setup_active_operation, repositories
     ):
         """Debe registrar la cantidad dispensada antes de detener."""
-        infra = await setup_active_operation
+        infra = setup_active_operation
 
         # Simular dispensado
-        operation = await repositories["operation_repo"].find_by_id(
-            await repositories["operation_repo"]
-            .find_current_by_session(
-                (
-                    await repositories["session_repo"].find_active_by_line_id(
-                        infra["line_id"]
-                    )
-                ).id
-            )
-            .id
+        session = await repositories["session_repo"].find_active_by_line_id(
+            infra["line_id"]
         )
+        current_op = await repositories["operation_repo"].find_current_by_session(
+            session.id
+        )
+        operation = await repositories["operation_repo"].find_by_id(current_op.id)
         operation.add_dispensed_amount(Weight.from_kg(50.0))
         await repositories["operation_repo"].save(operation)
 
@@ -253,7 +277,7 @@ class TestStopFeeding_Idempotence:
         self, stop_use_case, setup_active_operation
     ):
         """Debe ser idempotente al llamar stop múltiples veces."""
-        infra = await setup_active_operation
+        infra = setup_active_operation
 
         # Primera detención
         await stop_use_case.execute(infra["line_id"].value)
@@ -270,7 +294,7 @@ class TestStopFeeding_EventLogging:
         self, stop_use_case, setup_active_operation, repositories
     ):
         """Debe registrar evento de STOPPED en la operación."""
-        infra = await setup_active_operation
+        infra = setup_active_operation
 
         await stop_use_case.execute(infra["line_id"].value)
 

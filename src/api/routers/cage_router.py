@@ -9,6 +9,9 @@ from api.models.cage_models import (
     CreateCageRequestModel,
     HarvestRequestModel,
     ListCagesResponseModel,
+    PaginatedBiometryResponseModel,
+    PaginatedConfigChangesResponseModel,
+    PaginatedMortalityResponseModel,
     PopulationHistoryResponseModel,
     RegisterMortalityRequestModel,
     SetPopulationRequestModel,
@@ -24,7 +27,10 @@ from api.dependencies import (
     GetCageUseCaseDep,
     GetPopulationHistoryUseCaseDep,
     HarvestUseCaseDep,
+    ListBiometryUseCaseDep,
     ListCagesUseCaseDep,
+    ListConfigChangesUseCaseDep,
+    ListMortalityUseCaseDep,
     RegisterMortalityUseCaseDep,
     SetPopulationUseCaseDep,
     UpdateBiometryUseCaseDep,
@@ -343,5 +349,62 @@ async def get_population_history(
             offset=offset,
         )
         return PopulationHistoryResponseModel.from_dto(result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/{cage_id}/biometry", response_model=PaginatedBiometryResponseModel)
+async def get_biometry_history(
+    cage_id: str,
+    use_case: ListBiometryUseCaseDep,
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+) -> PaginatedBiometryResponseModel:
+    """
+    Lista los registros de biometría de una jaula.
+
+    Retorna un listado paginado ordenado por fecha de muestreo descendente.
+    """
+    try:
+        result = await use_case.execute(cage_id=cage_id, limit=limit, offset=offset)
+        return PaginatedBiometryResponseModel.from_dto(result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/{cage_id}/mortality", response_model=PaginatedMortalityResponseModel)
+async def get_mortality_history(
+    cage_id: str,
+    use_case: ListMortalityUseCaseDep,
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+) -> PaginatedMortalityResponseModel:
+    """
+    Lista los registros de mortalidad de una jaula.
+
+    Retorna un listado paginado ordenado por fecha de mortalidad descendente.
+    """
+    try:
+        result = await use_case.execute(cage_id=cage_id, limit=limit, offset=offset)
+        return PaginatedMortalityResponseModel.from_dto(result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/{cage_id}/config-changes", response_model=PaginatedConfigChangesResponseModel)
+async def get_config_changes_history(
+    cage_id: str,
+    use_case: ListConfigChangesUseCaseDep,
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+) -> PaginatedConfigChangesResponseModel:
+    """
+    Lista los cambios de configuración de una jaula.
+
+    Retorna un listado paginado ordenado por fecha de cambio descendente.
+    """
+    try:
+        result = await use_case.execute(cage_id=cage_id, limit=limit, offset=offset)
+        return PaginatedConfigChangesResponseModel.from_dto(result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

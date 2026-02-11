@@ -124,7 +124,7 @@ class TestCreateCageGroup:
         cage_id = "00000000-0000-0000-0000-000000000001"
 
         mock_group_repo.exists_by_name = AsyncMock(return_value=False)
-        mock_cage_repo.find_by_id = AsyncMock(return_value=None)
+        mock_cage_repo.exists = AsyncMock(return_value=False)
 
         request = CreateCageGroupRequest(
             name="Grupo Test",
@@ -143,13 +143,16 @@ class TestCreateCageGroup:
     ):
         """Debe fallar con nombre vacío."""
         # Arrange
+        mock_group_repo.exists_by_name = AsyncMock(return_value=False)
+        mock_cage_repo.exists = AsyncMock(return_value=True)
+
         request = CreateCageGroupRequest(
             name="",
             cage_ids=["00000000-0000-0000-0000-000000000001"],
         )
 
         # Act & Assert
-        with pytest.raises(ValueError, match="El nombre no puede estar vacío"):
+        with pytest.raises(ValueError, match="El nombre del grupo de jaulas no puede estar vacío"):
             await use_case.execute(request)
 
     async def test_create_group_fails_with_empty_cage_list(

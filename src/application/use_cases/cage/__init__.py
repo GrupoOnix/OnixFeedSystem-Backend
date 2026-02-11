@@ -6,7 +6,12 @@ from application.use_cases.cage.get_cage import GetCageUseCase
 from application.use_cases.cage.get_population_history import (
     GetPopulationHistoryUseCase,
 )
+from application.use_cases.cage.list_biometry_use_case import ListBiometryUseCase
 from application.use_cases.cage.list_cages import ListCagesUseCase
+from application.use_cases.cage.list_config_changes_use_case import (
+    ListConfigChangesUseCase,
+)
+from application.use_cases.cage.list_mortality_use_case import ListMortalityUseCase
 from application.use_cases.cage.population import (
     AdjustPopulationUseCase,
     HarvestUseCase,
@@ -34,4 +39,7 @@ __all__ = [
     "AdjustPopulationUseCase",
     # Historial
     "GetPopulationHistoryUseCase",
+    "ListBiometryUseCase",
+    "ListMortalityUseCase",
+    "ListConfigChangesUseCase",
 ]

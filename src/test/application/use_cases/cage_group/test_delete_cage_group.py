@@ -46,8 +46,8 @@ class TestDeleteCageGroup:
         await use_case.execute(group_id)
 
         # Assert
-        mock_group_repo.find_by_id.assert_called_once_with(CageGroupId(group_id))
-        mock_group_repo.delete.assert_called_once_with(CageGroupId(group_id))
+        mock_group_repo.find_by_id.assert_called_once_with(CageGroupId.from_string(group_id))
+        mock_group_repo.delete.assert_called_once_with(CageGroupId.from_string(group_id))
 
     async def test_delete_fails_when_group_not_found(
         self, use_case, mock_group_repo
@@ -95,7 +95,7 @@ class TestDeleteCageGroup:
         await use_case.execute(group_id)
 
         # Assert: Debe eliminar el grupo independientemente de cuántas jaulas tenga
-        mock_group_repo.delete.assert_called_once_with(CageGroupId(group_id))
+        mock_group_repo.delete.assert_called_once_with(CageGroupId.from_string(group_id))
 
     async def test_delete_is_permanent(
         self, use_case, mock_group_repo

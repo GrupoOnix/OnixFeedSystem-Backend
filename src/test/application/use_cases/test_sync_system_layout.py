@@ -25,6 +25,7 @@ from infrastructure.persistence.mock_repositories import (
     MockFeedingLineRepository,
     MockSiloRepository,
     MockCageRepository,
+    MockSlotAssignmentRepository,
 )
 
 
@@ -35,6 +36,7 @@ def repositories():
         'line_repo': MockFeedingLineRepository(),
         'silo_repo': MockSiloRepository(),
         'cage_repo': MockCageRepository(),
+        'slot_assignment_repo': MockSlotAssignmentRepository(),
     }
 
 
@@ -45,6 +47,7 @@ def use_case(repositories):
         repositories['line_repo'],
         repositories['silo_repo'],
         repositories['cage_repo'],
+        repositories['slot_assignment_repo'],
         ComponentFactory()
     )
 
@@ -61,11 +64,11 @@ class TestSyncSystemLayout_Create:
             feeding_lines=[]
         )
 
-        result = await use_case.execute(request)
+        silos, cages, lines, _ = await use_case.execute(request)
 
-        assert len(result.silos) == 0
-        assert len(result.cages) == 0
-        assert len(result.feeding_lines) == 0
+        assert len(silos) == 0
+        assert len(cages) == 0
+        assert len(lines) == 0
 
     @pytest.mark.asyncio
     async def test_create_single_silo(self, use_case):
@@ -82,12 +85,12 @@ class TestSyncSystemLayout_Create:
             feeding_lines=[]
         )
 
-        result = await use_case.execute(request)
+        silos, cages, lines, _ = await use_case.execute(request)
 
-        assert len(result.silos) == 1
-        assert result.silos[0].name == "Silo A"
-        assert result.silos[0].capacity == 1000.0
-        assert result.silos[0].id != "temp-silo-1"  # ID debe ser UUID real
+        assert len(silos) == 1
+        assert str(silos[0].name) == "Silo A"
+        assert silos[0].capacity.as_kg == 1000.0
+        assert str(silos[0].id) != "temp-silo-1"  # ID debe ser UUID real
 
     @pytest.mark.asyncio
     async def test_create_single_cage(self, use_case):
@@ -103,11 +106,11 @@ class TestSyncSystemLayout_Create:
             feeding_lines=[]
         )
 
-        result = await use_case.execute(request)
+        silos, cages, lines, _ = await use_case.execute(request)
 
-        assert len(result.cages) == 1
-        assert result.cages[0].name == "Jaula 1"
-        assert result.cages[0].id != "temp-cage-1"
+        assert len(cages) == 1
+        assert str(cages[0].name) == "Jaula 1"
+        assert str(cages[0].id) != "temp-cage-1"
 
     @pytest.mark.asyncio
     async def test_create_complete_feeding_line(self, use_case):
@@ -136,7 +139,7 @@ class TestSyncSystemLayout_Create:
                             id="temp-doser-1",
                             name="Dosificador 1",
                             assigned_silo_id="temp-silo-1",
-                            doser_type="volumetric",
+                            doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
                             current_rate=50.0
@@ -156,14 +159,15 @@ class TestSyncSystemLayout_Create:
             ]
         )
 
-        result = await use_case.execute(request)
+        silos, cages, lines, slots_by_line = await use_case.execute(request)
 
-        assert len(result.feeding_lines) == 1
-        line = result.feeding_lines[0]
-        assert line.line_name == "Línea 1"
-        assert line.id != "temp-line-1"
-        assert len(line.dosers_config) == 1
-        assert len(line.slot_assignments) == 1
+        assert len(lines) == 1
+        line = lines[0]
+        assert str(line.name) == "Línea 1"
+        assert str(line.id) != "temp-line-1"
+        assert len(line.dosers) == 1
+        line_slots = slots_by_line.get(line.id, [])
+        assert len(line_slots) == 1
 
 
 class TestSyncSystemLayout_Update:
@@ -178,8 +182,8 @@ class TestSyncSystemLayout_Update:
             cages=[],
             feeding_lines=[]
         )
-        create_result = await use_case.execute(create_request)
-        silo_id = create_result.silos[0].id
+        create_silos, _, _, _ = await use_case.execute(create_request)
+        silo_id = str(create_silos[0].id)
 
         # Actualizar nombre
         update_request = SystemLayoutModel(
@@ -187,11 +191,11 @@ class TestSyncSystemLayout_Update:
             cages=[],
             feeding_lines=[]
         )
-        update_result = await use_case.execute(update_request)
+        update_silos, _, _, _ = await use_case.execute(update_request)
 
-        assert len(update_result.silos) == 1
-        assert update_result.silos[0].name == "Silo Actualizado"
-        assert update_result.silos[0].id == silo_id
+        assert len(update_silos) == 1
+        assert str(update_silos[0].name) == "Silo Actualizado"
+        assert str(update_silos[0].id) == silo_id
 
     @pytest.mark.asyncio
     async def test_update_silo_capacity(self, use_case):
@@ -202,8 +206,8 @@ class TestSyncSystemLayout_Update:
             cages=[],
             feeding_lines=[]
         )
-        create_result = await use_case.execute(create_request)
-        silo_id = create_result.silos[0].id
+        create_silos, _, _, _ = await use_case.execute(create_request)
+        silo_id = str(create_silos[0].id)
 
         # Actualizar capacidad
         update_request = SystemLayoutModel(
@@ -211,9 +215,9 @@ class TestSyncSystemLayout_Update:
             cages=[],
             feeding_lines=[]
         )
-        update_result = await use_case.execute(update_request)
+        update_silos, _, _, _ = await use_case.execute(update_request)
 
-        assert update_result.silos[0].capacity == 2000.0
+        assert update_silos[0].capacity.as_kg == 2000.0
 
 
 class TestSyncSystemLayout_Delete:
@@ -232,9 +236,9 @@ class TestSyncSystemLayout_Delete:
 
         # Enviar request vacío (elimina todo)
         delete_request = SystemLayoutModel(silos=[], cages=[], feeding_lines=[])
-        result = await use_case.execute(delete_request)
+        silos, cages, lines, _ = await use_case.execute(delete_request)
 
-        assert len(result.silos) == 0
+        assert len(silos) == 0
 
     @pytest.mark.asyncio
     async def test_delete_cage(self, use_case):
@@ -249,9 +253,9 @@ class TestSyncSystemLayout_Delete:
 
         # Enviar request vacío
         delete_request = SystemLayoutModel(silos=[], cages=[], feeding_lines=[])
-        result = await use_case.execute(delete_request)
+        silos, cages, lines, _ = await use_case.execute(delete_request)
 
-        assert len(result.cages) == 0
+        assert len(cages) == 0
 
 
 class TestSyncSystemLayout_BusinessRules:
@@ -333,7 +337,7 @@ class TestSyncSystemLayout_BusinessRules:
                             id="temp-doser-1",
                             name="Dosificador 1",
                             assigned_silo_id="temp-silo-1",
-                            doser_type="volumetric",
+                            doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
                             current_rate=50.0
@@ -352,21 +356,21 @@ class TestSyncSystemLayout_BusinessRules:
                 )
             ]
         )
-        result1 = await use_case.execute(base_request)
+        r1_silos, r1_cages, r1_lines, _ = await use_case.execute(base_request)
 
         # Intentar crear otra línea con el mismo nombre
         duplicate_request = SystemLayoutModel(
             silos=[
-                SiloConfigModel(id=result1.silos[0].id, name="Silo A", capacity=1000.0),
+                SiloConfigModel(id=str(r1_silos[0].id), name="Silo A", capacity=1000.0),
                 SiloConfigModel(id="temp-silo-2", name="Silo B", capacity=1000.0)
             ],
             cages=[
-                CageConfigModel(id=result1.cages[0].id, name="Jaula 1"),
+                CageConfigModel(id=str(r1_cages[0].id), name="Jaula 1"),
                 CageConfigModel(id="temp-cage-2", name="Jaula 2")
             ],
             feeding_lines=[
                 FeedingLineConfigModel(
-                    id=result1.feeding_lines[0].id,
+                    id=str(r1_lines[0].id),
                     line_name="Línea 1",
                     blower_config=BlowerConfigModel(
                         id="temp-blower-1",
@@ -380,8 +384,8 @@ class TestSyncSystemLayout_BusinessRules:
                         DoserConfigModel(
                             id="temp-doser-1",
                             name="Dosificador 1",
-                            assigned_silo_id=result1.silos[0].id,
-                            doser_type="volumetric",
+                            assigned_silo_id=str(r1_silos[0].id),
+                            doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
                             current_rate=50.0
@@ -395,7 +399,7 @@ class TestSyncSystemLayout_BusinessRules:
                         slow_speed=20.0
                     ),
                     slot_assignments=[
-                        SlotAssignmentModel(slot_number=1, cage_id=result1.cages[0].id)
+                        SlotAssignmentModel(slot_number=1, cage_id=str(r1_cages[0].id))
                     ]
                 ),
                 FeedingLineConfigModel(
@@ -414,7 +418,7 @@ class TestSyncSystemLayout_BusinessRules:
                             id="temp-doser-2",
                             name="Dosificador 2",
                             assigned_silo_id="temp-silo-2",
-                            doser_type="volumetric",
+                            doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
                             current_rate=50.0
@@ -470,7 +474,7 @@ class TestSyncSystemLayout_IDMapping:
                             id="temp-doser-1",
                             name="Dosificador 1",
                             assigned_silo_id="temp-silo-1",  # ID temporal
-                            doser_type="volumetric",
+                            doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
                             current_rate=50.0
@@ -490,13 +494,13 @@ class TestSyncSystemLayout_IDMapping:
             ]
         )
 
-        result = await use_case.execute(request)
+        silos, cages, lines, _ = await use_case.execute(request)
 
         # El doser debe tener el ID real del silo, no el temporal
-        doser = result.feeding_lines[0].dosers_config[0]
-        silo_id = result.silos[0].id
+        doser = lines[0].dosers[0]
+        silo_id = silos[0].id
         assert doser.assigned_silo_id == silo_id
-        assert doser.assigned_silo_id != "temp-silo-1"
+        assert str(doser.assigned_silo_id) != "temp-silo-1"
 
     @pytest.mark.asyncio
     async def test_id_mapping_cage_to_slot(self, use_case):
@@ -525,7 +529,7 @@ class TestSyncSystemLayout_IDMapping:
                             id="temp-doser-1",
                             name="Dosificador 1",
                             assigned_silo_id="temp-silo-1",
-                            doser_type="volumetric",
+                            doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
                             current_rate=50.0
@@ -545,11 +549,11 @@ class TestSyncSystemLayout_IDMapping:
             ]
         )
 
-        result = await use_case.execute(request)
+        silos, cages, lines, slots_by_line = await use_case.execute(request)
 
         # El slot debe tener el ID real de la jaula, no el temporal
-        slot = result.feeding_lines[0].slot_assignments[0]
-        cage_id = result.cages[0].id
+        line_slots = slots_by_line.get(lines[0].id, [])
+        slot = line_slots[0]
+        cage_id = cages[0].id
         assert slot.cage_id == cage_id
-        assert slot.cage_id != "temp-cage-1"
-
+        assert str(slot.cage_id) != "temp-cage-1"

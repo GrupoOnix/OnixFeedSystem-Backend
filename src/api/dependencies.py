@@ -32,7 +32,10 @@ from application.use_cases.cage import (
     GetCageUseCase,
     GetPopulationHistoryUseCase,
     HarvestUseCase,
+    ListBiometryUseCase,
     ListCagesUseCase,
+    ListConfigChangesUseCase,
+    ListMortalityUseCase,
     RegisterMortalityUseCase,
     SetPopulationUseCase,
     UpdateBiometryUseCase,
@@ -104,11 +107,14 @@ from domain.interfaces import IFeedingMachine
 from infrastructure.persistence.database import get_session
 from infrastructure.persistence.repositories import (
     AlertRepository,
+    BiometryLogRepository,
     CageGroupRepository,
     CageRepository,
+    ConfigChangeLogRepository,
     FeedingLineRepository,
     FeedingOperationRepository,
     FoodRepository,
+    MortalityLogRepository,
     ScheduledAlertRepository,
     SiloRepository,
 )
@@ -670,6 +676,48 @@ async def get_population_history_use_case(
     return GetPopulationHistoryUseCase(event_repository=event_repo)
 
 
+async def get_biometry_log_repo(
+    session: AsyncSession = Depends(get_session),
+) -> BiometryLogRepository:
+    """Crea instancia del repositorio de logs de biometría."""
+    return BiometryLogRepository(session)
+
+
+async def get_mortality_log_repo(
+    session: AsyncSession = Depends(get_session),
+) -> MortalityLogRepository:
+    """Crea instancia del repositorio de logs de mortalidad."""
+    return MortalityLogRepository(session)
+
+
+async def get_config_change_log_repo(
+    session: AsyncSession = Depends(get_session),
+) -> ConfigChangeLogRepository:
+    """Crea instancia del repositorio de logs de cambios de configuración."""
+    return ConfigChangeLogRepository(session)
+
+
+async def get_list_biometry_use_case(
+    biometry_log_repo: BiometryLogRepository = Depends(get_biometry_log_repo),
+) -> ListBiometryUseCase:
+    """Crea instancia del caso de uso de listado de biometría."""
+    return ListBiometryUseCase(biometry_log_repository=biometry_log_repo)
+
+
+async def get_list_mortality_use_case(
+    mortality_log_repo: MortalityLogRepository = Depends(get_mortality_log_repo),
+) -> ListMortalityUseCase:
+    """Crea instancia del caso de uso de listado de mortalidad."""
+    return ListMortalityUseCase(mortality_log_repository=mortality_log_repo)
+
+
+async def get_list_config_changes_use_case(
+    config_change_log_repo: ConfigChangeLogRepository = Depends(get_config_change_log_repo),
+) -> ListConfigChangesUseCase:
+    """Crea instancia del caso de uso de listado de cambios de configuración."""
+    return ListConfigChangesUseCase(config_change_log_repository=config_change_log_repo)
+
+
 # ============================================================================
 # Dependencias de Casos de Uso - Cage Group
 # ============================================================================
@@ -881,6 +929,12 @@ HarvestUseCaseDep = Annotated[HarvestUseCase, Depends(get_harvest_use_case)]
 AdjustPopulationUseCaseDep = Annotated[AdjustPopulationUseCase, Depends(get_adjust_population_use_case)]
 
 GetPopulationHistoryUseCaseDep = Annotated[GetPopulationHistoryUseCase, Depends(get_population_history_use_case)]
+
+ListBiometryUseCaseDep = Annotated[ListBiometryUseCase, Depends(get_list_biometry_use_case)]
+
+ListMortalityUseCaseDep = Annotated[ListMortalityUseCase, Depends(get_list_mortality_use_case)]
+
+ListConfigChangesUseCaseDep = Annotated[ListConfigChangesUseCase, Depends(get_list_config_changes_use_case)]
 
 
 # ============================================================================

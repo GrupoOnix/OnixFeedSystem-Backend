@@ -39,10 +39,6 @@ class StartFeedingSessionUseCase:
         if not cage:
             raise ValueError(f"Cage {request.cage_id} not found")
 
-        # Validar que la jaula pertenece a la línea solicitada
-        if cage.line_id and cage.line_id.value != request.line_id:
-             raise ValueError(f"Cage {request.cage_id} does not belong to Line {request.line_id}")
-
         # Resolver Slot Físico
         physical_slot = await self.line_repository.get_slot_number(LineId(request.line_id), CageId(request.cage_id))
 

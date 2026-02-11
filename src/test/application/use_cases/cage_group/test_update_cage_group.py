@@ -54,7 +54,7 @@ class TestUpdateCageGroup:
         group_id = str(group.id)
 
         mock_group_repo.find_by_id = AsyncMock(return_value=group)
-        mock_group_repo.find_by_name = AsyncMock(return_value=None)
+        mock_group_repo.exists_by_name = AsyncMock(return_value=False)
         mock_cage_repo.find_by_id = AsyncMock(return_value=cage)
         mock_group_repo.save = AsyncMock()
 
@@ -142,8 +142,9 @@ class TestUpdateCageGroup:
         group_id = str(group.id)
 
         mock_group_repo.find_by_id = AsyncMock(return_value=group)
-        mock_group_repo.find_by_name = AsyncMock(return_value=None)
-        mock_cage_repo.find_by_id = AsyncMock(side_effect=[cage1, cage1, cage2])
+        mock_group_repo.exists_by_name = AsyncMock(return_value=False)
+        mock_cage_repo.exists = AsyncMock(return_value=True)
+        mock_cage_repo.find_by_id = AsyncMock(side_effect=[cage1, cage2])
         mock_group_repo.save = AsyncMock()
 
         request = UpdateCageGroupRequest(
@@ -187,14 +188,8 @@ class TestUpdateCageGroup:
         )
         group_id = str(group.id)
 
-        # Simular que otro grupo ya tiene ese nombre
-        other_group = CageGroup(
-            name=CageGroupName("Sector Sur"),
-            cage_ids=[CageId(str(cage.id))],
-        )
-
         mock_group_repo.find_by_id = AsyncMock(return_value=group)
-        mock_group_repo.find_by_name = AsyncMock(return_value=other_group)
+        mock_group_repo.exists_by_name = AsyncMock(return_value=True)
 
         request = UpdateCageGroupRequest(name="Sector Sur")
 
@@ -216,7 +211,7 @@ class TestUpdateCageGroup:
         group_id = str(group.id)
 
         mock_group_repo.find_by_id = AsyncMock(return_value=group)
-        mock_group_repo.find_by_name = AsyncMock(return_value=group)  # Mismo grupo
+        mock_group_repo.exists_by_name = AsyncMock(return_value=False)  # No conflict (same group excluded)
         mock_cage_repo.find_by_id = AsyncMock(return_value=cage)
         mock_group_repo.save = AsyncMock()
 
@@ -243,7 +238,7 @@ class TestUpdateCageGroup:
         group_id = str(group.id)
 
         mock_group_repo.find_by_id = AsyncMock(return_value=group)
-        mock_cage_repo.find_by_id = AsyncMock(side_effect=[cage1, None])
+        mock_cage_repo.exists = AsyncMock(side_effect=[True, False])
 
         request = UpdateCageGroupRequest(
             cage_ids=[str(cage1.id), invalid_cage_id]
@@ -321,7 +316,7 @@ class TestUpdateCageGroup:
         original_updated_at = group.updated_at
 
         mock_group_repo.find_by_id = AsyncMock(return_value=group)
-        mock_group_repo.find_by_name = AsyncMock(return_value=None)
+        mock_group_repo.exists_by_name = AsyncMock(return_value=False)
         mock_cage_repo.find_by_id = AsyncMock(return_value=cage)
         mock_group_repo.save = AsyncMock()
 

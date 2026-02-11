@@ -10,6 +10,7 @@ from domain.aggregates.cage import Cage
 from domain.aggregates.cage_group import CageGroup
 from domain.repositories import ICageGroupRepository, ICageRepository
 from domain.value_objects import CageGroupId, CageGroupName, CageId, CageName
+from domain.value_objects.cage_configuration import CageConfiguration
 
 
 @pytest.fixture
@@ -45,14 +46,16 @@ class TestGetCageGroup:
         """Debe obtener un grupo existente con sus datos completos."""
         # Arrange
         cage1 = Cage(name=CageName("Jaula 1"))
-        cage1.set_population(count=1000, avg_weight_g=200.0)
+        cage1._set_fish_count(1000)
+        cage1._set_avg_weight_grams(200.0)
 
         cage2 = Cage(name=CageName("Jaula 2"))
-        cage2.set_population(count=1500, avg_weight_g=250.0)
+        cage2._set_fish_count(1500)
+        cage2._set_avg_weight_grams(250.0)
 
         group = CageGroup(
             name=CageGroupName("Sector Norte"),
-            cage_ids=[CageId(str(cage1.id)), CageId(str(cage2.id))],
+            cage_ids=[cage1.id, cage2.id],
             description="Grupo de prueba",
         )
         group_id = str(group.id)
@@ -71,7 +74,7 @@ class TestGetCageGroup:
         assert result.metrics is not None
         assert result.metrics.total_population == 2500
 
-        mock_group_repo.find_by_id.assert_called_once_with(CageGroupId(group_id))
+        mock_group_repo.find_by_id.assert_called_once_with(CageGroupId.from_string(group_id))
         assert mock_cage_repo.find_by_id.call_count == 2
 
     async def test_get_group_fails_when_not_found(
@@ -92,12 +95,13 @@ class TestGetCageGroup:
         """Debe calcular métricas correctamente."""
         # Arrange
         cage = Cage(name=CageName("Jaula 1"))
-        cage.set_population(count=2000, avg_weight_g=300.0)
-        cage.set_volume(1000.0)
+        cage._set_fish_count(2000)
+        cage._set_avg_weight_grams(300.0)
+        cage.update_config(CageConfiguration(volume_m3=1000.0))
 
         group = CageGroup(
             name=CageGroupName("Sector Norte"),
-            cage_ids=[CageId(str(cage.id))],
+            cage_ids=[cage.id],
         )
         group_id = str(group.id)
 
@@ -119,13 +123,14 @@ class TestGetCageGroup:
         """Debe manejar jaulas faltantes sin fallar."""
         # Arrange
         cage1 = Cage(name=CageName("Jaula 1"))
-        cage1.set_population(count=1000, avg_weight_g=200.0)
+        cage1._set_fish_count(1000)
+        cage1._set_avg_weight_grams(200.0)
 
         group = CageGroup(
             name=CageGroupName("Sector Norte"),
             cage_ids=[
-                CageId(str(cage1.id)),
-                CageId("00000000-0000-0000-0000-000000000999"),  # No existe
+                cage1.id,
+                CageId.from_string("00000000-0000-0000-0000-000000000999"),  # No existe
             ],
         )
         group_id = str(group.id)
@@ -149,7 +154,7 @@ class TestGetCageGroup:
 
         group = CageGroup(
             name=CageGroupName("Sector Norte"),
-            cage_ids=[CageId(str(cage.id))],
+            cage_ids=[cage.id],
             description=None,
         )
         group_id = str(group.id)
@@ -170,9 +175,10 @@ class TestGetCageGroup:
         # Arrange
         cages = [Cage(name=CageName(f"Jaula {i}")) for i in range(1, 11)]
         for cage in cages:
-            cage.set_population(count=500, avg_weight_g=150.0)
+            cage._set_fish_count(500)
+            cage._set_avg_weight_grams(150.0)
 
-        cage_ids = [CageId(str(c.id)) for c in cages]
+        cage_ids = [c.id for c in cages]
 
         group = CageGroup(
             name=CageGroupName("Sector Grande"),
@@ -211,7 +217,7 @@ class TestGetCageGroup:
 
         group = CageGroup(
             name=CageGroupName("Sector Norte"),
-            cage_ids=[CageId(str(cage.id))],
+            cage_ids=[cage.id],
         )
         group_id = str(group.id)
 
@@ -235,7 +241,7 @@ class TestGetCageGroup:
 
         group = CageGroup(
             name=CageGroupName("Sector Vacío"),
-            cage_ids=[CageId(str(cage.id))],
+            cage_ids=[cage.id],
         )
         group_id = str(group.id)
 

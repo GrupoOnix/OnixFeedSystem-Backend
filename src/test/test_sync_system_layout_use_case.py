@@ -26,8 +26,10 @@ from api.models.system_layout import (
 from infrastructure.persistence.mock_repositories import (
     MockFeedingLineRepository,
     MockSiloRepository,
-    MockCageRepository
+    MockCageRepository,
+    MockSlotAssignmentRepository,
 )
+from domain.factories import ComponentFactory
 
 
 @pytest.fixture
@@ -36,7 +38,8 @@ def repositories():
     return {
         'line_repo': MockFeedingLineRepository(),
         'silo_repo': MockSiloRepository(),
-        'cage_repo': MockCageRepository()
+        'cage_repo': MockCageRepository(),
+        'slot_assignment_repo': MockSlotAssignmentRepository(),
     }
 
 
@@ -46,7 +49,9 @@ def use_case(repositories):
     return SyncSystemLayoutUseCase(
         line_repo=repositories['line_repo'],
         silo_repo=repositories['silo_repo'],
-        cage_repo=repositories['cage_repo']
+        cage_repo=repositories['cage_repo'],
+        slot_assignment_repo=repositories['slot_assignment_repo'],
+        component_factory=ComponentFactory(),
     )
 
 
@@ -85,7 +90,7 @@ async def test_create_simple_system_layout(use_case):
                         id="temp_doser_1",
                         name="Dosificador 1",
                         assigned_silo_id="temp_silo_1",
-                        doser_type="volumetric",
+                        doser_type="PULSE_DOSER",
                         min_rate=10.0,
                         max_rate=100.0,
                         current_rate=50.0
@@ -107,26 +112,17 @@ async def test_create_simple_system_layout(use_case):
     )
 
     # Act: Ejecutar el caso de uso
-    response = await use_case.execute(request)
+    silos, cages, lines, slots_by_line = await use_case.execute(request)
 
     # Assert: Verificar respuesta
-    assert response.status == "Sincronización completada"
-    assert response.silos_processed == 1
-    assert response.cages_processed == 2
-    assert response.lines_processed == 1
-
-    # Verificar que los agregados fueron creados
-    all_silos = await use_case.silo_repo.get_all()
-    all_cages = await use_case.cage_repo.list()
-    all_lines = await use_case.line_repo.get_all()
-
-    assert len(all_silos) == 1
-    assert len(all_cages) == 2
-    assert len(all_lines) == 1
+    assert len(silos) == 1
+    assert len(cages) == 2
+    assert len(lines) == 1
 
     # Verificar que la línea tiene las asignaciones correctas
-    line = all_lines[0]
-    assert len(line.get_slot_assignments()) == 2
+    line = lines[0]
+    line_slots = slots_by_line.get(line.id, [])
+    assert len(line_slots) == 2
 
 
 @pytest.mark.anyio(backends=['asyncio'])
@@ -162,7 +158,7 @@ async def test_update_existing_system_layout(use_case, repositories):
                         id="temp_doser_1",
                         name="Dosificador 1",
                         assigned_silo_id="temp_silo_1",
-                        doser_type="volumetric",
+                        doser_type="PULSE_DOSER",
                         min_rate=10.0,
                         max_rate=100.0,
                         current_rate=50.0
@@ -217,7 +213,7 @@ async def test_update_existing_system_layout(use_case, repositories):
                         id="temp_doser_2",
                         name="Dosificador Actualizado",
                         assigned_silo_id=silo_id,
-                        doser_type="gravimetric",
+                        doser_type="VARI_DOSER",
                         min_rate=15.0,
                         max_rate=120.0,
                         current_rate=60.0
@@ -237,12 +233,9 @@ async def test_update_existing_system_layout(use_case, repositories):
         ],
     )
 
-    response = await use_case.execute(update_request)
+    await use_case.execute(update_request)
 
-    # Assert: Verificar actualización
-    assert response.status == "Sincronización completada"
-
-    # Verificar que los nombres fueron actualizados
+    # Assert: Verificar que los nombres fueron actualizados
     updated_silo = await repositories['silo_repo'].find_by_id(silos[0].id)
     updated_cage = await repositories['cage_repo'].find_by_id(cages[0].id)
     updated_line = await repositories['line_repo'].find_by_id(lines[0].id)
