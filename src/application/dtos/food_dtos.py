@@ -13,8 +13,6 @@ class FoodDTO:
     code: str
     ppk: float
     size_mm: float
-    energy: float
-    kg_per_liter: float
     active: bool
     created_at: datetime
     updated_at: datetime
@@ -30,8 +28,6 @@ class CreateFoodRequest:
     code: str
     ppk: float
     size_mm: float
-    energy: float
-    kg_per_liter: float
     active: bool = True
 
 
@@ -44,8 +40,6 @@ class UpdateFoodRequest:
     code: Optional[str] = None
     ppk: Optional[float] = None
     size_mm: Optional[float] = None
-    energy: Optional[float] = None
-    kg_per_liter: Optional[float] = None
     active: Optional[bool] = None
 
 

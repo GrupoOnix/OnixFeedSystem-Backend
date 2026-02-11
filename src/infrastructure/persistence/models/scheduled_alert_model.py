@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from sqlalchemy import Column, Text
+from sqlalchemy import Column, DateTime, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
@@ -24,7 +24,7 @@ class ScheduledAlertModel(SQLModel, table=True):
     type: str
     category: str
     frequency: str
-    next_trigger_date: datetime = Field(index=True)
+    next_trigger_date: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False, index=True))
     days_before_warning: int = Field(default=0)
     is_active: bool = Field(default=True, index=True)
     device_id: Optional[str] = Field(default=None, max_length=100)
@@ -33,8 +33,8 @@ class ScheduledAlertModel(SQLModel, table=True):
     metadata_json: Dict[str, Any] = Field(
         default_factory=dict, sa_column=Column("metadata", JSONB, nullable=False)
     )
-    created_at: datetime
-    last_triggered_at: Optional[datetime] = Field(default=None)
+    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
+    last_triggered_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
 
     class Config:
         arbitrary_types_allowed = True

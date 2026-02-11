@@ -18,8 +18,6 @@ class FoodModel(SQLModel, table=True):
     code: str = Field(unique=True, max_length=50)
     ppk: float = Field(gt=0)  # Pellets por kilo
     size_mm: float = Field(gt=0)  # Tamaño del pellet en mm
-    energy: float = Field(gt=0)  # Energía en kcal/kg
-    kg_per_liter: float = Field(gt=0)  # Densidad: kg por litro
     active: bool = Field(default=True)
     created_at: datetime
     updated_at: datetime
@@ -34,8 +32,6 @@ class FoodModel(SQLModel, table=True):
             code=food.code,
             ppk=food.ppk,
             size_mm=food.size_mm,
-            energy=food.energy,
-            kg_per_liter=food.kg_per_liter,
             active=food.active,
             created_at=food.created_at,
             updated_at=food.updated_at,
@@ -49,8 +45,6 @@ class FoodModel(SQLModel, table=True):
             code=self.code,
             ppk=self.ppk,
             size_mm=self.size_mm,
-            energy=self.energy,
-            kg_per_liter=self.kg_per_liter,
             active=self.active,
         )
         # Restaurar valores internos

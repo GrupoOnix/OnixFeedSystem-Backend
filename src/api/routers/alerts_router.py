@@ -122,6 +122,23 @@ async def get_unread_count(use_case: GetUnreadCountUseCaseDep) -> UnreadCountRes
         )
 
 
+@router.patch("/read-all", response_model=MarkAllReadResponse)
+async def mark_all_read(use_case: MarkAllAlertsReadUseCaseDep) -> MarkAllReadResponse:
+    """
+    Marca todas las alertas no leídas como leídas.
+
+    Retorna la cantidad de alertas actualizadas.
+    """
+    try:
+        return await use_case.execute()
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}",
+        )
+
+
 @router.patch("/{alert_id}", response_model=AlertDTO)
 async def update_alert(
     alert_id: str, request: UpdateAlertRequest, use_case: UpdateAlertUseCaseDep
@@ -272,23 +289,6 @@ async def get_alert_counts(use_case: GetAlertCountsUseCaseDep) -> AlertCountsRes
     Excluye alertas resueltas y alertas silenciadas.
 
     Retorna contadores para: CRITICAL, WARNING, INFO, SUCCESS
-    """
-    try:
-        return await use_case.execute()
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error interno del servidor: {str(e)}",
-        )
-
-
-@router.patch("/read-all", response_model=MarkAllReadResponse)
-async def mark_all_read(use_case: MarkAllAlertsReadUseCaseDep) -> MarkAllReadResponse:
-    """
-    Marca todas las alertas no leídas como leídas.
-
-    Retorna la cantidad de alertas actualizadas.
     """
     try:
         return await use_case.execute()

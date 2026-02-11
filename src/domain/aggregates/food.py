@@ -19,8 +19,6 @@ class Food:
         code: str,
         ppk: float,
         size_mm: float,
-        energy: float,
-        kg_per_liter: float,
         active: bool = True,
     ):
         """
@@ -32,11 +30,9 @@ class Food:
             code: Código del producto
             ppk: Pellets por kilo
             size_mm: Tamaño del pellet en milímetros
-            energy: Energía en kcal/kg
-            kg_per_liter: Densidad del alimento (kg por litro)
             active: Si el alimento está activo/disponible (default: True)
         """
-        self._validate_numeric_fields(ppk, size_mm, energy, kg_per_liter)
+        self._validate_numeric_fields(ppk, size_mm)
         self._validate_string_fields(provider, code)
 
         self._id = FoodId.generate()
@@ -45,25 +41,17 @@ class Food:
         self._code = code.strip()
         self._ppk = ppk
         self._size_mm = size_mm
-        self._energy = energy
-        self._kg_per_liter = kg_per_liter
         self._active = active
         self._created_at = datetime.utcnow()
         self._updated_at = datetime.utcnow()
 
     @staticmethod
-    def _validate_numeric_fields(
-        ppk: float, size_mm: float, energy: float, kg_per_liter: float
-    ) -> None:
+    def _validate_numeric_fields(ppk: float, size_mm: float) -> None:
         """Valida que los campos numéricos sean positivos."""
         if ppk <= 0:
             raise ValueError("PPK (pellets por kilo) debe ser mayor a 0")
         if size_mm <= 0:
             raise ValueError("El tamaño del pellet debe ser mayor a 0 mm")
-        if energy <= 0:
-            raise ValueError("La energía debe ser mayor a 0 kcal/kg")
-        if kg_per_liter <= 0:
-            raise ValueError("La densidad (kg/L) debe ser mayor a 0")
 
     @staticmethod
     def _validate_string_fields(provider: str, code: str) -> None:
@@ -100,16 +88,6 @@ class Food:
     def size_mm(self) -> float:
         """Tamaño del pellet en milímetros."""
         return self._size_mm
-
-    @property
-    def energy(self) -> float:
-        """Energía en kcal/kg."""
-        return self._energy
-
-    @property
-    def kg_per_liter(self) -> float:
-        """Densidad del alimento: kilogramos por litro."""
-        return self._kg_per_liter
 
     @property
     def active(self) -> bool:
@@ -159,7 +137,6 @@ class Food:
         self,
         ppk: Optional[float] = None,
         size_mm: Optional[float] = None,
-        kg_per_liter: Optional[float] = None,
     ) -> None:
         """
         Actualiza las propiedades físicas del alimento.
@@ -167,7 +144,6 @@ class Food:
         Args:
             ppk: Nuevos pellets por kilo
             size_mm: Nuevo tamaño del pellet en mm
-            kg_per_liter: Nueva densidad en kg/L
         """
         if ppk is not None:
             if ppk <= 0:
@@ -179,24 +155,6 @@ class Food:
                 raise ValueError("El tamaño del pellet debe ser mayor a 0 mm")
             self._size_mm = size_mm
 
-        if kg_per_liter is not None:
-            if kg_per_liter <= 0:
-                raise ValueError("La densidad debe ser mayor a 0 kg/L")
-            self._kg_per_liter = kg_per_liter
-
-        self._updated_at = datetime.utcnow()
-
-    def update_energy(self, energy: float) -> None:
-        """
-        Actualiza el valor energético del alimento.
-
-        Args:
-            energy: Nueva energía en kcal/kg
-        """
-        if energy <= 0:
-            raise ValueError("La energía debe ser mayor a 0 kcal/kg")
-
-        self._energy = energy
         self._updated_at = datetime.utcnow()
 
     def activate(self) -> None:

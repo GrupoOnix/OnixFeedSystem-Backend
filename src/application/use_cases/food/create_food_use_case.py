@@ -48,8 +48,6 @@ class CreateFoodUseCase:
             code=request.code,
             ppk=request.ppk,
             size_mm=request.size_mm,
-            energy=request.energy,
-            kg_per_liter=request.kg_per_liter,
             active=request.active,
         )
 
@@ -68,8 +66,6 @@ class CreateFoodUseCase:
             code=food.code,
             ppk=food.ppk,
             size_mm=food.size_mm,
-            energy=food.energy,
-            kg_per_liter=food.kg_per_liter,
             active=food.active,
             created_at=food.created_at,
             updated_at=food.updated_at,

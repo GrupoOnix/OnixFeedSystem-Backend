@@ -3,7 +3,7 @@ Aggregate Root: Alert
 Representa una alerta del sistema.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from domain.enums import AlertCategory, AlertStatus, AlertType
@@ -36,7 +36,7 @@ class Alert:
         self._title: str = title
         self._message: str = message
         self._source: Optional[str] = source
-        self._timestamp: datetime = datetime.utcnow()
+        self._timestamp: datetime = datetime.now(timezone.utc)
         self._read_at: Optional[datetime] = None
         self._resolved_at: Optional[datetime] = None
         self._resolved_by: Optional[str] = None
@@ -100,7 +100,7 @@ class Alert:
         """Indica si la alerta está actualmente silenciada."""
         if self._snoozed_until is None:
             return False
-        return datetime.utcnow() < self._snoozed_until
+        return datetime.now(timezone.utc) < self._snoozed_until
 
     @property
     def metadata(self) -> Dict[str, Any]:
@@ -114,7 +114,7 @@ class Alert:
         """Marca la alerta como leída."""
         if self._status == AlertStatus.UNREAD:
             self._status = AlertStatus.READ
-            self._read_at = datetime.utcnow()
+            self._read_at = datetime.now(timezone.utc)
 
     def resolve(self, resolved_by: Optional[str] = None) -> None:
         """
@@ -125,7 +125,7 @@ class Alert:
         """
         if self._status in [AlertStatus.UNREAD, AlertStatus.READ]:
             self._status = AlertStatus.RESOLVED
-            self._resolved_at = datetime.utcnow()
+            self._resolved_at = datetime.now(timezone.utc)
             self._resolved_by = resolved_by
             # Si no estaba leída, marcarla como leída también
             if self._read_at is None:
@@ -150,7 +150,7 @@ class Alert:
         if duration_days <= 0:
             raise ValueError("La duración del snooze debe ser mayor a 0 días")
 
-        self._snoozed_until = datetime.utcnow() + timedelta(days=duration_days)
+        self._snoozed_until = datetime.now(timezone.utc) + timedelta(days=duration_days)
 
     def unsnooze(self) -> None:
         """Remueve el silenciamiento de la alerta."""
@@ -183,7 +183,7 @@ class Alert:
             self._type = type
 
         # Actualizar timestamp para reflejar la actualización
-        self._timestamp = datetime.utcnow()
+        self._timestamp = datetime.now(timezone.utc)
 
         # Si la alerta estaba resuelta, volver a marcarla como no leída
         # (porque el problema persiste o empeoró)
@@ -217,9 +217,9 @@ class Alert:
 
         # Actualizar timestamps según el nuevo estado
         if new_status == AlertStatus.READ and old_status == AlertStatus.UNREAD:
-            self._read_at = datetime.utcnow()
+            self._read_at = datetime.now(timezone.utc)
         elif new_status == AlertStatus.RESOLVED:
-            self._resolved_at = datetime.utcnow()
+            self._resolved_at = datetime.now(timezone.utc)
             if self._read_at is None:
                 self._read_at = self._resolved_at
 

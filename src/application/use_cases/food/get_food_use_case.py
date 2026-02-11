@@ -41,8 +41,6 @@ class GetFoodUseCase:
             code=food.code,
             ppk=food.ppk,
             size_mm=food.size_mm,
-            energy=food.energy,
-            kg_per_liter=food.kg_per_liter,
             active=food.active,
             created_at=food.created_at,
             updated_at=food.updated_at,

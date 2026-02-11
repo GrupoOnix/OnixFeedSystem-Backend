@@ -6,7 +6,7 @@ y crea alertas cuando corresponde según la configuración.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from domain.aggregates.alert import Alert
 from domain.enums import AlertCategory
@@ -38,7 +38,7 @@ class AlertSchedulerService:
         Returns:
             Cantidad de alertas disparadas.
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         triggered_count = 0
 
         # Obtener solo alertas activas

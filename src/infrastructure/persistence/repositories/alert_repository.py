@@ -1,6 +1,6 @@
 """Implementación del repositorio de alertas."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy import or_, select, update, CursorResult
@@ -62,7 +62,7 @@ class AlertRepository(IAlertRepository):
         query = select(AlertModel)
 
         # Excluir alertas silenciadas (snoozed_until > now)
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         query = query.where(or_(AlertModel.snoozed_until.is_(None), AlertModel.snoozed_until <= now))
 
         # Aplicar filtros
@@ -111,7 +111,7 @@ class AlertRepository(IAlertRepository):
         query = select(func.count(AlertModel.id))
 
         # Excluir alertas silenciadas (snoozed_until > now)
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         query = query.where(or_(AlertModel.snoozed_until.is_(None), AlertModel.snoozed_until <= now))
 
         # Aplicar filtros
@@ -144,7 +144,7 @@ class AlertRepository(IAlertRepository):
         """Cuenta la cantidad de alertas no leídas (excluyendo silenciadas)."""
         from sqlalchemy import func
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         query = (
             select(func.count(AlertModel.id))
             .where(AlertModel.status == AlertStatus.UNREAD.value)
@@ -155,7 +155,7 @@ class AlertRepository(IAlertRepository):
 
     async def mark_all_as_read(self) -> int:
         """Marca todas las alertas UNREAD como READ."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         stmt = (
             update(AlertModel)
             .where(AlertModel.status == AlertStatus.UNREAD.value)
@@ -172,7 +172,7 @@ class AlertRepository(IAlertRepository):
 
         Busca en los metadatos de las alertas de categoría INVENTORY.
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         query = (
             select(AlertModel)
             .where(AlertModel.category == AlertCategory.INVENTORY.value)
@@ -217,7 +217,7 @@ class AlertRepository(IAlertRepository):
         """Lista alertas actualmente silenciadas."""
         from sqlalchemy import func
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         # Contar total de alertas silenciadas
         count_query = select(func.count(AlertModel.id)).where(
@@ -246,7 +246,7 @@ class AlertRepository(IAlertRepository):
         """Cuenta la cantidad de alertas actualmente silenciadas."""
         from sqlalchemy import func
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         query = select(func.count(AlertModel.id)).where(
             AlertModel.snoozed_until.isnot(None), AlertModel.snoozed_until > now
         )
@@ -262,7 +262,7 @@ class AlertRepository(IAlertRepository):
         """Cuenta alertas por tipo."""
         from sqlalchemy import func
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         query = select(func.count(AlertModel.id)).where(AlertModel.type == type.value)
 
         # Excluir alertas resueltas si se solicita

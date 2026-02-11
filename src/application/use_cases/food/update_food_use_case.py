@@ -65,16 +65,11 @@ class UpdateFoodUseCase:
             )
 
         # Actualizar propiedades físicas
-        if request.ppk or request.size_mm or request.kg_per_liter:
+        if request.ppk or request.size_mm:
             food.update_physical_properties(
                 ppk=request.ppk,
                 size_mm=request.size_mm,
-                kg_per_liter=request.kg_per_liter,
             )
-
-        # Actualizar energía
-        if request.energy is not None:
-            food.update_energy(request.energy)
 
         # Actualizar estado activo
         if request.active is not None:
@@ -97,8 +92,6 @@ class UpdateFoodUseCase:
             code=food.code,
             ppk=food.ppk,
             size_mm=food.size_mm,
-            energy=food.energy,
-            kg_per_liter=food.kg_per_liter,
             active=food.active,
             created_at=food.created_at,
             updated_at=food.updated_at,

@@ -26,8 +26,6 @@ class FoodRepository(IFoodRepository):
             existing.code = food.code
             existing.ppk = food.ppk
             existing.size_mm = food.size_mm
-            existing.energy = food.energy
-            existing.kg_per_liter = food.kg_per_liter
             existing.active = food.active
             existing.updated_at = food.updated_at
         else:

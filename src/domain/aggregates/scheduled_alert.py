@@ -3,7 +3,7 @@ Aggregate Root: ScheduledAlert
 Representa una alerta programada (para mantenimiento, recordatorios, etc.).
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 from domain.enums import AlertCategory, AlertType, ScheduledAlertFrequency
@@ -45,7 +45,7 @@ class ScheduledAlert:
         self._device_name: Optional[str] = device_name
         self._custom_days_interval: Optional[int] = custom_days_interval
         self._metadata: Dict[str, Any] = metadata or {}
-        self._created_at: datetime = datetime.utcnow()
+        self._created_at: datetime = datetime.now(timezone.utc)
         self._last_triggered_at: Optional[datetime] = None
 
         # Validación
@@ -151,7 +151,7 @@ class ScheduledAlert:
         """
         Marca la alerta como disparada y calcula la siguiente fecha.
         """
-        self._last_triggered_at = datetime.utcnow()
+        self._last_triggered_at = datetime.now(timezone.utc)
         self._next_trigger_date = self._calculate_next_date()
 
     def _calculate_next_date(self) -> datetime:

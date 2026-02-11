@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from sqlalchemy import Column, Text
+from sqlalchemy import Column, DateTime, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
@@ -25,11 +25,11 @@ class AlertModel(SQLModel, table=True):
     title: str = Field(max_length=200)
     message: str = Field(sa_column=Column(Text, nullable=False))
     source: Optional[str] = Field(default=None, max_length=200)
-    timestamp: datetime = Field(index=True)
-    read_at: Optional[datetime] = Field(default=None)
-    resolved_at: Optional[datetime] = Field(default=None)
+    timestamp: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False, index=True))
+    read_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
+    resolved_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
     resolved_by: Optional[str] = Field(default=None, max_length=100)
-    snoozed_until: Optional[datetime] = Field(default=None)
+    snoozed_until: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
     metadata_json: Dict[str, Any] = Field(
         default_factory=dict, sa_column=Column("metadata", JSONB, nullable=False)
     )

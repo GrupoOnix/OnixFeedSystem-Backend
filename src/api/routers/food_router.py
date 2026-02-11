@@ -90,8 +90,6 @@ async def create_food(
     - **code**: Código del producto (único)
     - **ppk**: Pellets por kilo (debe ser > 0)
     - **size_mm**: Tamaño del pellet en milímetros (debe ser > 0)
-    - **energy**: Energía en kcal/kg (debe ser > 0)
-    - **kg_per_liter**: Densidad en kg/L (debe ser > 0)
     - **active**: Si está activo (por defecto true)
 
     Validaciones:
@@ -136,8 +134,6 @@ async def update_food(
     - **code**: (Opcional) Nuevo código
     - **ppk**: (Opcional) Nuevos pellets por kilo
     - **size_mm**: (Opcional) Nuevo tamaño del pellet
-    - **energy**: (Opcional) Nueva energía
-    - **kg_per_liter**: (Opcional) Nueva densidad
     - **active**: (Opcional) Nuevo estado activo/inactivo
 
     Validaciones:
