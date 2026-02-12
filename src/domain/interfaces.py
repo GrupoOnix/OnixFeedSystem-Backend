@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional
 
 from domain.dtos import (
     BlowerCommand,
+    CoolerCommand,
     DoserCommand,
     MachineConfiguration,
     MachineStatus,
@@ -417,5 +418,15 @@ class IFeedingMachine(ABC):
         Args:
             command: Comando con ID, nombre del selector, línea y slot destino.
                      Si slot_number es None, resetea a posición home.
+        """
+        pass
+
+    @abstractmethod
+    async def set_cooler_power(self, command: CoolerCommand) -> None:
+        """
+        Establece la potencia de un cooler específico.
+
+        Args:
+            command: Comando con ID, nombre del cooler, línea y potencia.
         """
         pass

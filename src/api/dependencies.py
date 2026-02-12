@@ -53,10 +53,13 @@ from application.use_cases.device_control import (
     MoveSelectorToSlotDirectUseCase,
     ResetSelectorDirectUseCase,
     SetBlowerPowerUseCase,
+    SetCoolerPowerUseCase,
     SetDoserRateUseCase,
     SetDoserSpeedUseCase,
     TurnBlowerOffUseCase,
     TurnBlowerOnUseCase,
+    TurnCoolerOffUseCase,
+    TurnCoolerOnUseCase,
     TurnDoserOffUseCase,
     TurnDoserOnUseCase,
 )
@@ -119,6 +122,7 @@ from infrastructure.persistence.repositories import (
     SiloRepository,
 )
 from infrastructure.persistence.repositories.blower_repository import BlowerRepository
+from infrastructure.persistence.repositories.cooler_repository import CoolerRepository
 from infrastructure.persistence.repositories.doser_repository import DoserRepository
 from infrastructure.persistence.repositories.feeding_session_repository import (
     FeedingSessionRepository,
@@ -199,6 +203,13 @@ async def get_blower_repo(
 ) -> BlowerRepository:
     """Crea instancia del repositorio de blowers."""
     return BlowerRepository(session)
+
+
+async def get_cooler_repo(
+    session: AsyncSession = Depends(get_session),
+) -> CoolerRepository:
+    """Crea instancia del repositorio de coolers."""
+    return CoolerRepository(session)
 
 
 async def get_doser_repo(
@@ -434,6 +445,39 @@ async def get_turn_doser_off_use_case(
     """Crea instancia del caso de uso de apagado de doser."""
     return TurnDoserOffUseCase(
         doser_repository=doser_repo,
+        machine_service=machine_service,
+    )
+
+
+async def get_set_cooler_power_use_case(
+    cooler_repo: CoolerRepository = Depends(get_cooler_repo),
+    machine_service: IFeedingMachine = Depends(get_machine_service),
+) -> SetCoolerPowerUseCase:
+    """Crea instancia del caso de uso de control directo de cooler."""
+    return SetCoolerPowerUseCase(
+        cooler_repository=cooler_repo,
+        machine_service=machine_service,
+    )
+
+
+async def get_turn_cooler_on_use_case(
+    cooler_repo: CoolerRepository = Depends(get_cooler_repo),
+    machine_service: IFeedingMachine = Depends(get_machine_service),
+) -> TurnCoolerOnUseCase:
+    """Crea instancia del caso de uso de encendido de cooler."""
+    return TurnCoolerOnUseCase(
+        cooler_repository=cooler_repo,
+        machine_service=machine_service,
+    )
+
+
+async def get_turn_cooler_off_use_case(
+    cooler_repo: CoolerRepository = Depends(get_cooler_repo),
+    machine_service: IFeedingMachine = Depends(get_machine_service),
+) -> TurnCoolerOffUseCase:
+    """Crea instancia del caso de uso de apagado de cooler."""
+    return TurnCoolerOffUseCase(
+        cooler_repository=cooler_repo,
         machine_service=machine_service,
     )
 
@@ -988,6 +1032,12 @@ TurnBlowerOffUseCaseDep = Annotated[TurnBlowerOffUseCase, Depends(get_turn_blowe
 TurnDoserOnUseCaseDep = Annotated[TurnDoserOnUseCase, Depends(get_turn_doser_on_use_case)]
 
 TurnDoserOffUseCaseDep = Annotated[TurnDoserOffUseCase, Depends(get_turn_doser_off_use_case)]
+
+SetCoolerPowerUseCaseDep = Annotated[SetCoolerPowerUseCase, Depends(get_set_cooler_power_use_case)]
+
+TurnCoolerOnUseCaseDep = Annotated[TurnCoolerOnUseCase, Depends(get_turn_cooler_on_use_case)]
+
+TurnCoolerOffUseCaseDep = Annotated[TurnCoolerOffUseCase, Depends(get_turn_cooler_off_use_case)]
 
 
 # ============================================================================

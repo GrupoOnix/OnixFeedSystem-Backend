@@ -122,3 +122,14 @@ class SelectorCommand:
     line_id: str
     line_name: str
     slot_number: Optional[int] = None  # None significa reset/home
+
+
+@dataclass(frozen=True)
+class CoolerCommand:
+    """Comando para controlar un cooler específico."""
+
+    cooler_id: str
+    cooler_name: str
+    line_id: str
+    line_name: str
+    power_percentage: float

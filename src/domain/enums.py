@@ -2,9 +2,9 @@ from enum import Enum
 
 
 class CageStatus(Enum):
-    AVAILABLE = "Disponible"
-    IN_USE = "En Uso"
-    MAINTENANCE = "Mantenimiento"
+    AVAILABLE = "AVAILABLE"
+    IN_USE = "IN_USE"
+    MAINTENANCE = "MAINTENANCE"
 
 
 class PopulationEventType(Enum):
@@ -21,9 +21,9 @@ class PopulationEventType(Enum):
 
 
 class SensorType(Enum):
-    TEMPERATURE = "Temperatura"
-    PRESSURE = "Presión"
-    FLOW = "Caudal"
+    TEMPERATURE = "TEMPERATURE"
+    PRESSURE = "PRESSURE"
+    FLOW = "FLOW"
 
 
 class DoserType(Enum):
@@ -35,49 +35,41 @@ class DoserType(Enum):
 class SessionStatus(Enum):
     """Estado de la sesión diaria (contenedor)."""
 
-    ACTIVE = "Active"  # Sesión abierta, puede tener operaciones
-    CLOSED = "Closed"  # Sesión cerrada (fin del día)
+    ACTIVE = "ACTIVE"
+    CLOSED = "CLOSED"
 
 
 class OperationStatus(Enum):
     """Estado de una operación individual."""
 
-    RUNNING = "Running"  # Operación en curso
-    PAUSED = "Paused"  # Operación congelada temporalmente
-    COMPLETED = "Completed"  # Operación finalizada exitosamente
-    STOPPED = "Stopped"  # Operación detenida manualmente
-    FAILED = "Failed"  # Operación fallida por error
+    RUNNING = "RUNNING"
+    PAUSED = "PAUSED"
+    COMPLETED = "COMPLETED"
+    STOPPED = "STOPPED"
+    FAILED = "FAILED"
 
 
 class FeedingMode(Enum):
-    MANUAL = "Manual"
-    CYCLIC = "Ciclico"
-    PROGRAMMED = "Programado"
+    MANUAL = "MANUAL"
+    CYCLIC = "CYCLIC"
+    PROGRAMMED = "PROGRAMMED"
 
 
 class FeedingEventType(Enum):
-    # 1. Intervención Humana (El "Qué hizo el operador")
-    COMMAND = "Command"  # Start, Stop, Pause, Resume
-    # 2. Ajustes Finos (El "Cómo lo modificó")
-    PARAM_CHANGE = "ParamChange"  # Cambió tasa, cambió blower en caliente
-    # 3. Comportamiento de la Máquina (El "Qué pasó solo")
-    SYSTEM_STATUS = (
-        "SystemStatus"  # Fin automático de ciclo, Cambio de jaula automático
-    )
-    # 4. Salud del Sistema (El "Qué salió mal")
-    ALARM = "Alarm"  # Error de PLC, Timeout, Emergencia
+    COMMAND = "COMMAND"
+    PARAM_CHANGE = "PARAM_CHANGE"
+    SYSTEM_STATUS = "SYSTEM_STATUS"
+    ALARM = "ALARM"
 
 
 class OperationEventType(Enum):
-    """Tipos de eventos específicos de operación."""
-
-    STARTED = "Started"
-    PAUSED = "Paused"
-    RESUMED = "Resumed"
-    PARAM_CHANGE = "ParamChange"
-    COMPLETED = "Completed"
-    STOPPED = "Stopped"
-    FAILED = "Failed"
+    STARTED = "STARTED"
+    PAUSED = "PAUSED"
+    RESUMED = "RESUMED"
+    PARAM_CHANGE = "PARAM_CHANGE"
+    COMPLETED = "COMPLETED"
+    STOPPED = "STOPPED"
+    FAILED = "FAILED"
 
 
 # ============================================================================

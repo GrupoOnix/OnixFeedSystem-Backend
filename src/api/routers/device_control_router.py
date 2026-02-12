@@ -8,16 +8,20 @@ from api.dependencies import (
     MoveSelectorDirectUseCaseDep,
     ResetSelectorDirectUseCaseDep,
     SetBlowerPowerUseCaseDep,
+    SetCoolerPowerUseCaseDep,
     SetDoserRateUseCaseDep,
     SetDoserSpeedUseCaseDep,
     TurnBlowerOffUseCaseDep,
     TurnBlowerOnUseCaseDep,
+    TurnCoolerOffUseCaseDep,
+    TurnCoolerOnUseCaseDep,
     TurnDoserOffUseCaseDep,
     TurnDoserOnUseCaseDep,
 )
 from application.dtos.device_control_dtos import (
     MoveSelectorRequest,
     SetBlowerPowerRequest,
+    SetCoolerPowerRequest,
     SetDoserRateRequest,
     SetDoserSpeedRequest,
 )
@@ -314,6 +318,112 @@ async def reset_selector(
     try:
         await use_case.execute(selector_id)
         return {"message": "Selector position reset successfully"}
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+
+    except DomainException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}",
+        )
+
+
+# =========================================================================
+# Cooler Control
+# =========================================================================
+
+
+@router.post("/coolers/{cooler_id}/on", status_code=status.HTTP_200_OK)
+async def turn_cooler_on(
+    cooler_id: str,
+    use_case: TurnCoolerOnUseCaseDep,
+) -> Dict[str, str]:
+    """
+    Enciende un cooler específico.
+
+    El cooler se enciende a su potencia cooling_power_percentage configurada.
+
+    - **cooler_id**: ID del cooler (UUID)
+    """
+    try:
+        await use_case.execute(cooler_id)
+        return {"message": "Cooler turned on successfully"}
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+
+    except DomainException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}",
+        )
+
+
+@router.post("/coolers/{cooler_id}/off", status_code=status.HTTP_200_OK)
+async def turn_cooler_off(
+    cooler_id: str,
+    use_case: TurnCoolerOffUseCaseDep,
+) -> Dict[str, str]:
+    """
+    Apaga un cooler específico.
+
+    El cooler se apaga (potencia a 0%).
+
+    - **cooler_id**: ID del cooler (UUID)
+    """
+    try:
+        await use_case.execute(cooler_id)
+        return {"message": "Cooler turned off successfully"}
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+
+    except DomainException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}",
+        )
+
+
+@router.post("/coolers/{cooler_id}/set-power", status_code=status.HTTP_200_OK)
+async def set_cooler_power(
+    cooler_id: str,
+    request: SetCoolerPowerRequest,
+    use_case: SetCoolerPowerUseCaseDep,
+) -> Dict[str, str]:
+    """
+    Establece la potencia de un cooler específico.
+
+    Control manual del cooler sin sesión de alimentación activa.
+    Útil para pruebas y mantenimiento.
+
+    - **cooler_id**: ID del cooler (UUID)
+    - **power_percentage**: Potencia del cooler (0-100%)
+    """
+    try:
+        await use_case.execute(cooler_id, request.power_percentage)
+        return {
+            "message": f"Cooler power set to {request.power_percentage}% successfully"
+        }
 
     except ValueError as e:
         raise HTTPException(

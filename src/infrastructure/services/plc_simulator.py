@@ -29,6 +29,7 @@ from typing import Dict, List, Optional
 
 from domain.dtos.machine_io_v2 import (
     BlowerCommand,
+    CoolerCommand,
     DoserCommand,
     MachineConfiguration,
     MachineStatus,
@@ -573,6 +574,33 @@ class PLCSimulator(IFeedingMachine):
         logger.info(
             f"[PLC-SIM] SELECTOR '{command.selector_name}' en '{command.line_name}': "
             f"{action} -> {destino}"
+        )
+
+    async def set_cooler_power(self, command: CoolerCommand) -> None:
+        """
+        Establece la potencia de un cooler específico.
+
+        En PLC real, esto escribiría al registro Modbus/tag OPC-UA del cooler.
+        """
+        # Simular latencia de comunicación
+        await asyncio.sleep(0.03)
+
+        if command.power_percentage > 0:
+            action = "ENCENDIDO"
+        else:
+            action = "APAGADO"
+
+        # Log visible en consola
+        print(f"\n{'=' * 65}")
+        print(f"[PLC] COOLER {action}")
+        print(f"  Línea:    {command.line_name} ({command.line_id[:8]}...)")
+        print(f"  Cooler:   {command.cooler_name} ({command.cooler_id[:8]}...)")
+        print(f"  Potencia: {command.power_percentage:.1f}%")
+        print(f"{'=' * 65}\n")
+
+        logger.info(
+            f"[PLC-SIM] COOLER '{command.cooler_name}' en '{command.line_name}': "
+            f"{action} - {command.power_percentage:.1f}%"
         )
 
     async def get_sensor_readings(self, line_id: LineId) -> SensorReadings:

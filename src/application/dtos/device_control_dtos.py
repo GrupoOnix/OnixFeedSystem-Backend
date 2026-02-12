@@ -27,6 +27,14 @@ class SetDoserSpeedRequest(BaseModel):
     )
 
 
+class SetCoolerPowerRequest(BaseModel):
+    """Request para establecer la potencia del cooler."""
+
+    power_percentage: float = Field(
+        ..., ge=0.0, le=100.0, description="Potencia del cooler (0-100%)"
+    )
+
+
 class MoveSelectorRequest(BaseModel):
     """Request para mover el selector a un slot específico."""
 
