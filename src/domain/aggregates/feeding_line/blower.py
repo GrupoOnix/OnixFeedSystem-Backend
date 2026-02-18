@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from domain.interfaces import IBlower
 from domain.value_objects import (
@@ -24,7 +24,7 @@ class Blower(IBlower):
         self._current_power = current_power or non_feeding_power
         self._blow_before_feeding_time = blow_before_time
         self._blow_after_feeding_time = blow_after_time
-        self._created_at = datetime.utcnow()
+        self._created_at = datetime.now(timezone.utc)
 
     @property
     def id(self) -> BlowerId:

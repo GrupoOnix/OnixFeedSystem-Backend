@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional
 from uuid import UUID, uuid4
+from sqlalchemy import Column, DateTime
 from sqlmodel import Field, SQLModel
 
 from domain.value_objects.config_change_log_entry import ConfigChangeLogEntry
@@ -18,7 +19,7 @@ class ConfigChangeLogModel(SQLModel, table=True):
     new_value: str = Field(nullable=False)
     change_reason: Optional[str] = Field(default=None)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
+    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False, index=True))
 
     @staticmethod
     def from_domain(entry: ConfigChangeLogEntry) -> "ConfigChangeLogModel":

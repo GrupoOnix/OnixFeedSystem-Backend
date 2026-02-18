@@ -30,8 +30,10 @@ from src.infrastructure.persistence.models.mortality_log_model import MortalityL
 from src.infrastructure.persistence.models.config_change_log_model import ConfigChangeLogModel
 from src.infrastructure.persistence.models.feeding_session_model import FeedingSessionModel
 from src.infrastructure.persistence.models.feeding_event_model import FeedingEventModel
-from src.infrastructure.persistence.models.feeding_operation_model import FeedingOperationModel
-from src.infrastructure.persistence.models.operation_event_model import OperationEventModel
+# from src.infrastructure.persistence.models.feeding_operation_model import FeedingOperationModel  # REMOVED - Old feeding system
+# from src.infrastructure.persistence.models.operation_event_model import OperationEventModel  # REMOVED - Old feeding system
+from src.infrastructure.persistence.models.cage_feeding_model import CageFeedingModel
+from src.infrastructure.persistence.models.system_config_model import SystemConfigModel
 
 config = context.config
 

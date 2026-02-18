@@ -5,8 +5,8 @@ from datetime import datetime
 from typing import Optional, Dict, Any, List, TYPE_CHECKING
 from uuid import UUID
 
+from sqlalchemy import Column, DateTime
 from sqlmodel import Field, SQLModel, Relationship
-from sqlalchemy import Column
 from sqlalchemy.dialects.postgresql import JSONB
 
 if TYPE_CHECKING:
@@ -33,8 +33,8 @@ class FeedingOperationModel(SQLModel, table=True):
     target_amount_kg: float
     dispensed_kg: float = Field(default=0.0)
     status: str = Field(index=True)  # RUNNING, PAUSED, COMPLETED, STOPPED, FAILED
-    started_at: datetime = Field(index=True)
-    ended_at: Optional[datetime] = None
+    started_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False, index=True))
+    ended_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
     applied_config: Dict[str, Any] = Field(sa_column=Column(JSONB))
 
     # Relationships

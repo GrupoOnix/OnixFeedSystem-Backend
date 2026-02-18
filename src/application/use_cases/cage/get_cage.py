@@ -1,18 +1,20 @@
 """Use case para obtener una jaula."""
 
+from typing import Optional
+
 from application.dtos.cage_dtos import CageConfigResponse, CageResponse
 from domain.aggregates.cage import Cage
-from domain.repositories import ICageRepository, IFeedingOperationRepository
+from domain.repositories import ICageRepository  # , IFeedingOperationRepository  # DEPRECATED
 from domain.value_objects.identifiers import CageId
 
 
 class GetCageUseCase:
-    """Caso de uso para obtener una jaula por ID."""
+    """Caso de uso para obtener una jaula por ID. DEPRECATED - uses old feeding system."""
 
     def __init__(
         self,
         cage_repository: ICageRepository,
-        operation_repository: IFeedingOperationRepository,
+        operation_repository: Optional[object] = None,  # IFeedingOperationRepository - DEPRECATED
     ):
         self.cage_repository = cage_repository
         self.operation_repository = operation_repository
@@ -36,8 +38,8 @@ class GetCageUseCase:
         if not cage:
             raise ValueError(f"No existe una jaula con ID '{cage_id}'")
 
-        # Obtener alimentación del día
-        today_feeding_kg = await self.operation_repository.get_today_dispensed_by_cage(cage_id_vo)
+        # TODO: Calcular kg dispensados hoy desde FeedingSession/CageFeeding completados
+        today_feeding_kg = 0.0
 
         return self._to_response(cage, today_feeding_kg)
 

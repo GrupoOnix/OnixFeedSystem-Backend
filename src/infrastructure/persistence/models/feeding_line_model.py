@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 from uuid import UUID
 
+from sqlalchemy import Column, DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
 from domain.aggregates.feeding_line.feeding_line import FeedingLine
@@ -21,7 +22,7 @@ class FeedingLineModel(SQLModel, table=True):
 
     id: UUID = Field(primary_key=True)
     name: str = Field(unique=True, max_length=100)
-    created_at: datetime
+    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
 
     blower: Optional["BlowerModel"] = Relationship(
         back_populates="feeding_line",
@@ -47,7 +48,7 @@ class FeedingLineModel(SQLModel, table=True):
     # Ya no hay relación directa FeedingLine -> Cage
 
     feeding_sessions: List["FeedingSessionModel"] = Relationship(
-        back_populates="feeding_line",
+        back_populates="line",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
 

@@ -1,6 +1,6 @@
 """Aggregate Root para Jaulas."""
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from domain.entities.population_event import PopulationEvent
@@ -32,7 +32,7 @@ class Cage:
         self._id = CageId.generate()
         self._name = name
         self._status = status
-        self._created_at = datetime.utcnow()
+        self._created_at = datetime.now(timezone.utc)
 
         # Población
         self._fish_count: int = 0

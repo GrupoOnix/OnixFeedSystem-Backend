@@ -1,23 +1,25 @@
 """Use case para actualizar una jaula."""
 
+from typing import Optional
+
 from application.dtos.cage_dtos import (
     CageConfigResponse,
     CageResponse,
     UpdateCageRequest,
 )
 from domain.aggregates.cage import Cage
-from domain.repositories import ICageRepository, IFeedingOperationRepository
+from domain.repositories import ICageRepository  # , IFeedingOperationRepository  # DEPRECATED
 from domain.value_objects.identifiers import CageId
 from domain.value_objects.names import CageName
 
 
 class UpdateCageUseCase:
-    """Caso de uso para actualizar nombre y/o status de una jaula."""
+    """Caso de uso para actualizar nombre y/o status de una jaula. DEPRECATED - uses old feeding system."""
 
     def __init__(
         self,
         cage_repository: ICageRepository,
-        operation_repository: IFeedingOperationRepository,
+        operation_repository: Optional[object] = None,  # IFeedingOperationRepository - DEPRECATED
     ):
         self.cage_repository = cage_repository
         self.operation_repository = operation_repository

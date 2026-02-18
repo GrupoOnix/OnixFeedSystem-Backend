@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from domain.interfaces import ISelector
@@ -23,7 +23,7 @@ class Selector(ISelector):
         self._capacity = capacity
         self._speed_profile = speed_profile
         self._current_slot: Optional[int] = current_slot
-        self._created_at = datetime.utcnow()  # TODO revisar que hacer con esto
+        self._created_at = datetime.now(timezone.utc)  # TODO revisar que hacer con esto
 
     @property
     def id(self) -> SelectorId:

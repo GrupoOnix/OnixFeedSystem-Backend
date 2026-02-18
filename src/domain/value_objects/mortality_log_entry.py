@@ -37,5 +37,5 @@ class MortalityLogEntry:
             dead_fish_count=dead_fish_count,
             mortality_date=mortality_date,
             note=note,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )

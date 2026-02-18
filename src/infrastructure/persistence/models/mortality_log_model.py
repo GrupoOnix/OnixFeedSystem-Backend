@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from typing import Optional
 from uuid import UUID, uuid4
+from sqlalchemy import Column, DateTime
 from sqlmodel import Field, SQLModel
 
 from domain.value_objects.mortality_log_entry import MortalityLogEntry
@@ -17,7 +18,7 @@ class MortalityLogModel(SQLModel, table=True):
     mortality_date: date = Field(nullable=False, index=True)
     note: Optional[str] = Field(default=None)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
 
     @staticmethod
     def from_domain(entry: MortalityLogEntry) -> "MortalityLogModel":

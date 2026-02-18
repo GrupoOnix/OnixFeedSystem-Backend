@@ -26,6 +26,11 @@ from .system_layout import (
     SlotAssignmentModel,
 )
 
+from .feeding_models import (
+    ManualFeedingRequest,
+    ManualFeedingResponse,
+)
+
 __all__ = [
     # Request/Response
     'SystemLayoutModel',
@@ -43,4 +48,8 @@ __all__ = [
 
     # Value Objects
     'SlotAssignmentModel',
+
+    # Feeding
+    'ManualFeedingRequest',
+    'ManualFeedingResponse',
 ]

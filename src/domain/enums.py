@@ -113,3 +113,55 @@ class ScheduledAlertFrequency(Enum):
     WEEKLY = "WEEKLY"
     MONTHLY = "MONTHLY"
     CUSTOM_DAYS = "CUSTOM_DAYS"
+
+
+# ============================================================================
+# Enums de Comida y Visita
+# ============================================================================
+
+
+class FeedingStrategy(Enum):
+    """Feeding strategy type."""
+
+    MANUAL = "manual"
+    CYCLIC = "ciclica"
+    PROGRAMMED = "programada"
+
+
+class FeedingSessionStatus(Enum):
+    """Feeding session lifecycle status."""
+
+    SCHEDULED = "programada"
+    IN_PROGRESS = "en_curso"
+    PAUSED = "pausada"
+    COMPLETED = "completada"
+    CANCELLED = "cancelada"
+    INTERRUPTED = "interrumpida"
+
+
+class TipoComida(Enum):
+    """Tipo de comida según su programación."""
+
+    MANUAL = "MANUAL"
+    CICLICA = "CICLICA"
+    PROGRAMADA = "PROGRAMADA"
+
+
+class EstadoComida(Enum):
+    """Estado del ciclo de vida de una comida."""
+
+    PROGRAMADA = "PROGRAMADA"
+    EN_CURSO = "EN_CURSO"
+    PAUSADA = "PAUSADA"
+    COMPLETADA = "COMPLETADA"
+    CANCELADA = "CANCELADA"
+    INTERRUMPIDA = "INTERRUMPIDA"
+
+
+class EstadoVisita(Enum):
+    """Estado del ciclo de vida de una visita."""
+
+    PENDIENTE = "PENDIENTE"  # Creada, esperando ejecución
+    EN_CURSO = "EN_CURSO"  # Ejecutándose actualmente
+    COMPLETADA = "COMPLETADA"  # Finalizada exitosamente
+    CANCELADA = "CANCELADA"  # Cancelada o interrumpida

@@ -3,6 +3,7 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
+from sqlalchemy import Column, DateTime
 from sqlmodel import Field, SQLModel
 
 from domain.entities.slot_assignment import SlotAssignment
@@ -28,7 +29,7 @@ class SlotAssignmentModel(SQLModel, table=True):
         ondelete="CASCADE",
     )
     slot_number: int = Field(nullable=False)
-    assigned_at: datetime = Field(default_factory=datetime.utcnow)
+    assigned_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
 
     @staticmethod
     def from_domain(assignment: SlotAssignment) -> "SlotAssignmentModel":

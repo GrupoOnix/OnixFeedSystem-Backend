@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID, uuid4
 
@@ -42,5 +42,5 @@ class ConfigChangeLogEntry:
             old_value=old_value,
             new_value=new_value,
             change_reason=change_reason,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )

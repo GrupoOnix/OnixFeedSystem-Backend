@@ -1,7 +1,7 @@
 """Aggregate Root para Grupos de Jaulas."""
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from domain.aggregates.cage import Cage
@@ -58,8 +58,8 @@ class CageGroup:
         self._name = name
         self._description = description
         self._cage_ids = list(set(cage_ids))  # Eliminar duplicados
-        self._created_at = datetime.utcnow()
-        self._updated_at = datetime.utcnow()
+        self._created_at = datetime.now(timezone.utc)
+        self._updated_at = datetime.now(timezone.utc)
 
     # =========================================================================
     # PROPIEDADES DE IDENTIDAD
@@ -111,7 +111,7 @@ class CageGroup:
         """
         if cage_id not in self._cage_ids:
             self._cage_ids.append(cage_id)
-            self._updated_at = datetime.utcnow()
+            self._updated_at = datetime.now(timezone.utc)
 
     def remove_cage(self, cage_id: CageId) -> None:
         """
@@ -133,7 +133,7 @@ class CageGroup:
             )
 
         self._cage_ids.remove(cage_id)
-        self._updated_at = datetime.utcnow()
+        self._updated_at = datetime.now(timezone.utc)
 
     def set_cages(self, cage_ids: List[CageId]) -> None:
         """
@@ -149,7 +149,7 @@ class CageGroup:
             raise ValueError("Un grupo debe contener al menos una jaula")
 
         self._cage_ids = list(set(cage_ids))  # Eliminar duplicados
-        self._updated_at = datetime.utcnow()
+        self._updated_at = datetime.now(timezone.utc)
 
     def has_cage(self, cage_id: CageId) -> bool:
         """
@@ -175,7 +175,7 @@ class CageGroup:
             new_name: Nuevo nombre del grupo
         """
         self._name = new_name
-        self._updated_at = datetime.utcnow()
+        self._updated_at = datetime.now(timezone.utc)
 
     def update_description(self, description: Optional[str]) -> None:
         """
@@ -185,7 +185,7 @@ class CageGroup:
             description: Nueva descripción (puede ser None)
         """
         self._description = description
-        self._updated_at = datetime.utcnow()
+        self._updated_at = datetime.now(timezone.utc)
 
     # =========================================================================
     # MÉTODOS DE CÁLCULO DE MÉTRICAS

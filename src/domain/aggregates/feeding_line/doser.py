@@ -111,6 +111,17 @@ class Doser(IDoser):
         """Indica si el doser está encendido."""
         return self._is_on
 
+    @property
+    def max_rate_kg_per_min(self) -> float:
+        """
+        Tasa máxima de dosificación en kg/min.
+
+        TODO: Calcular dinámicamente desde self._dosing_range.max_rate_grams_per_second
+        Fórmula: max_rate_grams_per_second * 60 / 1000
+        Por ahora retorna un valor hardcoded de 10 kg/min.
+        """
+        return 10.0  # Hardcoded temporalmente
+
     def turn_on(self) -> None:
         """
         Enciende el doser.

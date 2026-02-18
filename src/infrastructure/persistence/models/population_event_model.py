@@ -4,6 +4,7 @@ from datetime import date, datetime
 from typing import Optional
 from uuid import UUID, uuid4
 
+from sqlalchemy import Column, DateTime
 from sqlmodel import Field, SQLModel
 
 from domain.entities.population_event import PopulationEvent
@@ -30,7 +31,7 @@ class PopulationEventModel(SQLModel, table=True):
     new_fish_count: int
     avg_weight_grams: Optional[float] = Field(default=None)
     note: Optional[str] = Field(default=None, max_length=500)
-    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False, index=True))
 
     @staticmethod
     def from_domain(event: PopulationEvent) -> "PopulationEventModel":

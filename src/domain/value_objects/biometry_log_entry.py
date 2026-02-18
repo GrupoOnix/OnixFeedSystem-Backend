@@ -43,5 +43,5 @@ class BiometryLogEntry:
             new_average_weight_g=new_average_weight_g,
             sampling_date=sampling_date,
             note=note,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )

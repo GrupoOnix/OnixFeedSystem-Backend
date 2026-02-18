@@ -91,8 +91,16 @@ async def list_cages(
     use_case: ListCagesUseCaseDep,
 ) -> ListCagesResponseModel:
     """Lista todas las jaulas."""
-    result = await use_case.execute()
-    return ListCagesResponseModel.from_dto(result)
+    try:
+        result = await use_case.execute()
+        return ListCagesResponseModel.from_dto(result)
+    except Exception as e:
+        import traceback
+        print("="*80)
+        print("ERROR EN LIST_CAGES:")
+        print(traceback.format_exc())
+        print("="*80)
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 
 @router.get("/{cage_id}", response_model=CageResponseModel)

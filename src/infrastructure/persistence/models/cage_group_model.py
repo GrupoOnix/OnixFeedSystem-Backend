@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
+from sqlalchemy import Column, DateTime
 from sqlmodel import Field, SQLModel
 
 from domain.aggregates.cage_group import CageGroup
@@ -21,8 +22,8 @@ class CageGroupModel(SQLModel, table=True):
     name: str = Field(unique=True, max_length=255)
     description: Optional[str] = Field(default=None)
     cage_ids: str = Field()  # JSON array serializado como string
-    created_at: datetime
-    updated_at: datetime
+    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
+    updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
 
     @staticmethod
     def from_domain(cage_group: CageGroup) -> "CageGroupModel":

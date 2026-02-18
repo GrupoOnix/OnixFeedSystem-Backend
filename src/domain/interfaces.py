@@ -6,8 +6,10 @@ from domain.dtos import (
     BlowerCommand,
     CoolerCommand,
     DoserCommand,
+    MachineCommand,
     MachineConfiguration,
     MachineStatus,
+    MachineVisitStatus,
     SelectorCommand,
     SensorReadings,
 )
@@ -137,6 +139,17 @@ class IDoser(ABC):
     @property
     @abstractmethod
     def is_on(self) -> bool: ...
+
+    @property
+    @abstractmethod
+    def max_rate_kg_per_min(self) -> float:
+        """
+        Tasa máxima de dosificación en kg/min.
+
+        TODO: Calcular dinámicamente desde dosing_range.max_rate_grams_per_second
+        Por ahora retorna un valor hardcoded.
+        """
+        ...
 
     @abstractmethod
     def turn_on(self) -> None:
@@ -430,3 +443,26 @@ class IFeedingMachine(ABC):
             command: Comando con ID, nombre del cooler, línea y potencia.
         """
         pass
+
+
+class IMachine(ABC):
+    @abstractmethod
+    async def start_visit(self, line_id: LineId, command: MachineCommand) -> None: ...
+
+    @abstractmethod
+    async def get_status(self, line_id: LineId) -> MachineVisitStatus: ...
+
+    @abstractmethod
+    async def set_doser_rate(self, line_id: LineId, rate_kg_per_min: float) -> None: ...
+
+    @abstractmethod
+    async def set_blower_power(self, line_id: LineId, power_percentage: float) -> None: ...
+
+    @abstractmethod
+    async def pause(self, line_id: LineId) -> None: ...
+
+    @abstractmethod
+    async def resume(self, line_id: LineId) -> None: ...
+
+    @abstractmethod
+    async def stop(self, line_id: LineId) -> None: ...
