@@ -4,6 +4,7 @@ from typing import Optional
 
 
 class VisitStage(str, Enum):
+    IDLE = "IDLE"
     POSITIONING_SELECTOR = "POSITIONING_SELECTOR"
     BLOWING_BEFORE = "BLOWING_BEFORE"
     FEEDING = "FEEDING"

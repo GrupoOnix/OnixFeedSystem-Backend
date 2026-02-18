@@ -91,6 +91,9 @@ from application.use_cases.feeding.control_feeding_use_cases import (
 from application.use_cases.feeding.start_manual_feeding_use_case import (
     StartManualFeedingUseCase,
 )
+from application.use_cases.feeding.start_cyclic_feeding_use_case import (
+    StartCyclicFeedingUseCase,
+)
 from application.use_cases.feeding_line import (
     GetFeedingLineUseCase,
     ListFeedingLinesUseCase,
@@ -556,7 +559,7 @@ async def get_get_selector_status_use_case(
 
 
 # ============================================================================
-# Dependencias de Casos de Uso - Feeding (Manual)
+# Dependencias de Casos de Uso - Feeding (Manual / Cíclica)
 # ============================================================================
 
 
@@ -585,6 +588,33 @@ async def get_start_manual_feeding_use_case(
     )
 
 
+async def get_start_cyclic_feeding_use_case(
+    session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
+    cage_feeding_repo: CageFeedingRepository = Depends(get_cage_feeding_repo),
+    event_repo: FeedingEventRepository = Depends(get_feeding_event_repo),
+    line_repo: FeedingLineRepository = Depends(get_line_repo),
+    cage_repo: CageRepository = Depends(get_cage_repo),
+    cage_group_repo: CageGroupRepository = Depends(get_cage_group_repo),
+    silo_repo: SiloRepository = Depends(get_silo_repo),
+    slot_assignment_repo: SlotAssignmentRepository = Depends(get_slot_assignment_repo),
+    orchestrator: FeedingOrchestrator = Depends(get_feeding_orchestrator),
+    system_config_repo: SystemConfigRepository = Depends(get_system_config_repo),
+) -> StartCyclicFeedingUseCase:
+    """Crea instancia del caso de uso de inicio de alimentación cíclica."""
+    return StartCyclicFeedingUseCase(
+        session_repository=session_repo,
+        cage_feeding_repository=cage_feeding_repo,
+        event_repository=event_repo,
+        line_repository=line_repo,
+        cage_repository=cage_repo,
+        cage_group_repository=cage_group_repo,
+        silo_repository=silo_repo,
+        slot_assignment_repository=slot_assignment_repo,
+        orchestrator=orchestrator,
+        system_config_repository=system_config_repo,
+    )
+
+
 # ============================================================================
 # Dependencias de Casos de Uso - Feeding (Control)
 # ============================================================================
@@ -595,12 +625,14 @@ async def get_update_feeding_rate_use_case(
     cage_feeding_repo: CageFeedingRepository = Depends(get_cage_feeding_repo),
     event_repo: FeedingEventRepository = Depends(get_feeding_event_repo),
     machine: SimulatedMachine = Depends(get_simulated_machine),
+    line_repo: FeedingLineRepository = Depends(get_line_repo),
 ) -> UpdateFeedingRateUseCase:
     return UpdateFeedingRateUseCase(
         session_repo=session_repo,
         cage_feeding_repo=cage_feeding_repo,
         event_repo=event_repo,
         machine=machine,
+        line_repo=line_repo,
     )
 
 
@@ -1134,6 +1166,8 @@ DeleteCageGroupUseCaseDep = Annotated[DeleteCageGroupUseCase, Depends(get_delete
 CheckScheduleUseCaseDep = Annotated[CheckScheduleUseCase, Depends(get_check_schedule_use_case)]
 
 StartManualFeedingUseCaseDep = Annotated[StartManualFeedingUseCase, Depends(get_start_manual_feeding_use_case)]
+
+StartCyclicFeedingUseCaseDep = Annotated[StartCyclicFeedingUseCase, Depends(get_start_cyclic_feeding_use_case)]
 
 UpdateFeedingRateUseCaseDep = Annotated[UpdateFeedingRateUseCase, Depends(get_update_feeding_rate_use_case)]
 

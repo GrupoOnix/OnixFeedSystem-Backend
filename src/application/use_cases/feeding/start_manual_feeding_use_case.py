@@ -77,6 +77,8 @@ class StartManualFeedingUseCase:
         cage_feeding = CageFeeding(
             feeding_session_id=session.id,
             cage_id=request.cage_id,
+            doser_id=request.doser_id,
+            silo_id=str(selected_doser.assigned_silo_id.value),
             execution_order=1,
             programmed_kg=request.quantity_kg,
             programmed_visits=1,
@@ -101,10 +103,10 @@ class StartManualFeedingUseCase:
                 session=session,
                 cage_feedings=[cage_feeding],
                 line_id=LineId.from_string(request.line_id),
-                slot_number=assignment.slot_number,
+                slot_map={cage_feeding.cage_id: assignment.slot_number},
                 silo_id=selected_doser.assigned_silo_id,
                 blower_power_percentage=request.blower_power_percentage,
-                transport_time_seconds=float(cage.config.transport_time_seconds),  # type: ignore[arg-type]
+                transport_time_map={cage_feeding.cage_id: float(cage.config.transport_time_seconds)},  # type: ignore[arg-type]
                 blow_before_seconds=float(line.blower.blow_before_feeding_time.value),
                 blow_after_seconds=float(line.blower.blow_after_feeding_time.value),
                 selector_positioning_seconds=SELECTOR_POSITIONING_SECONDS,
