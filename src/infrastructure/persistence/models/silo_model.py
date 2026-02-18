@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID as PyUUID
 
-from sqlalchemy import BigInteger, Column, ForeignKey
+from sqlalchemy import BigInteger, Column, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlmodel import Field, SQLModel
 
@@ -24,7 +24,7 @@ class SiloModel(SQLModel, table=True):
     is_assigned: bool
     warning_threshold_percentage: float = Field(default=20.0)
     critical_threshold_percentage: float = Field(default=10.0)
-    created_at: datetime
+    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
 
     @staticmethod
     def from_domain(silo: "Silo") -> "SiloModel":

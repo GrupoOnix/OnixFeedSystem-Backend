@@ -1,14 +1,17 @@
 from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import List, Optional, Tuple
 
 from domain.aggregates.alert import Alert
+from domain.aggregates.system_config import SystemConfig
 from domain.aggregates.cage import Cage
 from domain.aggregates.cage_group import CageGroup
-from domain.aggregates.feeding_session import FeedingSession
 from domain.aggregates.food import Food
 from domain.aggregates.scheduled_alert import ScheduledAlert
 from domain.aggregates.silo import Silo
-from domain.entities.feeding_operation import FeedingOperation
+from domain.entities.cage_feeding import CageFeeding
+from domain.entities.feeding_event import FeedingEvent, FeedingEventType
+from domain.entities.feeding_session import FeedingSession as FeedingSessionEntity
 from domain.entities.population_event import PopulationEvent
 from domain.entities.slot_assignment import SlotAssignment
 from domain.enums import AlertCategory, AlertStatus, AlertType, PopulationEventType
@@ -27,9 +30,7 @@ from .value_objects import (
     LineId,
     LineName,
     MortalityLogEntry,
-    OperationId,
     ScheduledAlertId,
-    SessionId,
     SiloId,
     SiloName,
 )
@@ -255,13 +256,47 @@ class ISiloRepository(ABC):
 
 class IFeedingSessionRepository(ABC):
     @abstractmethod
-    async def save(self, session: FeedingSession) -> None: ...
+    async def save(self, session: FeedingSessionEntity) -> None: ...
 
     @abstractmethod
-    async def find_by_id(self, session_id: SessionId) -> Optional[FeedingSession]: ...
+    async def find_by_id(self, session_id: str) -> Optional[FeedingSessionEntity]: ...
 
     @abstractmethod
-    async def find_active_by_line_id(self, line_id: LineId) -> Optional[FeedingSession]: ...
+    async def find_active_by_line(self, line_id: str) -> Optional[FeedingSessionEntity]: ...
+
+    @abstractmethod
+    async def find_today_by_line(self, line_id: str) -> Optional[FeedingSessionEntity]: ...
+
+    @abstractmethod
+    async def list_by_date_range(self, start: datetime, end: datetime) -> List[FeedingSessionEntity]: ...
+
+
+class ICageFeedingRepository(ABC):
+    @abstractmethod
+    async def save(self, cage_feeding: CageFeeding) -> None: ...
+
+    @abstractmethod
+    async def find_by_id(self, id: str) -> Optional[CageFeeding]: ...
+
+    @abstractmethod
+    async def find_by_session(self, session_id: str) -> List[CageFeeding]: ...
+
+    @abstractmethod
+    async def find_current_by_session(self, session_id: str) -> Optional[CageFeeding]: ...
+
+
+class IFeedingEventRepository(ABC):
+    @abstractmethod
+    async def save(self, event: FeedingEvent) -> None: ...
+
+    @abstractmethod
+    async def save_many(self, events: List[FeedingEvent]) -> None: ...
+
+    @abstractmethod
+    async def find_by_session(self, session_id: str) -> List[FeedingEvent]: ...
+
+    @abstractmethod
+    async def find_by_type(self, session_id: str, event_type: FeedingEventType) -> List[FeedingEvent]: ...
 
 
 class IBiometryLogRepository(ABC):
@@ -323,56 +358,6 @@ class IConfigChangeLogRepository(ABC):
     @abstractmethod
     async def count_by_cage(self, cage_id: CageId) -> int:
         """Cuenta total de registros de cambios de configuración de una jaula."""
-        ...
-
-
-class IFeedingOperationRepository(ABC):
-    """Interfaz del repositorio de operaciones de alimentación."""
-
-    @abstractmethod
-    async def save(self, operation: FeedingOperation) -> None:
-        """Guarda o actualiza una operación."""
-        ...
-
-    @abstractmethod
-    async def find_by_id(self, operation_id: OperationId) -> Optional[FeedingOperation]:
-        """Busca una operación por su ID."""
-        ...
-
-    @abstractmethod
-    async def find_current_by_session(self, session_id: SessionId) -> Optional[FeedingOperation]:
-        """Encuentra la operación activa (RUNNING o PAUSED) de una sesión."""
-        ...
-
-    @abstractmethod
-    async def find_all_by_session(self, session_id: SessionId) -> List[FeedingOperation]:
-        """Obtiene todas las operaciones de una sesión (para reportes)."""
-        ...
-
-    @abstractmethod
-    async def get_today_dispensed_by_cage(self, cage_id: CageId) -> float:
-        """
-        Calcula el total de alimento dispensado a una jaula en el día actual.
-
-        Args:
-            cage_id: ID de la jaula
-
-        Returns:
-            Total de kg dispensados hoy (desde las 00:00 UTC)
-        """
-        ...
-
-    @abstractmethod
-    async def get_today_dispensed_by_cages(self, cage_ids: List[CageId]) -> dict[str, float]:
-        """
-        Calcula el total de alimento dispensado para múltiples jaulas en el día actual.
-
-        Args:
-            cage_ids: Lista de IDs de jaulas
-
-        Returns:
-            Diccionario con cage_id (string) como clave y kg dispensados como valor
-        """
         ...
 
 
@@ -567,4 +552,15 @@ class IScheduledAlertRepository(ABC):
     @abstractmethod
     async def delete(self, alert_id: ScheduledAlertId) -> None:
         """Elimina una alerta programada."""
+        ...
+
+
+class ISystemConfigRepository(ABC):
+
+    @abstractmethod
+    async def get(self) -> SystemConfig:
+        ...
+
+    @abstractmethod
+    async def save(self, config: SystemConfig) -> None:
         ...

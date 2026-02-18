@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, List, Optional, Tuple, cast
 
 from ...exceptions import DuplicateSensorTypeException, InsufficientComponentsException
@@ -15,7 +15,7 @@ class FeedingLine:
         self._selector: Optional[ISelector] = None
         self._sensors: Tuple[ISensor, ...] = ()
         self._cooler: Optional[ICooler] = None
-        self._created_at = datetime.utcnow()
+        self._created_at = datetime.now(timezone.utc)
 
     @classmethod
     def create(

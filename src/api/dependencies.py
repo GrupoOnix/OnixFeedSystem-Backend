@@ -66,18 +66,30 @@ from application.use_cases.device_control import (
     TurnDoserOffUseCase,
     TurnDoserOnUseCase,
 )
-from application.use_cases.feeding.control_feeding_use_case import (
-    PauseFeedingSessionUseCase,
-    ResumeFeedingSessionUseCase,
+# REMOVED: Old feeding use cases - system being rewritten
+# from application.use_cases.feeding.control_feeding_use_case import (
+#     PauseFeedingSessionUseCase,
+#     ResumeFeedingSessionUseCase,
+# )
+# from application.use_cases.feeding.start_feeding_use_case import (
+#     StartFeedingSessionUseCase,
+# )
+# from application.use_cases.feeding.stop_feeding_use_case import (
+#     StopFeedingSessionUseCase,
+# )
+# from application.use_cases.feeding.update_feeding_use_case import (
+#     UpdateFeedingParametersUseCase,
+# )
+from application.services.feeding_orchestrator import FeedingOrchestrator
+from application.use_cases.feeding.control_feeding_use_cases import (
+    CancelFeedingUseCase,
+    PauseFeedingUseCase,
+    ResumeFeedingUseCase,
+    UpdateBlowerPowerUseCase,
+    UpdateFeedingRateUseCase,
 )
-from application.use_cases.feeding.start_feeding_use_case import (
-    StartFeedingSessionUseCase,
-)
-from application.use_cases.feeding.stop_feeding_use_case import (
-    StopFeedingSessionUseCase,
-)
-from application.use_cases.feeding.update_feeding_use_case import (
-    UpdateFeedingParametersUseCase,
+from application.use_cases.feeding.start_manual_feeding_use_case import (
+    StartManualFeedingUseCase,
 )
 from application.use_cases.feeding_line import (
     GetFeedingLineUseCase,
@@ -110,15 +122,16 @@ from application.use_cases.silo import (
 )
 from domain.factories import ComponentFactory
 from domain.interfaces import IFeedingMachine
-from infrastructure.persistence.database import get_session
+from infrastructure.persistence.database import async_session_maker, get_session
 from infrastructure.persistence.repositories import (
     AlertRepository,
     BiometryLogRepository,
+    CageFeedingRepository,
     CageGroupRepository,
     CageRepository,
     ConfigChangeLogRepository,
+    FeedingEventRepository,
     FeedingLineRepository,
-    FeedingOperationRepository,
     FoodRepository,
     MortalityLogRepository,
     ScheduledAlertRepository,
@@ -139,7 +152,10 @@ from infrastructure.persistence.repositories.selector_repository import (
 from infrastructure.persistence.repositories.slot_assignment_repository import (
     SlotAssignmentRepository,
 )
+from infrastructure.persistence.repositories.system_config_repository import SystemConfigRepository
 from infrastructure.services.plc_simulator import PLCSimulator
+from infrastructure.services.simulated_machine import SimulatedMachine
+from application.use_cases.system_config import CheckScheduleUseCase, GetSystemConfigUseCase, UpdateSystemConfigUseCase
 
 # ============================================================================
 # Dependencias de Repositorios
@@ -194,13 +210,6 @@ async def get_feeding_session_repo(
     return FeedingSessionRepository(session)
 
 
-async def get_feeding_operation_repo(
-    session: AsyncSession = Depends(get_session),
-) -> FeedingOperationRepository:
-    """Crea instancia del repositorio de operaciones de alimentación."""
-    return FeedingOperationRepository(session)
-
-
 async def get_blower_repo(
     session: AsyncSession = Depends(get_session),
 ) -> BlowerRepository:
@@ -243,6 +252,27 @@ async def get_scheduled_alert_repo(
     return ScheduledAlertRepository(session)
 
 
+async def get_cage_feeding_repo(
+    session: AsyncSession = Depends(get_session),
+) -> CageFeedingRepository:
+    """Crea instancia del repositorio de alimentaciones de jaulas."""
+    return CageFeedingRepository(session)
+
+
+async def get_feeding_event_repo(
+    session: AsyncSession = Depends(get_session),
+) -> FeedingEventRepository:
+    """Crea instancia del repositorio de eventos de alimentación."""
+    return FeedingEventRepository(session)
+
+
+async def get_system_config_repo(
+    session: AsyncSession = Depends(get_session),
+) -> SystemConfigRepository:
+    """Crea instancia del repositorio de configuración del sistema."""
+    return SystemConfigRepository(session)
+
+
 # ============================================================================
 # Servicios de Infraestructura
 # ============================================================================
@@ -260,6 +290,25 @@ def get_machine_service() -> IFeedingMachine:
     if _plc_simulator_instance is None:
         _plc_simulator_instance = PLCSimulator()
     return _plc_simulator_instance
+
+
+_simulated_machine_instance: Optional[SimulatedMachine] = None
+
+
+def get_simulated_machine() -> SimulatedMachine:
+    global _simulated_machine_instance
+    if _simulated_machine_instance is None:
+        _simulated_machine_instance = SimulatedMachine()
+    return _simulated_machine_instance
+
+
+def get_feeding_orchestrator(
+    machine: SimulatedMachine = Depends(get_simulated_machine),
+) -> FeedingOrchestrator:
+    return FeedingOrchestrator(
+        machine=machine,
+        session_factory=async_session_maker,
+    )
 
 
 def get_component_factory() -> ComponentFactory:
@@ -507,6 +556,130 @@ async def get_get_selector_status_use_case(
 
 
 # ============================================================================
+# Dependencias de Casos de Uso - Feeding (Manual)
+# ============================================================================
+
+
+async def get_start_manual_feeding_use_case(
+    session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
+    cage_feeding_repo: CageFeedingRepository = Depends(get_cage_feeding_repo),
+    event_repo: FeedingEventRepository = Depends(get_feeding_event_repo),
+    line_repo: FeedingLineRepository = Depends(get_line_repo),
+    cage_repo: CageRepository = Depends(get_cage_repo),
+    silo_repo: SiloRepository = Depends(get_silo_repo),
+    slot_assignment_repo: SlotAssignmentRepository = Depends(get_slot_assignment_repo),
+    orchestrator: FeedingOrchestrator = Depends(get_feeding_orchestrator),
+    system_config_repo: SystemConfigRepository = Depends(get_system_config_repo),
+) -> StartManualFeedingUseCase:
+    """Crea instancia del caso de uso de inicio de alimentación manual."""
+    return StartManualFeedingUseCase(
+        session_repository=session_repo,
+        cage_feeding_repository=cage_feeding_repo,
+        event_repository=event_repo,
+        line_repository=line_repo,
+        cage_repository=cage_repo,
+        silo_repository=silo_repo,
+        slot_assignment_repository=slot_assignment_repo,
+        orchestrator=orchestrator,
+        system_config_repository=system_config_repo,
+    )
+
+
+# ============================================================================
+# Dependencias de Casos de Uso - Feeding (Control)
+# ============================================================================
+
+
+async def get_update_feeding_rate_use_case(
+    session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
+    cage_feeding_repo: CageFeedingRepository = Depends(get_cage_feeding_repo),
+    event_repo: FeedingEventRepository = Depends(get_feeding_event_repo),
+    machine: SimulatedMachine = Depends(get_simulated_machine),
+) -> UpdateFeedingRateUseCase:
+    return UpdateFeedingRateUseCase(
+        session_repo=session_repo,
+        cage_feeding_repo=cage_feeding_repo,
+        event_repo=event_repo,
+        machine=machine,
+    )
+
+
+async def get_pause_feeding_use_case(
+    session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
+    event_repo: FeedingEventRepository = Depends(get_feeding_event_repo),
+    machine: SimulatedMachine = Depends(get_simulated_machine),
+) -> PauseFeedingUseCase:
+    return PauseFeedingUseCase(
+        session_repo=session_repo,
+        event_repo=event_repo,
+        machine=machine,
+    )
+
+
+async def get_resume_feeding_use_case(
+    session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
+    event_repo: FeedingEventRepository = Depends(get_feeding_event_repo),
+    machine: SimulatedMachine = Depends(get_simulated_machine),
+) -> ResumeFeedingUseCase:
+    return ResumeFeedingUseCase(
+        session_repo=session_repo,
+        event_repo=event_repo,
+        machine=machine,
+    )
+
+
+async def get_cancel_feeding_use_case(
+    session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
+    event_repo: FeedingEventRepository = Depends(get_feeding_event_repo),
+    machine: SimulatedMachine = Depends(get_simulated_machine),
+) -> CancelFeedingUseCase:
+    return CancelFeedingUseCase(
+        session_repo=session_repo,
+        event_repo=event_repo,
+        machine=machine,
+    )
+
+
+async def get_update_blower_power_use_case(
+    session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
+    machine: SimulatedMachine = Depends(get_simulated_machine),
+) -> UpdateBlowerPowerUseCase:
+    return UpdateBlowerPowerUseCase(
+        session_repo=session_repo,
+        machine=machine,
+    )
+
+
+# ============================================================================
+# Dependencias de Casos de Uso - System Config
+# ============================================================================
+
+
+async def get_get_system_config_use_case(
+    config_repo: SystemConfigRepository = Depends(get_system_config_repo),
+) -> GetSystemConfigUseCase:
+    return GetSystemConfigUseCase(config_repository=config_repo)
+
+
+async def get_update_system_config_use_case(
+    config_repo: SystemConfigRepository = Depends(get_system_config_repo),
+) -> UpdateSystemConfigUseCase:
+    return UpdateSystemConfigUseCase(config_repository=config_repo)
+
+
+async def get_check_schedule_use_case(
+    config_repo: SystemConfigRepository = Depends(get_system_config_repo),
+    line_repo: FeedingLineRepository = Depends(get_line_repo),
+    cage_repo: CageRepository = Depends(get_cage_repo),
+) -> CheckScheduleUseCase:
+    return CheckScheduleUseCase(
+        config_repository=config_repo,
+        line_repository=line_repo,
+        cage_repository=cage_repo,
+    )
+
+
+# ============================================================================
 # Dependencias de Servicios - Alert Trigger
 # ============================================================================
 
@@ -660,26 +833,26 @@ async def get_create_cage_use_case(
 
 async def get_get_cage_use_case(
     cage_repo: CageRepository = Depends(get_cage_repo),
-    operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),
+    # operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),  # DEPRECATED
 ) -> GetCageUseCase:
     """Crea instancia del caso de uso de obtención de jaula."""
-    return GetCageUseCase(cage_repository=cage_repo, operation_repository=operation_repo)
+    return GetCageUseCase(cage_repository=cage_repo, operation_repository=None)  # TODO: Remove operation_repository
 
 
 async def get_list_cages_use_case(
     cage_repo: CageRepository = Depends(get_cage_repo),
-    operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),
+    # operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),  # DEPRECATED
 ) -> ListCagesUseCase:
     """Crea instancia del caso de uso de listado de jaulas."""
-    return ListCagesUseCase(cage_repository=cage_repo, operation_repository=operation_repo)
+    return ListCagesUseCase(cage_repository=cage_repo, operation_repository=None)  # TODO: Remove operation_repository
 
 
 async def get_update_cage_use_case(
     cage_repo: CageRepository = Depends(get_cage_repo),
-    operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),
+    # operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),  # DEPRECATED
 ) -> UpdateCageUseCase:
     """Crea instancia del caso de uso de actualización de jaula."""
-    return UpdateCageUseCase(cage_repository=cage_repo, operation_repository=operation_repo)
+    return UpdateCageUseCase(cage_repository=cage_repo, operation_repository=None)  # TODO: Remove operation_repository
 
 
 async def get_delete_cage_use_case(
@@ -691,10 +864,10 @@ async def get_delete_cage_use_case(
 
 async def get_update_cage_config_use_case(
     cage_repo: CageRepository = Depends(get_cage_repo),
-    operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),
+    # operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),  # DEPRECATED
 ) -> UpdateCageConfigUseCase:
     """Crea instancia del caso de uso de actualización de configuración."""
-    return UpdateCageConfigUseCase(cage_repository=cage_repo, operation_repository=operation_repo)
+    return UpdateCageConfigUseCase(cage_repository=cage_repo, operation_repository=None)  # TODO: Remove operation_repository
 
 
 async def get_set_population_use_case(
@@ -833,75 +1006,8 @@ async def get_delete_cage_group_use_case(
 # ============================================================================
 # Dependencias de Casos de Uso - Feeding
 # ============================================================================
-
-
-async def get_start_feeding_use_case(
-    session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
-    operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),
-    line_repo: FeedingLineRepository = Depends(get_line_repo),
-    cage_repo: CageRepository = Depends(get_cage_repo),
-    machine_service: IFeedingMachine = Depends(get_machine_service),
-) -> StartFeedingSessionUseCase:
-    """Crea instancia del caso de uso de inicio de alimentación."""
-    return StartFeedingSessionUseCase(
-        session_repository=session_repo,
-        operation_repository=operation_repo,
-        line_repository=line_repo,
-        cage_repository=cage_repo,
-        machine_service=machine_service,
-    )
-
-
-async def get_stop_feeding_use_case(
-    session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
-    operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),
-    machine_service: IFeedingMachine = Depends(get_machine_service),
-) -> StopFeedingSessionUseCase:
-    """Crea instancia del caso de uso de detención de alimentación."""
-    return StopFeedingSessionUseCase(
-        session_repository=session_repo,
-        operation_repository=operation_repo,
-        machine_service=machine_service,
-    )
-
-
-async def get_pause_feeding_use_case(
-    session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
-    operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),
-    machine_service: IFeedingMachine = Depends(get_machine_service),
-) -> PauseFeedingSessionUseCase:
-    """Crea instancia del caso de uso de pausa de alimentación."""
-    return PauseFeedingSessionUseCase(
-        session_repository=session_repo,
-        operation_repository=operation_repo,
-        machine_service=machine_service,
-    )
-
-
-async def get_resume_feeding_use_case(
-    session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
-    operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),
-    machine_service: IFeedingMachine = Depends(get_machine_service),
-) -> ResumeFeedingSessionUseCase:
-    """Crea instancia del caso de uso de reanudación de alimentación."""
-    return ResumeFeedingSessionUseCase(
-        session_repository=session_repo,
-        operation_repository=operation_repo,
-        machine_service=machine_service,
-    )
-
-
-async def get_update_feeding_params_use_case(
-    session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
-    operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),
-    machine_service: IFeedingMachine = Depends(get_machine_service),
-) -> UpdateFeedingParametersUseCase:
-    """Crea instancia del caso de uso de actualización de parámetros de alimentación."""
-    return UpdateFeedingParametersUseCase(
-        session_repository=session_repo,
-        operation_repository=operation_repo,
-        machine_service=machine_service,
-    )
+# REMOVED: Old feeding use cases - system being rewritten
+# All feeding-related use cases will be recreated from scratch
 
 
 # ============================================================================
@@ -1023,16 +1129,21 @@ DeleteCageGroupUseCaseDep = Annotated[DeleteCageGroupUseCase, Depends(get_delete
 # ============================================================================
 # Type Aliases para Endpoints - Feeding
 # ============================================================================
+# REMOVED: Old feeding use case type aliases - system being rewritten
 
-StartFeedingUseCaseDep = Annotated[StartFeedingSessionUseCase, Depends(get_start_feeding_use_case)]
+CheckScheduleUseCaseDep = Annotated[CheckScheduleUseCase, Depends(get_check_schedule_use_case)]
 
-StopFeedingUseCaseDep = Annotated[StopFeedingSessionUseCase, Depends(get_stop_feeding_use_case)]
+StartManualFeedingUseCaseDep = Annotated[StartManualFeedingUseCase, Depends(get_start_manual_feeding_use_case)]
 
-PauseFeedingUseCaseDep = Annotated[PauseFeedingSessionUseCase, Depends(get_pause_feeding_use_case)]
+UpdateFeedingRateUseCaseDep = Annotated[UpdateFeedingRateUseCase, Depends(get_update_feeding_rate_use_case)]
 
-ResumeFeedingUseCaseDep = Annotated[ResumeFeedingSessionUseCase, Depends(get_resume_feeding_use_case)]
+PauseFeedingUseCaseDep = Annotated[PauseFeedingUseCase, Depends(get_pause_feeding_use_case)]
 
-UpdateFeedingParamsUseCaseDep = Annotated[UpdateFeedingParametersUseCase, Depends(get_update_feeding_params_use_case)]
+ResumeFeedingUseCaseDep = Annotated[ResumeFeedingUseCase, Depends(get_resume_feeding_use_case)]
+
+CancelFeedingUseCaseDep = Annotated[CancelFeedingUseCase, Depends(get_cancel_feeding_use_case)]
+
+UpdateBlowerPowerUseCaseDep = Annotated[UpdateBlowerPowerUseCase, Depends(get_update_blower_power_use_case)]
 
 
 # ============================================================================

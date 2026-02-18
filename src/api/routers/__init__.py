@@ -24,6 +24,7 @@ from . import (
     food_router,
     sensor_router,
     silo_router,
+    system_config_router,
     system_layout,
 )
 
@@ -32,6 +33,7 @@ api_router = APIRouter(prefix="/api")
 
 # Registrar routers por funcionalidad
 api_router.include_router(system_layout.router)
+api_router.include_router(system_config_router.router)
 api_router.include_router(cage_router.router)
 api_router.include_router(cage_group_router.router)
 api_router.include_router(silo_router.router)

@@ -5,8 +5,8 @@ from datetime import datetime
 from typing import Dict, Any, Optional, TYPE_CHECKING
 from uuid import UUID, uuid4
 
+from sqlalchemy import Column, DateTime
 from sqlmodel import Field, SQLModel, Relationship
-from sqlalchemy import Column
 from sqlalchemy.dialects.postgresql import JSONB
 
 if TYPE_CHECKING:
@@ -31,7 +31,7 @@ class OperationEventModel(SQLModel, table=True):
     )
 
     # Datos del evento
-    timestamp: datetime = Field(default_factory=datetime.utcnow, index=True)
+    timestamp: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False, index=True))
     type: str = Field(max_length=50)  # STARTED, PAUSED, RESUMED, PARAM_CHANGE, COMPLETED, STOPPED, FAILED
     description: str = Field(max_length=500)
     details: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))

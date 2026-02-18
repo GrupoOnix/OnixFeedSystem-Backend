@@ -315,3 +315,44 @@ class CoolerId:
 
     def __str__(self) -> str:
         return str(self.value)
+
+
+# ============================================================================
+# Identificadores de Comida y Visita
+# ============================================================================
+
+
+@dataclass(frozen=True)
+class ComidaId:
+    """Identificador único para una comida."""
+
+    value: UUID
+
+    @classmethod
+    def generate(cls) -> ComidaId:
+        return cls(uuid4())
+
+    @classmethod
+    def from_string(cls, id_str: str) -> ComidaId:
+        return cls(UUID(id_str))
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
+@dataclass(frozen=True)
+class VisitaId:
+    """Identificador único para una visita."""
+
+    value: UUID
+
+    @classmethod
+    def generate(cls) -> VisitaId:
+        return cls(uuid4())
+
+    @classmethod
+    def from_string(cls, id_str: str) -> VisitaId:
+        return cls(UUID(id_str))
+
+    def __str__(self) -> str:
+        return str(self.value)

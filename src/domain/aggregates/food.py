@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from domain.value_objects import FoodId, FoodName
@@ -42,8 +42,8 @@ class Food:
         self._ppk = ppk
         self._size_mm = size_mm
         self._active = active
-        self._created_at = datetime.utcnow()
-        self._updated_at = datetime.utcnow()
+        self._created_at = datetime.now(timezone.utc)
+        self._updated_at = datetime.now(timezone.utc)
 
     @staticmethod
     def _validate_numeric_fields(ppk: float, size_mm: float) -> None:
@@ -131,7 +131,7 @@ class Food:
                 raise ValueError("El código no puede estar vacío")
             self._code = code.strip()
 
-        self._updated_at = datetime.utcnow()
+        self._updated_at = datetime.now(timezone.utc)
 
     def update_physical_properties(
         self,
@@ -155,21 +155,21 @@ class Food:
                 raise ValueError("El tamaño del pellet debe ser mayor a 0 mm")
             self._size_mm = size_mm
 
-        self._updated_at = datetime.utcnow()
+        self._updated_at = datetime.now(timezone.utc)
 
     def activate(self) -> None:
         """Marca el alimento como activo y disponible para uso."""
         if self._active:
             raise ValueError("El alimento ya está activo")
         self._active = True
-        self._updated_at = datetime.utcnow()
+        self._updated_at = datetime.now(timezone.utc)
 
     def deactivate(self) -> None:
         """Marca el alimento como inactivo y no disponible para uso."""
         if not self._active:
             raise ValueError("El alimento ya está inactivo")
         self._active = False
-        self._updated_at = datetime.utcnow()
+        self._updated_at = datetime.now(timezone.utc)
 
     def get_display_name(self) -> str:
         """

@@ -14,16 +14,43 @@ class ListCagesUseCase:
         self._cage_repository = cage_repository
 
     async def execute(self, request: ListCagesRequest) -> ListCagesResponse:
+        try:
+            print("="*80)
+            print("INICIANDO LIST_CAGES USE CASE")
 
-        line_id_filter: Optional[LineId] = None
-        if request.line_id:
-            line_id_filter = LineId.from_string(request.line_id)
+            line_id_filter: Optional[LineId] = None
+            if request.line_id:
+                line_id_filter = LineId.from_string(request.line_id)
 
-        cages_with_info = await self._cage_repository.list_with_line_info(line_id=line_id_filter)
+            print(f"Filtro line_id: {line_id_filter}")
 
-        cage_dtos = [self._to_dto(cage, line_name) for cage, line_name in cages_with_info]
+            cages_with_info = await self._cage_repository.list_with_line_info(line_id=line_id_filter)
+            print(f"Cages encontradas: {len(cages_with_info)}")
 
-        return ListCagesResponse(cages=cage_dtos)
+            cage_dtos = []
+            for idx, (cage, line_name) in enumerate(cages_with_info):
+                try:
+                    print(f"Convirtiendo cage {idx}: {cage.name if hasattr(cage, 'name') else 'unknown'}")
+                    dto = self._to_dto(cage, line_name)
+                    cage_dtos.append(dto)
+                except Exception as e:
+                    import traceback
+                    print(f"ERROR AL CONVERTIR CAGE {idx}:")
+                    print(traceback.format_exc())
+                    raise
+
+            print(f"Total DTOs creados: {len(cage_dtos)}")
+            result = ListCagesResponse(cages=cage_dtos)
+            print("RESPONSE CREADA EXITOSAMENTE")
+            print("="*80)
+            return result
+        except Exception as e:
+            import traceback
+            print("="*80)
+            print("ERROR EN LIST_CAGES USE CASE:")
+            print(traceback.format_exc())
+            print("="*80)
+            raise
 
     def _to_dto(self, cage, line_name: Optional[str]) -> CageListItemResponse:
         return CageListItemResponse(

@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
+from sqlalchemy import Column, DateTime
 from sqlmodel import Field, SQLModel
 
 from domain.aggregates.cage import Cage
@@ -21,7 +22,7 @@ class CageModel(SQLModel, table=True):
     id: UUID = Field(primary_key=True)
     name: str = Field(unique=True, max_length=100)
     status: str
-    created_at: datetime
+    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
 
     # Población
     fish_count: int = Field(default=0)

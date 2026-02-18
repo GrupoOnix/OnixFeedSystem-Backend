@@ -6,7 +6,7 @@ validando que la línea exista antes de solicitar las lecturas.
 Aplica umbrales personalizados y filtra sensores deshabilitados.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Optional
 
 from domain.dtos.machine_io_v2 import SensorReading, SensorReadings
@@ -104,7 +104,7 @@ class GetSensorReadingsUseCase:
         return SensorReadings(
             line_id=str(line_id),
             readings=filtered_readings,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
         )
 
     def _apply_thresholds(

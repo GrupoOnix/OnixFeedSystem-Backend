@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from ...enums import SensorType
@@ -41,7 +41,7 @@ class Sensor(ISensor):
         self._is_enabled = is_enabled
         self._warning_threshold = warning_threshold
         self._critical_threshold = critical_threshold
-        self._created_at = datetime.utcnow()
+        self._created_at = datetime.now(timezone.utc)
 
     @property
     def id(self) -> SensorId:

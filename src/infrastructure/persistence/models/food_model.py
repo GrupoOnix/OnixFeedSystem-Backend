@@ -1,6 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
+from sqlalchemy import Column, DateTime
 from sqlmodel import Field, SQLModel
 
 from domain.aggregates.food import Food
@@ -19,8 +20,8 @@ class FoodModel(SQLModel, table=True):
     ppk: float = Field(gt=0)  # Pellets por kilo
     size_mm: float = Field(gt=0)  # Tamaño del pellet en mm
     active: bool = Field(default=True)
-    created_at: datetime
-    updated_at: datetime
+    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
+    updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
 
     @staticmethod
     def from_domain(food: Food) -> "FoodModel":

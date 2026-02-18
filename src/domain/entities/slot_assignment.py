@@ -1,7 +1,7 @@
 """Entidad que representa la asignación de una jaula a un slot de una línea."""
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID, uuid4
 
@@ -31,7 +31,7 @@ class SlotAssignment:
         if self.id is None:
             self.id = uuid4()
         if self.assigned_at is None:
-            self.assigned_at = datetime.utcnow()
+            self.assigned_at = datetime.now(timezone.utc)
 
         if self.slot_number < 1:
             raise ValueError("El número de slot debe ser mayor o igual a 1")

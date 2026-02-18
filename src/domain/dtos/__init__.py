@@ -1,7 +1,3 @@
-"""
-DTOs del dominio de Feeding System.
-"""
-
 from .machine_io_v2 import (
     BlowerCommand,
     CoolerCommand,
@@ -11,6 +7,10 @@ from .machine_io_v2 import (
     SelectorCommand,
     SensorReading,
     SensorReadings,
+)
+from .machine_io import (
+    MachineCommand,
+    MachineVisitStatus,
 )
 
 __all__ = [
@@ -22,4 +22,6 @@ __all__ = [
     "SelectorCommand",
     "SensorReading",
     "SensorReadings",
+    "MachineCommand",
+    "MachineVisitStatus",
 ]

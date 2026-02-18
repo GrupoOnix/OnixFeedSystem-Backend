@@ -5,7 +5,7 @@ El cooler es un componente opcional de la línea de alimentación que enfría
 el aire entre el Blower y el Doser para proteger la calidad del alimento.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from domain.interfaces import ICooler
 from domain.value_objects import (
@@ -48,7 +48,7 @@ class Cooler(ICooler):
         self._name = name
         self._is_on = is_on
         self._cooling_power_percentage = cooling_power_percentage
-        self._created_at = datetime.utcnow()
+        self._created_at = datetime.now(timezone.utc)
 
     # -----------------
     # Properties

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from domain.value_objects import FoodId, SiloId, SiloName, Weight
@@ -36,7 +36,7 @@ class Silo:
         self._is_assigned = False  # FA4: Control de asignación 1-a-1
         self._warning_threshold_percentage = warning_threshold_percentage
         self._critical_threshold_percentage = critical_threshold_percentage
-        self._created_at = datetime.utcnow()
+        self._created_at = datetime.now(timezone.utc)
 
     @property
     def id(self) -> SiloId:
