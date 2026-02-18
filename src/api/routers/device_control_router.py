@@ -5,6 +5,9 @@ from typing import Dict
 from fastapi import APIRouter, HTTPException, status
 
 from api.dependencies import (
+    GetBlowerStatusUseCaseDep,
+    GetDoserStatusUseCaseDep,
+    GetSelectorStatusUseCaseDep,
     MoveSelectorDirectUseCaseDep,
     ResetSelectorDirectUseCaseDep,
     SetBlowerPowerUseCaseDep,
@@ -19,7 +22,10 @@ from api.dependencies import (
     TurnDoserOnUseCaseDep,
 )
 from application.dtos.device_control_dtos import (
+    BlowerStatusResponse,
+    DoserStatusResponse,
     MoveSelectorRequest,
+    SelectorStatusResponse,
     SetBlowerPowerRequest,
     SetCoolerPowerRequest,
     SetDoserRateRequest,
@@ -318,6 +324,93 @@ async def reset_selector(
     try:
         await use_case.execute(selector_id)
         return {"message": "Selector position reset successfully"}
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+
+    except DomainException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}",
+        )
+
+
+@router.get("/blowers/{blower_id}/status", status_code=status.HTTP_200_OK)
+async def get_blower_status(
+    blower_id: str,
+    use_case: GetBlowerStatusUseCaseDep,
+) -> BlowerStatusResponse:
+    """
+    Obtiene el estado actual de un blower específico.
+
+    - **blower_id**: ID del blower (UUID)
+    """
+    try:
+        return await use_case.execute(blower_id)
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+
+    except DomainException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}",
+        )
+
+
+@router.get("/dosers/{doser_id}/status", status_code=status.HTTP_200_OK)
+async def get_doser_status(
+    doser_id: str,
+    use_case: GetDoserStatusUseCaseDep,
+) -> DoserStatusResponse:
+    """
+    Obtiene el estado actual de un doser específico.
+
+    - **doser_id**: ID del doser (UUID)
+    """
+    try:
+        return await use_case.execute(doser_id)
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+
+    except DomainException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}",
+        )
+
+
+@router.get("/selectors/{selector_id}/status", status_code=status.HTTP_200_OK)
+async def get_selector_status(
+    selector_id: str,
+    use_case: GetSelectorStatusUseCaseDep,
+) -> SelectorStatusResponse:
+    """
+    Obtiene el estado actual de un selector específico.
+
+    - **selector_id**: ID del selector (UUID)
+    """
+    try:
+        return await use_case.execute(selector_id)
 
     except ValueError as e:
         raise HTTPException(

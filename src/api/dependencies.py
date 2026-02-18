@@ -50,6 +50,9 @@ from application.use_cases.cage_group import (
     UpdateCageGroupUseCase,
 )
 from application.use_cases.device_control import (
+    GetBlowerStatusUseCase,
+    GetDoserStatusUseCase,
+    GetSelectorStatusUseCase,
     MoveSelectorToSlotDirectUseCase,
     ResetSelectorDirectUseCase,
     SetBlowerPowerUseCase,
@@ -480,6 +483,27 @@ async def get_turn_cooler_off_use_case(
         cooler_repository=cooler_repo,
         machine_service=machine_service,
     )
+
+
+async def get_get_blower_status_use_case(
+    blower_repo: BlowerRepository = Depends(get_blower_repo),
+) -> GetBlowerStatusUseCase:
+    """Crea instancia del caso de uso de status de blower."""
+    return GetBlowerStatusUseCase(blower_repository=blower_repo)
+
+
+async def get_get_doser_status_use_case(
+    doser_repo: DoserRepository = Depends(get_doser_repo),
+) -> GetDoserStatusUseCase:
+    """Crea instancia del caso de uso de status de doser."""
+    return GetDoserStatusUseCase(doser_repository=doser_repo)
+
+
+async def get_get_selector_status_use_case(
+    selector_repo: SelectorRepository = Depends(get_selector_repo),
+) -> GetSelectorStatusUseCase:
+    """Crea instancia del caso de uso de status de selector."""
+    return GetSelectorStatusUseCase(selector_repository=selector_repo)
 
 
 # ============================================================================
@@ -1038,6 +1062,12 @@ SetCoolerPowerUseCaseDep = Annotated[SetCoolerPowerUseCase, Depends(get_set_cool
 TurnCoolerOnUseCaseDep = Annotated[TurnCoolerOnUseCase, Depends(get_turn_cooler_on_use_case)]
 
 TurnCoolerOffUseCaseDep = Annotated[TurnCoolerOffUseCase, Depends(get_turn_cooler_off_use_case)]
+
+GetBlowerStatusUseCaseDep = Annotated[GetBlowerStatusUseCase, Depends(get_get_blower_status_use_case)]
+
+GetDoserStatusUseCaseDep = Annotated[GetDoserStatusUseCase, Depends(get_get_doser_status_use_case)]
+
+GetSelectorStatusUseCaseDep = Annotated[GetSelectorStatusUseCase, Depends(get_get_selector_status_use_case)]
 
 
 # ============================================================================

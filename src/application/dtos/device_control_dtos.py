@@ -1,5 +1,7 @@
 """DTOs para control directo de devices."""
 
+from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -39,3 +41,20 @@ class MoveSelectorRequest(BaseModel):
     """Request para mover el selector a un slot específico."""
 
     slot_number: int = Field(..., ge=1, description="Número de slot (1 a capacity)")
+
+
+class BlowerStatusResponse(BaseModel):
+    blower_id: str
+    is_running: bool
+    current_power: float
+
+
+class DoserStatusResponse(BaseModel):
+    doser_id: str
+    is_running: bool
+    current_rate_kg_min: float
+
+
+class SelectorStatusResponse(BaseModel):
+    selector_id: str
+    current_slot: Optional[int]

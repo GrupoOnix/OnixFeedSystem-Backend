@@ -13,7 +13,6 @@ from api.dependencies import (
 from application.dtos.food_dtos import (
     CreateFoodRequest,
     FoodDetailResponse,
-    FoodDTO,
     ListFoodsResponse,
     ToggleFoodActiveRequest,
     UpdateFoodRequest,
@@ -78,10 +77,10 @@ async def get_food(food_id: str, use_case: GetFoodUseCaseDep) -> FoodDetailRespo
         )
 
 
-@router.post("", response_model=FoodDTO, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=FoodDetailResponse, status_code=status.HTTP_201_CREATED)
 async def create_food(
     request: CreateFoodRequest, use_case: CreateFoodUseCaseDep
-) -> FoodDTO:
+) -> FoodDetailResponse:
     """
     Crea un nuevo alimento.
 
@@ -121,10 +120,10 @@ async def create_food(
         )
 
 
-@router.patch("/{food_id}", response_model=FoodDTO)
+@router.patch("/{food_id}", response_model=FoodDetailResponse)
 async def update_food(
     food_id: str, request: UpdateFoodRequest, use_case: UpdateFoodUseCaseDep
-) -> FoodDTO:
+) -> FoodDetailResponse:
     """
     Actualiza un alimento existente.
 
@@ -168,12 +167,12 @@ async def update_food(
         )
 
 
-@router.patch("/{food_id}/toggle-active", response_model=FoodDTO)
+@router.patch("/{food_id}/toggle-active", response_model=FoodDetailResponse)
 async def toggle_food_active(
     food_id: str,
     request: ToggleFoodActiveRequest,
     use_case: ToggleFoodActiveUseCaseDep,
-) -> FoodDTO:
+) -> FoodDetailResponse:
     """
     Activa o desactiva un alimento.
 

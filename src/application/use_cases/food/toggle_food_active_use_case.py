@@ -1,4 +1,4 @@
-from application.dtos.food_dtos import FoodDTO, ToggleFoodActiveRequest
+from application.dtos.food_dtos import FoodDetailResponse, FoodDTO, ToggleFoodActiveRequest
 from domain.aggregates.food import Food
 from domain.exceptions import FoodNotFoundError
 from domain.repositories import IFoodRepository
@@ -13,7 +13,7 @@ class ToggleFoodActiveUseCase:
 
     async def execute(
         self, food_id_str: str, request: ToggleFoodActiveRequest
-    ) -> FoodDTO:
+    ) -> FoodDetailResponse:
         """
         Ejecuta el caso de uso para cambiar el estado activo de un alimento.
 
@@ -22,7 +22,7 @@ class ToggleFoodActiveUseCase:
             request: ToggleFoodActiveRequest con el nuevo estado
 
         Returns:
-            FoodDTO con los datos actualizados del alimento
+            FoodDetailResponse con los datos actualizados del alimento
 
         Raises:
             FoodNotFoundError: Si el alimento no existe
@@ -43,7 +43,7 @@ class ToggleFoodActiveUseCase:
         # Persistir cambios
         await self._food_repository.save(food)
 
-        return self._to_dto(food)
+        return FoodDetailResponse(food=self._to_dto(food))
 
     def _to_dto(self, food: Food) -> FoodDTO:
         """Convierte un agregado Food a FoodDTO."""

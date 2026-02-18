@@ -1,4 +1,4 @@
-from application.dtos.food_dtos import FoodDTO, UpdateFoodRequest
+from application.dtos.food_dtos import FoodDetailResponse, FoodDTO, UpdateFoodRequest
 from domain.aggregates.food import Food
 from domain.exceptions import (
     DuplicateFoodCodeError,
@@ -15,7 +15,7 @@ class UpdateFoodUseCase:
     def __init__(self, food_repository: IFoodRepository):
         self._food_repository = food_repository
 
-    async def execute(self, food_id_str: str, request: UpdateFoodRequest) -> FoodDTO:
+    async def execute(self, food_id_str: str, request: UpdateFoodRequest) -> FoodDetailResponse:
         """
         Ejecuta el caso de uso para actualizar un alimento.
 
@@ -24,7 +24,7 @@ class UpdateFoodUseCase:
             request: UpdateFoodRequest con los datos a actualizar
 
         Returns:
-            FoodDTO con los datos actualizados del alimento
+            FoodDetailResponse con los datos actualizados del alimento
 
         Raises:
             FoodNotFoundError: Si el alimento no existe
@@ -81,7 +81,7 @@ class UpdateFoodUseCase:
         # Persistir cambios
         await self._food_repository.save(food)
 
-        return self._to_dto(food)
+        return FoodDetailResponse(food=self._to_dto(food))
 
     def _to_dto(self, food: Food) -> FoodDTO:
         """Convierte un agregado Food a FoodDTO."""

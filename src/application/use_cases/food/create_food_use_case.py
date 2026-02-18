@@ -1,4 +1,4 @@
-from application.dtos.food_dtos import CreateFoodRequest, FoodDTO
+from application.dtos.food_dtos import CreateFoodRequest, FoodDetailResponse, FoodDTO
 from domain.aggregates.food import Food
 from domain.exceptions import DuplicateFoodCodeError, DuplicateFoodNameError
 from domain.repositories import IFoodRepository
@@ -11,7 +11,7 @@ class CreateFoodUseCase:
     def __init__(self, food_repository: IFoodRepository):
         self._food_repository = food_repository
 
-    async def execute(self, request: CreateFoodRequest) -> FoodDTO:
+    async def execute(self, request: CreateFoodRequest) -> FoodDetailResponse:
         """
         Ejecuta el caso de uso para crear un nuevo alimento.
 
@@ -19,7 +19,7 @@ class CreateFoodUseCase:
             request: CreateFoodRequest con los datos del nuevo alimento
 
         Returns:
-            FoodDTO con los datos del alimento creado
+            FoodDetailResponse con los datos del alimento creado
 
         Raises:
             DuplicateFoodNameError: Si ya existe un alimento con ese nombre
@@ -54,8 +54,8 @@ class CreateFoodUseCase:
         # Persistir
         await self._food_repository.save(food)
 
-        # Retornar DTO
-        return self._to_dto(food)
+        # Retornar response
+        return FoodDetailResponse(food=self._to_dto(food))
 
     def _to_dto(self, food: Food) -> FoodDTO:
         """Convierte un agregado Food a FoodDTO."""
