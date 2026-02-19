@@ -36,6 +36,18 @@ class CageFeedingModel(SQLModel, table=True):
         index=True,
         ondelete="CASCADE",
     )
+    doser_id: Optional[UUID] = Field(
+        default=None,
+        foreign_key="dosers.id",
+        nullable=True,
+        index=True,
+    )
+    silo_id: Optional[UUID] = Field(
+        default=None,
+        foreign_key="silos.id",
+        nullable=True,
+        index=True,
+    )
 
     # Configuración
     execution_order: int = Field(nullable=False)
@@ -63,6 +75,8 @@ class CageFeedingModel(SQLModel, table=True):
             id=cage_feeding.id,
             feeding_session_id=cage_feeding.feeding_session_id,
             cage_id=UUID(cage_feeding.cage_id),
+            doser_id=UUID(cage_feeding.doser_id) if cage_feeding.doser_id else None,
+            silo_id=UUID(cage_feeding.silo_id) if cage_feeding.silo_id else None,
             execution_order=cage_feeding.execution_order,
             mode=cage_feeding.mode.value,
             programmed_kg=cage_feeding.programmed_kg,
@@ -81,6 +95,8 @@ class CageFeedingModel(SQLModel, table=True):
         cage_feeding._id = self.id
         cage_feeding._feeding_session_id = self.feeding_session_id
         cage_feeding._cage_id = str(self.cage_id)
+        cage_feeding._doser_id = str(self.doser_id) if self.doser_id else None
+        cage_feeding._silo_id = str(self.silo_id) if self.silo_id else None
         cage_feeding._execution_order = self.execution_order
         cage_feeding._mode = CageFeedingMode(self.mode)
         cage_feeding._programmed_kg = self.programmed_kg

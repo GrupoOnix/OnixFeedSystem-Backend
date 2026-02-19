@@ -3,9 +3,11 @@ from domain.interfaces import IMachine
 from domain.repositories import (
     ICageFeedingRepository,
     IFeedingEventRepository,
+    IFeedingLineRepository,
     IFeedingSessionRepository,
 )
 from domain.value_objects import LineId
+from domain.value_objects.identifiers import DoserId
 
 
 class UpdateFeedingRateUseCase:
@@ -16,11 +18,13 @@ class UpdateFeedingRateUseCase:
         cage_feeding_repo: ICageFeedingRepository,
         event_repo: IFeedingEventRepository,
         machine: IMachine,
+        line_repo: IFeedingLineRepository,
     ):
         self._session_repo = session_repo
         self._cage_feeding_repo = cage_feeding_repo
         self._event_repo = event_repo
         self._machine = machine
+        self._line_repo = line_repo
 
     async def execute(self, session_id: str, new_rate: float) -> float:
         session = await self._session_repo.find_by_id(session_id)
@@ -33,6 +37,16 @@ class UpdateFeedingRateUseCase:
         current = next((cf for cf in cage_feedings if cf.status.value == "IN_PROGRESS"), None)
         if not current:
             raise ValueError("No hay alimentación de jaula activa en esta sesión")
+
+        if current.doser_id:
+            line = await self._line_repo.find_by_id(LineId.from_string(session.line_id))
+            if line:
+                doser = line.get_doser_by_id(DoserId.from_string(current.doser_id))
+                if doser and new_rate > doser.max_rate_kg_per_min:
+                    raise ValueError(
+                        f"La tasa solicitada ({new_rate} kg/min) supera la capacidad máxima "
+                        f"del doser ({doser.max_rate_kg_per_min} kg/min)"
+                    )
 
         previous_rate = current.rate_kg_per_min
         current.set_rate(new_rate)

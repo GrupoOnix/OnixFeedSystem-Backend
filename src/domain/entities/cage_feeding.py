@@ -25,6 +25,8 @@ class CageFeeding:
         self,
         feeding_session_id: str,
         cage_id: str,
+        doser_id: str,
+        silo_id: str,
         execution_order: int,
         programmed_kg: float,
         programmed_visits: int,
@@ -34,6 +36,8 @@ class CageFeeding:
         self._id = str(uuid.uuid4())
         self._feeding_session_id = feeding_session_id
         self._cage_id = cage_id
+        self._doser_id = doser_id
+        self._silo_id = silo_id
         self._mode = mode
         self._rate_kg_per_min = rate_kg_per_min
         self._status = CageFeedingStatus.PENDING
@@ -64,6 +68,14 @@ class CageFeeding:
     @property
     def cage_id(self):
         return self._cage_id
+
+    @property
+    def doser_id(self):
+        return self._doser_id
+
+    @property
+    def silo_id(self):
+        return self._silo_id
 
     @property
     def execution_order(self):

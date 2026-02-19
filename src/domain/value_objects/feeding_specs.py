@@ -6,12 +6,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+BLOWER_MIN_OPERATING_POWER = 30.0
+
 
 @dataclass(frozen=True)
 class BlowerPowerPercentage:
     """
     Representa la potencia del soplador como un valor porcentual (0-100).
     Este es el valor que el software maneja y que el PLC interpretará.
+
+    Nota: para operaciones de alimentación, el mínimo operativo recomendado
+    es BLOWER_MIN_OPERATING_POWER (30%). Esa restricción se aplica en la
+    frontera de la API (Pydantic ge=30), no aquí, porque este VO también
+    se usa para representar estados internos (blower apagado = 0) y
+    velocidades de selectora donde 0–100 son todos válidos.
     """
 
     value: float
@@ -22,9 +30,10 @@ class BlowerPowerPercentage:
         if not isinstance(self.value, (int, float)):
             raise ValueError("La potencia (porcentaje) debe ser un valor numérico")
 
-        # Regla de negocio: El valor debe estar entre 0% y 100%
         if not 0.0 <= self.value <= 100.0:
-            raise ValueError("La potencia debe ser un porcentaje entre 0.0 y 100.0")
+            raise ValueError(
+                "La potencia del blower debe ser un porcentaje entre 0.0 y 100.0"
+            )
 
     def __str__(self) -> str:
         return f"{self.value} %"
