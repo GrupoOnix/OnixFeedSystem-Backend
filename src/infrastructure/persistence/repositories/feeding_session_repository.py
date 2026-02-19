@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from sqlalchemy import select, and_
@@ -86,6 +86,30 @@ class FeedingSessionRepository(IFeedingSessionRepository):
                 and_(
                     FeedingSessionModel.actual_start >= start,
                     FeedingSessionModel.actual_start <= end
+                )
+            )
+            .options(
+                selectinload(FeedingSessionModel.cage_feedings),
+                selectinload(FeedingSessionModel.events)
+            )
+            .order_by(FeedingSessionModel.actual_start.desc())
+        )
+        result = await self.session.execute(query)
+        models = result.scalars().all()
+        return [model.to_domain() for model in models]
+
+    async def find_active_sessions(self, hours_back: int = 24) -> List[FeedingSession]:
+        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours_back)
+
+        query = (
+            select(FeedingSessionModel)
+            .where(
+                and_(
+                    FeedingSessionModel.status.in_([
+                        SessionStatus.IN_PROGRESS.value,
+                        SessionStatus.PAUSED.value
+                    ]),
+                    FeedingSessionModel.actual_start >= cutoff_time
                 )
             )
             .options(

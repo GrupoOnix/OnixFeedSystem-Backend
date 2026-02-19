@@ -1,5 +1,6 @@
 import uuid
-from typing import List, Optional
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -142,6 +143,7 @@ class FeedingSessionStatusResponse(BaseModel):
     is_paused: bool
     completion_percentage: float
     current_stage: str
+    server_timestamp: datetime
 
 
 class CageConfigInput(BaseModel):
@@ -247,12 +249,131 @@ class CyclicSessionStatusResponse(BaseModel):
     total_dispensed_kg: float
     total_rounds: int
     current_round: int
-    # Estado de la jaula siendo visitada actualmente (None si no hay visita activa)
     active_cage_id: Optional[str]
     dispensed_kg_live: float
     current_stage: str
     is_running: bool
     is_paused: bool
     current_flow_rate_kg_per_min: float
-    # Detalle por jaula
     cages: List[CageFeedingStatusItem]
+    server_timestamp: datetime
+
+
+class ActiveSessionItem(BaseModel):
+    session_id: str
+    line_id: str
+    type: str
+    status: str
+    started_at: datetime
+
+
+class BatchStatusSessionManual(BaseModel):
+    session_id: str
+    line_id: str
+    type: str
+    status: str
+    cage_id: str
+    programmed_kg: float
+    dispensed_kg_bd: float
+    dispensed_kg_live: float
+    current_flow_rate_kg_per_min: float
+    is_running: bool
+    is_paused: bool
+    completion_percentage: float
+    current_stage: str
+    server_timestamp: datetime
+
+
+class BatchStatusSessionCyclic(BaseModel):
+    session_id: str
+    line_id: str
+    type: str
+    status: str
+    total_programmed_kg: float
+    total_dispensed_kg: float
+    dispensed_kg_live: float
+    current_round: int
+    total_rounds: int
+    active_cage_id: Optional[str]
+    current_flow_rate_kg_per_min: float
+    is_running: bool
+    is_paused: bool
+    current_stage: str
+    cages_summary: List[CageFeedingStatusItem]
+    server_timestamp: datetime
+
+
+class BatchStatusResponse(BaseModel):
+    sessions: List[Any]
+    server_timestamp: datetime
+
+
+class SessionHistoryItem(BaseModel):
+    session_id: str
+    type: str
+    status: str
+    line_id: str
+    line_name: str
+    operator_id: str
+    # TODO: agregar operator_name cuando se implemente gestión de usuarios/autenticación
+    started_at: Optional[datetime]
+    ended_at: Optional[datetime]
+    duration_seconds: Optional[float]
+    total_programmed_kg: float
+    total_dispensed_kg: float
+
+
+class CageHistorySummary(BaseModel):
+    cage_id: str
+    cage_name: str
+    mode: str
+    programmed_kg: float
+    total_dispensed_kg: float
+    programmed_visits: int
+    completed_visits: int
+    avg_visit_duration_seconds: Optional[float]
+
+
+class TimelineEvent(BaseModel):
+    timestamp: datetime
+    event_type: str
+    data: Dict[str, Any]
+
+
+class RateChartPoint(BaseModel):
+    timestamp: datetime
+    rate_kg_per_min: float
+
+
+class SessionHistoryDetail(BaseModel):
+    session_id: str
+    type: str
+    status: str
+    line_id: str
+    line_name: str
+    operator_id: str
+    started_at: Optional[datetime]
+    ended_at: Optional[datetime]
+    duration_seconds: Optional[float]
+    total_programmed_kg: float
+    total_dispensed_kg: float
+    cages: List[CageHistorySummary]
+    timeline: List[TimelineEvent]
+    rate_chart: List[RateChartPoint]
+
+
+class VisitHistoryItem(BaseModel):
+    visit_number: int
+    dispensed_kg: float
+    dispensed_grams: float
+    duration_seconds: float
+    completed_at: datetime
+
+
+class CageVisitHistory(BaseModel):
+    session_id: str
+    cage_id: str
+    cage_name: str
+    visits: List[VisitHistoryItem]
+    total_dispensed_kg: float
+    avg_duration_seconds: Optional[float]
