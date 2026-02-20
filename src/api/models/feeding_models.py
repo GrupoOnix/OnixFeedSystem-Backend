@@ -133,7 +133,9 @@ class FeedingSessionStatusResponse(BaseModel):
     session_id: str
     session_status: str
     line_id: str
+    started_at: datetime
     cage_id: str
+    cage_name: str
     programmed_kg: float
     dispensed_kg_bd: float
     dispensed_kg_live: float
@@ -224,6 +226,34 @@ class CyclicFeedingResponse(BaseModel):
     message: str = Field(description="Mensaje descriptivo de la operación")
 
 
+class CageSummaryItem(BaseModel):
+    cage_id: str
+    cage_name: str
+    mode: str
+    status: str
+    execution_order: int
+    programmed_kg_per_visit: float
+    total_programmed_kg: float
+    total_dispensed_kg: float
+    programmed_visits: int
+    completed_visits: int
+    overall_completion_percentage: float
+
+
+class ActiveCageInfo(BaseModel):
+    cage_id: str
+    cage_name: str
+    execution_order: int
+    total_cages: int
+    current_visit_number: int
+    total_visits: int
+    current_stage: str
+    current_visit_dispensed_kg: float
+    current_visit_programmed_kg: float
+    current_visit_completion_percentage: float
+    current_flow_rate_kg_per_min: float
+
+
 class CageFeedingStatusItem(BaseModel):
     """Estado de alimentación de una jaula individual dentro de una sesión cíclica."""
 
@@ -245,17 +275,14 @@ class CyclicSessionStatusResponse(BaseModel):
     session_id: str
     session_status: str
     line_id: str
+    started_at: datetime
     total_programmed_kg: float
     total_dispensed_kg: float
+    overall_completion_percentage: float
     total_rounds: int
     current_round: int
-    active_cage_id: Optional[str]
-    dispensed_kg_live: float
-    current_stage: str
-    is_running: bool
-    is_paused: bool
-    current_flow_rate_kg_per_min: float
-    cages: List[CageFeedingStatusItem]
+    active_cage: Optional[ActiveCageInfo]
+    cages_summary: List[CageSummaryItem]
     server_timestamp: datetime
 
 
@@ -272,7 +299,9 @@ class BatchStatusSessionManual(BaseModel):
     line_id: str
     type: str
     status: str
+    started_at: datetime
     cage_id: str
+    cage_name: str
     programmed_kg: float
     dispensed_kg_bd: float
     dispensed_kg_live: float
@@ -289,17 +318,14 @@ class BatchStatusSessionCyclic(BaseModel):
     line_id: str
     type: str
     status: str
+    started_at: datetime
     total_programmed_kg: float
     total_dispensed_kg: float
-    dispensed_kg_live: float
+    overall_completion_percentage: float
     current_round: int
     total_rounds: int
-    active_cage_id: Optional[str]
-    current_flow_rate_kg_per_min: float
-    is_running: bool
-    is_paused: bool
-    current_stage: str
-    cages_summary: List[CageFeedingStatusItem]
+    active_cage: Optional[ActiveCageInfo]
+    cages_summary: List[CageSummaryItem]
     server_timestamp: datetime
 
 

@@ -703,11 +703,17 @@ async def get_check_schedule_use_case(
     config_repo: SystemConfigRepository = Depends(get_system_config_repo),
     line_repo: FeedingLineRepository = Depends(get_line_repo),
     cage_repo: CageRepository = Depends(get_cage_repo),
+    cage_group_repo: CageGroupRepository = Depends(get_cage_group_repo),
+    slot_assignment_repo: SlotAssignmentRepository = Depends(get_slot_assignment_repo),
+    session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
 ) -> CheckScheduleUseCase:
     return CheckScheduleUseCase(
         config_repository=config_repo,
         line_repository=line_repo,
         cage_repository=cage_repo,
+        cage_group_repository=cage_group_repo,
+        slot_assignment_repository=slot_assignment_repo,
+        session_repository=session_repo,
     )
 
 
