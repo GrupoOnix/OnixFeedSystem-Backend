@@ -226,6 +226,8 @@ class SimulatedMachine(IMachine):
         state.doser_rate_kg_per_min = 0.0
         state.blower_power_percentage = 0.0
         state.visit_start_time = None
+        # Limpiar registros de tasas por slot al detener la línea
+        state.slot_rates.clear()
         logger.info(
             f"[SimMachine] Line {line_id}: STOPPED total={final_kg:.3f}kg"
         )

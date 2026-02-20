@@ -202,8 +202,9 @@ class CheckScheduleUseCase:
                     f"({selected_doser.max_rate_kg_per_min} kg/min)"
                 )
 
+            kg_per_visit = round(cfg.quantity_kg / request.visits, 3)
             visit_seconds = calculate_visit_duration(
-                quantity_kg=cfg.quantity_kg,
+                quantity_kg=kg_per_visit,
                 rate_kg_per_min=cfg.rate_kg_per_min,
                 transport_time_seconds=cage.config.transport_time_seconds,
                 blower=line.blower,

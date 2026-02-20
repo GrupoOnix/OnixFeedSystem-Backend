@@ -155,8 +155,9 @@ class CageConfigInput(BaseModel):
     quantity_kg: float = Field(
         gt=0,
         description=(
-            "Dosis objetivo en kg. En modo PAUSE se usa solo para calcular "
-            "la duración de la visita simulada, no se dispensa ni descuenta stock."
+            "Cantidad TOTAL de alimento para esta jaula (se dividirá automáticamente entre las visitas). "
+            "En modo PAUSE se usa solo para calcular la duración de las visitas simuladas, "
+            "no se dispensa ni descuenta stock."
         ),
     )
     rate_kg_per_min: float = Field(
