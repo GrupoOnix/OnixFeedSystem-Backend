@@ -1,5 +1,3 @@
-import uuid
-
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -32,29 +30,6 @@ class UpdateSystemConfigRequest(BaseModel):
         "feeding_start_time": "06:00",
         "feeding_end_time": "18:00",
         "timezone_id": "America/Santiago",
-    }}}
-
-
-class ScheduleCheckRequest(BaseModel):
-    line_id: str = Field(description="ID de la línea de alimentación (UUID)")
-    cage_id: str = Field(description="ID de la jaula (UUID)")
-    quantity_kg: float = Field(gt=0, description="Cantidad a dispensar en kg")
-    rate_kg_per_min: float = Field(gt=0, description="Tasa de alimentación en kg/min")
-
-    @field_validator("line_id", "cage_id")
-    @classmethod
-    def validate_uuid(cls, v: str) -> str:
-        try:
-            uuid.UUID(v)
-            return v
-        except ValueError:
-            raise ValueError(f"'{v}' no es un UUID válido")
-
-    model_config = {"json_schema_extra": {"example": {
-        "line_id": "123e4567-e89b-12d3-a456-426614174000",
-        "cage_id": "123e4567-e89b-12d3-a456-426614174001",
-        "quantity_kg": 50.0,
-        "rate_kg_per_min": 5.0,
     }}}
 
 

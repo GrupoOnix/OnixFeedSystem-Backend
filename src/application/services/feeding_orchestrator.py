@@ -109,8 +109,30 @@ class FeedingOrchestrator:
                         selector_positioning_seconds=selector_positioning_seconds,
                     )
 
+                # Recargar sesión desde BD para sincronizar cambios externos
+                async with self._session_factory() as db:
+                    refreshed_session = await FeedingSessionRepository(db).find_by_id(session.id)
+                    if refreshed_session:
+                        session = refreshed_session
+
                 if session.status.value in ("INTERRUPTED", "CANCELLED"):
+                    logger.info(
+                        f"[Orchestrator] Session {session.id}: detected external stop "
+                        f"(status={session.status.value}), skipping completion"
+                    )
                     return
+
+        # Verificar una última vez antes de marcar como completada
+        async with self._session_factory() as db:
+            refreshed_session = await FeedingSessionRepository(db).find_by_id(session.id)
+            if refreshed_session and refreshed_session.status.value in ("INTERRUPTED", "CANCELLED"):
+                logger.info(
+                    f"[Orchestrator] Session {session.id}: externally stopped before completion "
+                    f"(status={refreshed_session.status.value}), aborting"
+                )
+                return
+            if refreshed_session:
+                session = refreshed_session
 
         session.complete()
         total_dispensed = sum(cf.dispensed_kg for cf in cage_feedings)
@@ -218,6 +240,16 @@ class FeedingOrchestrator:
         while True:
             await asyncio.sleep(self._poll_interval)
             status = await self._machine.get_status(line_id)
+
+            # Verificar si la sesión fue cancelada o interrumpida externamente
+            async with self._session_factory() as db:
+                refreshed_session = await FeedingSessionRepository(db).find_by_id(session.id)
+                if refreshed_session and refreshed_session.status.value in ("COMPLETED", "CANCELLED", "INTERRUPTED"):
+                    logger.info(
+                        f"[Orchestrator] Session {session.id}: externally stopped "
+                        f"(status={refreshed_session.status.value}), exiting visit poll loop"
+                    )
+                    return
 
             logger.info(
                 f"[Orchestrator] Session {session.id}: poll — "

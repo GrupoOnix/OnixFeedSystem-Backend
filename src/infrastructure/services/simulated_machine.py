@@ -30,6 +30,11 @@ class _LineState:
     selector_positioning_seconds: float = 5.0
     visit_start_time: Optional[datetime] = None
     dispensing_completed_time: Optional[datetime] = None
+    slot_rates: Dict[int, float] = None
+
+    def __post_init__(self):
+        if self.slot_rates is None:
+            self.slot_rates = {}
 
 
 class SimulatedMachine(IMachine):
@@ -87,7 +92,16 @@ class SimulatedMachine(IMachine):
         state.slot_number = command.slot_number
         state.target_kg = command.target_kg
         state.dispensed_kg = 0.0
-        state.doser_rate_kg_per_min = command.doser_rate_kg_per_min
+
+        # Guardar tasa en el registro del slot (simula PLC)
+        # Si el slot ya tiene una tasa (cambio en caliente previo), usar esa
+        # Si no, guardar la del comando (viene de BD)
+        if command.slot_number not in state.slot_rates:
+            state.slot_rates[command.slot_number] = command.doser_rate_kg_per_min
+
+        # Usar la tasa del registro del slot (simula leer del PLC)
+        state.doser_rate_kg_per_min = state.slot_rates[command.slot_number]
+
         state.blower_power_percentage = command.blower_power_percentage
         state.pre_pause_doser_rate = 0.0
         state.pre_pause_blower_power = 0.0
@@ -160,8 +174,15 @@ class SimulatedMachine(IMachine):
     async def set_doser_rate(self, line_id: LineId, rate_kg_per_min: float) -> None:
         await asyncio.sleep(0.02)
         state = self._get_or_create(line_id)
+
+        # Actualizar tanto la tasa actual como el registro del slot (simula PLC)
         state.doser_rate_kg_per_min = rate_kg_per_min
-        logger.info(f"[SimMachine] Line {line_id}: DOSER RATE -> {rate_kg_per_min}kg/min")
+
+        # Actualizar el registro del slot activo
+        if state.slot_number > 0:
+            state.slot_rates[state.slot_number] = rate_kg_per_min
+
+        logger.info(f"[SimMachine] Line {line_id}: DOSER RATE -> {rate_kg_per_min}kg/min (slot {state.slot_number})")
 
     async def set_blower_power(self, line_id: LineId, power_percentage: float) -> None:
         await asyncio.sleep(0.02)
@@ -205,6 +226,8 @@ class SimulatedMachine(IMachine):
         state.doser_rate_kg_per_min = 0.0
         state.blower_power_percentage = 0.0
         state.visit_start_time = None
+        # Limpiar registros de tasas por slot al detener la línea
+        state.slot_rates.clear()
         logger.info(
             f"[SimMachine] Line {line_id}: STOPPED total={final_kg:.3f}kg"
         )

@@ -1,9 +1,10 @@
-from typing import Annotated
+from typing import Annotated, Union
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from api.dependencies import CheckScheduleUseCaseDep, get_get_system_config_use_case, get_update_system_config_use_case
-from api.models.system_config_models import ScheduleCheckRequest, ScheduleCheckResponse, SystemConfigResponse, UpdateSystemConfigRequest
+from api.models.feeding_models import CyclicFeedingRequest, ManualFeedingRequest
+from api.models.system_config_models import ScheduleCheckResponse, SystemConfigResponse, UpdateSystemConfigRequest
 from application.use_cases.system_config import GetSystemConfigUseCase, UpdateSystemConfigUseCase
 
 router = APIRouter(prefix="/system/config", tags=["System Config"])
@@ -34,7 +35,7 @@ async def update_system_config(
 
 @router.post("/schedule-check", response_model=ScheduleCheckResponse)
 async def check_schedule(
-    request: ScheduleCheckRequest,
+    request: Union[ManualFeedingRequest, CyclicFeedingRequest],
     use_case: CheckScheduleUseCaseDep,
 ) -> ScheduleCheckResponse:
     try:

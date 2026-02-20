@@ -62,7 +62,7 @@ class StartCyclicFeedingUseCase:
 
         # Paso 2: Calcular stock requerido (solo jaulas NORMAL)
         total_programmed_kg = sum(
-            cfg.quantity_kg * request.visits
+            cfg.quantity_kg
             for cfg, _cage, _assignment in cage_data
             if cfg.mode == "NORMAL"
         )
@@ -91,8 +91,9 @@ class StartCyclicFeedingUseCase:
                 continue
             transport_time = float(cage.config.transport_time_seconds)
             # Para PAUSE se calcula la duración simulada completa con sus kg/tasa
+            kg_per_visit = round(cfg.quantity_kg / request.visits, 3)
             visit_seconds = calculate_visit_duration(
-                quantity_kg=cfg.quantity_kg,
+                quantity_kg=kg_per_visit,
                 rate_kg_per_min=cfg.rate_kg_per_min,
                 transport_time_seconds=transport_time,
                 blower=line.blower,
@@ -124,13 +125,16 @@ class StartCyclicFeedingUseCase:
             # FASTING: programmed_visits=0 → el orquestador la saltará
             programmed_visits = 0 if mode == CageFeedingMode.FASTING else request.visits
 
+            # Calcular kg por visita (quantity_kg del request es el total para la jaula)
+            kg_per_visit = round(cfg.quantity_kg / request.visits, 3) if programmed_visits > 0 else 0.0
+
             cage_feeding = CageFeeding(
                 feeding_session_id=session.id,
                 cage_id=str(cage.id.value),
                 doser_id=request.doser_id,
                 silo_id=str(silo_id.value),
                 execution_order=execution_order,
-                programmed_kg=cfg.quantity_kg,
+                programmed_kg=kg_per_visit,
                 programmed_visits=programmed_visits,
                 rate_kg_per_min=cfg.rate_kg_per_min,
                 mode=mode,

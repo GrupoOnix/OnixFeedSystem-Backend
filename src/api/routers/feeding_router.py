@@ -195,6 +195,7 @@ async def get_cyclic_feeding_status(
     session_id: str,
     session_repo: Annotated[FeedingSessionRepository, Depends(get_feeding_session_repo)],
     cage_feeding_repo: Annotated[CageFeedingRepository, Depends(get_cage_feeding_repo)],
+    cage_repo: Annotated[CageRepository, Depends(get_cage_repo)],
     machine: Annotated[SimulatedMachine, Depends(get_simulated_machine)],
 ) -> CyclicSessionStatusResponse:
     try:
@@ -202,28 +203,29 @@ async def get_cyclic_feeding_status(
         if not session:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Sesión {session_id} no encontrada")
 
-        status_data = await build_cyclic_status(session, cage_feeding_repo, machine)
+        status_data = await build_cyclic_status(session, cage_feeding_repo, cage_repo, machine)
 
-        cages = [
-            CageFeedingStatusItem(**cage_data)
+        from api.models.feeding_models import CageSummaryItem, ActiveCageInfo
+
+        cages_summary = [
+            CageSummaryItem(**cage_data)
             for cage_data in status_data["cages_summary"]
         ]
+
+        active_cage = ActiveCageInfo(**status_data["active_cage"]) if status_data["active_cage"] else None
 
         return CyclicSessionStatusResponse(
             session_id=status_data["session_id"],
             session_status=status_data["status"],
             line_id=status_data["line_id"],
+            started_at=status_data["started_at"],
             total_programmed_kg=status_data["total_programmed_kg"],
             total_dispensed_kg=status_data["total_dispensed_kg"],
+            overall_completion_percentage=status_data["overall_completion_percentage"],
             total_rounds=status_data["total_rounds"],
             current_round=status_data["current_round"],
-            active_cage_id=status_data["active_cage_id"],
-            dispensed_kg_live=status_data["dispensed_kg_live"],
-            current_stage=status_data["current_stage"],
-            is_running=status_data["is_running"],
-            is_paused=status_data["is_paused"],
-            current_flow_rate_kg_per_min=status_data["current_flow_rate_kg_per_min"],
-            cages=cages,
+            active_cage=active_cage,
+            cages_summary=cages_summary,
             server_timestamp=status_data["server_timestamp"],
         )
     except HTTPException:
@@ -467,6 +469,7 @@ async def list_active_sessions(
 async def get_batch_session_status(
     session_repo: Annotated[FeedingSessionRepository, Depends(get_feeding_session_repo)],
     cage_feeding_repo: Annotated[CageFeedingRepository, Depends(get_cage_feeding_repo)],
+    cage_repo: Annotated[CageRepository, Depends(get_cage_repo)],
     machine: Annotated[SimulatedMachine, Depends(get_simulated_machine)],
     session_ids: str = Query(..., description="Comma-separated session UUIDs"),
 ) -> BatchStatusResponse:
@@ -477,6 +480,8 @@ async def get_batch_session_status(
         if len(session_id_list) > 50:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Máximo 50 sesiones por request")
 
+        from api.models.feeding_models import CageSummaryItem, ActiveCageInfo
+
         results = []
         for session_id in session_id_list:
             try:
@@ -485,11 +490,27 @@ async def get_batch_session_status(
                     continue
 
                 if session.type.value == "MANUAL":
-                    status_data = await build_manual_status(session, machine)
+                    status_data = await build_manual_status(session, cage_repo, machine)
                     results.append(BatchStatusSessionManual(**status_data))
                 elif session.type.value == "CYCLIC":
-                    status_data = await build_cyclic_status(session, cage_feeding_repo, machine)
-                    results.append(BatchStatusSessionCyclic(**status_data))
+                    status_data = await build_cyclic_status(session, cage_feeding_repo, cage_repo, machine)
+                    cages_summary = [CageSummaryItem(**cage_data) for cage_data in status_data["cages_summary"]]
+                    active_cage = ActiveCageInfo(**status_data["active_cage"]) if status_data["active_cage"] else None
+                    results.append(BatchStatusSessionCyclic(
+                        session_id=status_data["session_id"],
+                        line_id=status_data["line_id"],
+                        type=status_data["type"],
+                        status=status_data["status"],
+                        started_at=status_data["started_at"],
+                        total_programmed_kg=status_data["total_programmed_kg"],
+                        total_dispensed_kg=status_data["total_dispensed_kg"],
+                        overall_completion_percentage=status_data["overall_completion_percentage"],
+                        current_round=status_data["current_round"],
+                        total_rounds=status_data["total_rounds"],
+                        active_cage=active_cage,
+                        cages_summary=cages_summary,
+                        server_timestamp=status_data["server_timestamp"],
+                    ))
             except Exception:
                 continue
 
@@ -507,6 +528,7 @@ async def get_batch_session_status(
 async def get_feeding_status(
     session_id: str,
     session_repo: Annotated[FeedingSessionRepository, Depends(get_feeding_session_repo)],
+    cage_repo: Annotated[CageRepository, Depends(get_cage_repo)],
     machine: Annotated[SimulatedMachine, Depends(get_simulated_machine)],
 ) -> FeedingSessionStatusResponse:
     try:
@@ -514,13 +536,15 @@ async def get_feeding_status(
         if not session:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Sesión {session_id} no encontrada")
 
-        status_data = await build_manual_status(session, machine)
+        status_data = await build_manual_status(session, cage_repo, machine)
 
         return FeedingSessionStatusResponse(
             session_id=status_data["session_id"],
             session_status=status_data["status"],
             line_id=status_data["line_id"],
+            started_at=status_data["started_at"],
             cage_id=status_data["cage_id"],
+            cage_name=status_data["cage_name"],
             programmed_kg=status_data["programmed_kg"],
             dispensed_kg_bd=status_data["dispensed_kg_bd"],
             dispensed_kg_live=status_data["dispensed_kg_live"],
