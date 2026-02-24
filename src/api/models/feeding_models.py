@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class ManualFeedingRequest(BaseModel):
@@ -153,18 +153,20 @@ class CageConfigInput(BaseModel):
 
     cage_id: str = Field(description="ID de la jaula (UUID)")
     quantity_kg: float = Field(
-        gt=0,
+        ge=0,
         description=(
             "Cantidad TOTAL de alimento para esta jaula (se dividirá automáticamente entre las visitas). "
             "En modo PAUSE se usa solo para calcular la duración de las visitas simuladas, "
-            "no se dispensa ni descuenta stock."
+            "no se dispensa ni descuenta stock. "
+            "En modo FASTING se ignora (puede enviarse 0)."
         ),
     )
     rate_kg_per_min: float = Field(
-        gt=0,
+        ge=0,
         description=(
             "Tasa en kg/min. En modo PAUSE se usa solo para calcular "
-            "la duración de la visita simulada."
+            "la duración de la visita simulada. "
+            "En modo FASTING se ignora (puede enviarse 0)."
         ),
     )
     mode: str = Field(description="Modo de alimentación: 'NORMAL', 'PAUSE' o 'FASTING'")
@@ -184,6 +186,19 @@ class CageConfigInput(BaseModel):
         if v not in ("NORMAL", "PAUSE", "FASTING"):
             raise ValueError("mode debe ser 'NORMAL', 'PAUSE' o 'FASTING'")
         return v
+
+    @model_validator(mode="after")
+    def validate_quantities_by_mode(self) -> "CageConfigInput":
+        if self.mode != "FASTING":
+            if self.quantity_kg <= 0:
+                raise ValueError(
+                    f"quantity_kg debe ser > 0 para el modo '{self.mode}'"
+                )
+            if self.rate_kg_per_min <= 0:
+                raise ValueError(
+                    f"rate_kg_per_min debe ser > 0 para el modo '{self.mode}'"
+                )
+        return self
 
 
 class CyclicFeedingRequest(BaseModel):

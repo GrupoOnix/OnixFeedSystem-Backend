@@ -46,11 +46,11 @@ class CageFeeding:
             raise ValueError("El orden de ejecución debe ser mayor a 0")
         self._execution_order = execution_order
 
-        if programmed_kg <= 0:
+        if mode != CageFeedingMode.FASTING and programmed_kg <= 0:
             raise ValueError("La cantidad programada debe ser mayor a 0")
         self._programmed_kg = programmed_kg
 
-        if programmed_visits <= 0:
+        if mode != CageFeedingMode.FASTING and programmed_visits <= 0:
             raise ValueError("Las visitas programadas deben ser mayor a 0")
         self._programmed_visits = programmed_visits
 
