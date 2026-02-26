@@ -7,7 +7,6 @@ from domain.repositories import ISystemConfigRepository
 
 
 class UpdateSystemConfigUseCase:
-
     def __init__(self, config_repository: ISystemConfigRepository) -> None:
         self._repo = config_repository
 
@@ -21,6 +20,7 @@ class UpdateSystemConfigUseCase:
             feeding_start_time=time(start_h, start_m),
             feeding_end_time=time(end_h, end_m),
             timezone_id=request.timezone_id,
+            selector_positioning_time_seconds=request.selector_positioning_time_seconds,
         )
 
         await self._repo.save(config)
@@ -29,4 +29,5 @@ class UpdateSystemConfigUseCase:
             feeding_start_time=config.feeding_start_time.strftime("%H:%M"),
             feeding_end_time=config.feeding_end_time.strftime("%H:%M"),
             timezone_id=config.timezone_id,
+            selector_positioning_time_seconds=config.selector_positioning_time_seconds,
         )

@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import List, Optional, Tuple
 
 from domain.aggregates.alert import Alert
+from domain.aggregates.feedback import Feedback
 from domain.aggregates.system_config import SystemConfig
 from domain.aggregates.cage import Cage
 from domain.aggregates.cage_group import CageGroup
@@ -555,12 +556,18 @@ class IScheduledAlertRepository(ABC):
         ...
 
 
+class IFeedbackRepository(ABC):
+    """Repositorio para feedback de usuarios."""
+
+    @abstractmethod
+    async def save(self, feedback: Feedback) -> None:
+        """Guarda un nuevo feedback."""
+        ...
+
+
 class ISystemConfigRepository(ABC):
+    @abstractmethod
+    async def get(self) -> SystemConfig: ...
 
     @abstractmethod
-    async def get(self) -> SystemConfig:
-        ...
-
-    @abstractmethod
-    async def save(self, config: SystemConfig) -> None:
-        ...
+    async def save(self, config: SystemConfig) -> None: ...

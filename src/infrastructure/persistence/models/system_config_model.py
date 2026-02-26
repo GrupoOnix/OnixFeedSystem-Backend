@@ -1,4 +1,3 @@
-
 from datetime import time
 
 from sqlmodel import Field, SQLModel
@@ -18,6 +17,7 @@ class SystemConfigModel(SQLModel, table=True):
     feeding_start_time: time = Field(nullable=False)
     feeding_end_time: time = Field(nullable=False)
     timezone_id: str = Field(max_length=64, nullable=False)
+    selector_positioning_time_seconds: int = Field(default=10, nullable=False)
 
     @staticmethod
     def from_domain(config: SystemConfig) -> "SystemConfigModel":
@@ -26,6 +26,7 @@ class SystemConfigModel(SQLModel, table=True):
             feeding_start_time=config.feeding_start_time,
             feeding_end_time=config.feeding_end_time,
             timezone_id=config.timezone_id,
+            selector_positioning_time_seconds=config.selector_positioning_time_seconds,
         )
 
     def to_domain(self) -> SystemConfig:
@@ -33,4 +34,5 @@ class SystemConfigModel(SQLModel, table=True):
             feeding_start_time=self.feeding_start_time,
             feeding_end_time=self.feeding_end_time,
             timezone_id=self.timezone_id,
+            selector_positioning_time_seconds=self.selector_positioning_time_seconds,
         )

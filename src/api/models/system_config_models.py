@@ -5,12 +5,21 @@ class SystemConfigResponse(BaseModel):
     feeding_start_time: str = Field(description="Inicio del horario operativo (HH:MM)")
     feeding_end_time: str = Field(description="Fin del horario operativo (HH:MM)")
     timezone_id: str = Field(description="Identificador de timezone (ej. America/Santiago)")
+    selector_positioning_time_seconds: int = Field(
+        description="Tiempo estimado (segundos) que tarda el selector en posicionarse hacia una jaula"
+    )
 
 
 class UpdateSystemConfigRequest(BaseModel):
     feeding_start_time: str = Field(description="Inicio del horario operativo (HH:MM)")
     feeding_end_time: str = Field(description="Fin del horario operativo (HH:MM)")
     timezone_id: str = Field(description="Identificador de timezone (ej. America/Santiago)")
+    selector_positioning_time_seconds: int | None = Field(
+        default=None,
+        ge=1,
+        le=60,
+        description="Tiempo estimado (segundos) que tarda el selector en posicionarse (1-60)",
+    )
 
     @field_validator("feeding_start_time", "feeding_end_time")
     @classmethod
@@ -26,16 +35,25 @@ class UpdateSystemConfigRequest(BaseModel):
             raise ValueError(f"'{v}' tiene valores fuera de rango")
         return v
 
-    model_config = {"json_schema_extra": {"example": {
-        "feeding_start_time": "06:00",
-        "feeding_end_time": "18:00",
-        "timezone_id": "America/Santiago",
-    }}}
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "feeding_start_time": "06:00",
+                "feeding_end_time": "18:00",
+                "timezone_id": "America/Santiago",
+                "selector_positioning_time_seconds": 10,
+            }
+        }
+    }
 
 
 class ScheduleCheckResponse(BaseModel):
     fits: bool = Field(description="True si la operación cabe dentro del horario operativo")
     estimated_seconds: float = Field(description="Duración estimada de la operación en segundos")
     estimated_minutes: float = Field(description="Duración estimada de la operación en minutos")
-    remaining_seconds: float = Field(description="Segundos restantes en el horario operativo (0 si está fuera del horario)")
-    remaining_minutes: float = Field(description="Minutos restantes en el horario operativo (0 si está fuera del horario)")
+    remaining_seconds: float = Field(
+        description="Segundos restantes en el horario operativo (0 si está fuera del horario)"
+    )
+    remaining_minutes: float = Field(
+        description="Minutos restantes en el horario operativo (0 si está fuera del horario)"
+    )

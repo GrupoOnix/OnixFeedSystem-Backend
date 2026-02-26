@@ -19,6 +19,7 @@ from . import (
     cage_group_router,
     cage_router,
     device_control_router,
+    feedback_router,
     feeding_line_router,
     feeding_router,
     food_router,
@@ -43,5 +44,6 @@ api_router.include_router(feeding_router.router)
 api_router.include_router(sensor_router.router)
 api_router.include_router(device_control_router.router)
 api_router.include_router(alerts_router.router)
+api_router.include_router(feedback_router.router)
 
 __all__ = ["api_router"]

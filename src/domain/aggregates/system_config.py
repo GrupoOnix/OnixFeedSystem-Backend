@@ -1,23 +1,28 @@
-
 from datetime import datetime, time
 from zoneinfo import ZoneInfo
 
 
 class SystemConfig:
-
     _SINGLETON_ID: int = 1
+
+    _DEFAULT_SELECTOR_POSITIONING_TIME: int = 10
 
     def __init__(
         self,
         feeding_start_time: time,
         feeding_end_time: time,
         timezone_id: str,
+        selector_positioning_time_seconds: int | None = None,
     ) -> None:
         self._id = self._SINGLETON_ID
         self._feeding_start_time = feeding_start_time
         self._feeding_end_time = feeding_end_time
         self._timezone_id = timezone_id
-
+        self._selector_positioning_time_seconds = (
+            selector_positioning_time_seconds
+            if selector_positioning_time_seconds is not None
+            else self._DEFAULT_SELECTOR_POSITIONING_TIME
+        )
 
     @property
     def id(self) -> int:
@@ -35,6 +40,9 @@ class SystemConfig:
     def timezone_id(self) -> str:
         return self._timezone_id
 
+    @property
+    def selector_positioning_time_seconds(self) -> int:
+        return self._selector_positioning_time_seconds
 
     def seconds_remaining_in_window(self, now_utc: datetime) -> float:
         """
@@ -66,21 +74,22 @@ class SystemConfig:
         """Retorna True si now_utc cae dentro del horario operativo."""
         return self.seconds_remaining_in_window(now_utc) > 0.0
 
-
     def update(
         self,
         feeding_start_time: time,
         feeding_end_time: time,
         timezone_id: str,
+        selector_positioning_time_seconds: int | None = None,
     ) -> None:
         if feeding_end_time <= feeding_start_time:
-            raise ValueError(
-                "feeding_end_time debe ser posterior a feeding_start_time"
-            )
+            raise ValueError("feeding_end_time debe ser posterior a feeding_start_time")
+        if selector_positioning_time_seconds is not None:
+            if not (1 <= selector_positioning_time_seconds <= 60):
+                raise ValueError("selector_positioning_time_seconds debe estar entre 1 y 60")
+            self._selector_positioning_time_seconds = selector_positioning_time_seconds
         self._feeding_start_time = feeding_start_time
         self._feeding_end_time = feeding_end_time
         self._timezone_id = timezone_id
-
 
     @classmethod
     def create_default(cls) -> "SystemConfig":
@@ -89,4 +98,5 @@ class SystemConfig:
             feeding_start_time=time(6, 0),
             feeding_end_time=time(18, 0),
             timezone_id="America/Santiago",
+            selector_positioning_time_seconds=cls._DEFAULT_SELECTOR_POSITIONING_TIME,
         )

@@ -8,6 +8,7 @@ from .cage_repository import CageRepository
 from .config_change_log_repository import ConfigChangeLogRepository
 from .feeding_event_repository import FeedingEventRepository
 from .feeding_line_repository import FeedingLineRepository
+from .feedback_repository import FeedbackRepository
 from .feeding_session_repository import FeedingSessionRepository
 from .food_repository import FoodRepository
 from .mortality_log_repository import MortalityLogRepository
@@ -27,6 +28,7 @@ __all__ = [
     "FeedingLineRepository",
     "FeedingSessionRepository",
     "FeedingEventRepository",
+    "FeedbackRepository",
     "FoodRepository",
     "AlertRepository",
     "ScheduledAlertRepository",

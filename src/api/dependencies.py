@@ -66,6 +66,7 @@ from application.use_cases.device_control import (
     TurnDoserOffUseCase,
     TurnDoserOnUseCase,
 )
+
 # REMOVED: Old feeding use cases - system being rewritten
 # from application.use_cases.feeding.control_feeding_use_case import (
 #     PauseFeedingSessionUseCase,
@@ -111,6 +112,9 @@ from application.use_cases.food import (
     ToggleFoodActiveUseCase,
     UpdateFoodUseCase,
 )
+from application.use_cases.feedback.create_feedback_use_case import (
+    CreateFeedbackUseCase,
+)
 from application.use_cases.sensors import (
     GetLineSensorsUseCase,
     GetSensorReadingsUseCase,
@@ -133,6 +137,7 @@ from infrastructure.persistence.repositories import (
     CageGroupRepository,
     CageRepository,
     ConfigChangeLogRepository,
+    FeedbackRepository,
     FeedingEventRepository,
     FeedingLineRepository,
     FoodRepository,
@@ -905,7 +910,9 @@ async def get_update_cage_config_use_case(
     # operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),  # DEPRECATED
 ) -> UpdateCageConfigUseCase:
     """Crea instancia del caso de uso de actualización de configuración."""
-    return UpdateCageConfigUseCase(cage_repository=cage_repo, operation_repository=None)  # TODO: Remove operation_repository
+    return UpdateCageConfigUseCase(
+        cage_repository=cage_repo, operation_repository=None
+    )  # TODO: Remove operation_repository
 
 
 async def get_set_population_use_case(
@@ -1383,3 +1390,29 @@ UpdateScheduledAlertUseCaseDep = Annotated[UpdateScheduledAlertUseCase, Depends(
 DeleteScheduledAlertUseCaseDep = Annotated[DeleteScheduledAlertUseCase, Depends(get_delete_scheduled_alert_use_case)]
 
 ToggleScheduledAlertUseCaseDep = Annotated[ToggleScheduledAlertUseCase, Depends(get_toggle_scheduled_alert_use_case)]
+
+
+# ============================================================================
+# Dependencias de Casos de Uso - Feedback
+# ============================================================================
+
+
+async def get_feedback_repo(
+    session: AsyncSession = Depends(get_session),
+) -> FeedbackRepository:
+    """Crea instancia del repositorio de feedback."""
+    return FeedbackRepository(session)
+
+
+async def get_create_feedback_use_case(
+    feedback_repo: FeedbackRepository = Depends(get_feedback_repo),
+) -> CreateFeedbackUseCase:
+    """Crea instancia del caso de uso de creación de feedback."""
+    return CreateFeedbackUseCase(feedback_repository=feedback_repo)
+
+
+# ============================================================================
+# Type Aliases para Endpoints - Feedback
+# ============================================================================
+
+CreateFeedbackUseCaseDep = Annotated[CreateFeedbackUseCase, Depends(get_create_feedback_use_case)]
