@@ -5,6 +5,7 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Query
 from api.models.cage_models import (
     AdjustPopulationRequestModel,
+    CageFeedingHistoryResponseModel,
     CageResponseModel,
     CreateCageRequestModel,
     HarvestRequestModel,
@@ -24,6 +25,7 @@ from api.dependencies import (
     AdjustPopulationUseCaseDep,
     CreateCageUseCaseDep,
     DeleteCageUseCaseDep,
+    GetCageFeedingHistoryUseCaseDep,
     GetCageUseCaseDep,
     GetPopulationHistoryUseCaseDep,
     HarvestUseCaseDep,
@@ -414,5 +416,28 @@ async def get_config_changes_history(
     try:
         result = await use_case.execute(cage_id=cage_id, limit=limit, offset=offset)
         return PaginatedConfigChangesResponseModel.from_dto(result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/{cage_id}/feeding-history", response_model=CageFeedingHistoryResponseModel)
+async def get_cage_feeding_history(
+    cage_id: str,
+    use_case: GetCageFeedingHistoryUseCaseDep,
+    limit: int = Query(10, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+) -> CageFeedingHistoryResponseModel:
+    """
+    Retorna el historial paginado de operaciones de alimentación de una jaula.
+
+    Cada ítem corresponde a una operación (visita) a la jaula, con el kg
+    dispensado específico para esa jaula, el tipo y estado de la sesión
+    y el nombre de la línea de alimentación.
+
+    Ordenado por fecha de inicio de sesión descendente.
+    """
+    try:
+        result = await use_case.execute(cage_id=cage_id, limit=limit, offset=offset)
+        return CageFeedingHistoryResponseModel.from_dto(result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

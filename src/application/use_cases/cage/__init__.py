@@ -8,6 +8,7 @@ from application.use_cases.cage.get_population_history import (
 )
 from application.use_cases.cage.list_biometry_use_case import ListBiometryUseCase
 from application.use_cases.cage.list_cages import ListCagesUseCase
+from application.use_cases.cage.get_cage_feeding_history import GetCageFeedingHistoryUseCase
 from application.use_cases.cage.list_config_changes_use_case import (
     ListConfigChangesUseCase,
 )
@@ -42,4 +43,5 @@ __all__ = [
     "ListBiometryUseCase",
     "ListMortalityUseCase",
     "ListConfigChangesUseCase",
+    "GetCageFeedingHistoryUseCase",
 ]

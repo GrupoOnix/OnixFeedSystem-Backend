@@ -38,7 +38,7 @@ class FeedingOperationModel(SQLModel, table=True):
     applied_config: Dict[str, Any] = Field(sa_column=Column(JSONB))
 
     # Relationships
-    session: "FeedingSessionModel" = Relationship(back_populates="operations")
+    session: "FeedingSessionModel" = Relationship()
     events: List["OperationEventModel"] = Relationship(
         back_populates="operation",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}

@@ -24,7 +24,7 @@ class BiometryLogRepository(IBiometryLogRepository):
         result = await self.session.execute(
             select(BiometryLogModel)
             .where(BiometryLogModel.cage_id == cage_id.value)
-            .order_by(BiometryLogModel.sampling_date.desc())
+            .order_by(BiometryLogModel.sampling_date.desc(), BiometryLogModel.created_at.desc())
             .limit(limit)
             .offset(offset)
         )

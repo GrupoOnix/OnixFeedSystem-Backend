@@ -21,6 +21,11 @@ from application.dtos.config_dtos import (
     ConfigChangeLogItemResponse,
     PaginatedConfigChangesResponse,
 )
+from application.dtos.feeding_history_dtos import (
+    CageFeedingHistoryDTO,
+    FeedingHistoryItemDTO,
+    FeedingHistoryPaginationDTO,
+)
 from application.dtos.mortality_dtos import (
     MortalityLogItemResponse,
     PaginatedMortalityResponse,
@@ -423,4 +428,69 @@ class PaginatedConfigChangesResponseModel(BaseModel):
         return cls(
             logs=[ConfigChangeLogItemResponseModel.from_dto(e) for e in dto.logs],
             pagination=PaginationInfoModel.from_dto(dto.pagination),
+        )
+
+
+# =============================================================================
+# FEEDING HISTORY RESPONSE MODELS
+# =============================================================================
+
+
+class FeedingHistoryItemResponseModel(BaseModel):
+    """Response para un ítem del historial de alimentación de una jaula."""
+
+    session_id: str
+    type: str
+    status: str
+    line_name: str
+    started_at: Optional[datetime]
+    ended_at: Optional[datetime]
+    duration_seconds: Optional[int]
+    dispensed_kg: float
+
+    @classmethod
+    def from_dto(cls, dto: FeedingHistoryItemDTO) -> "FeedingHistoryItemResponseModel":
+        return cls(
+            session_id=dto.session_id,
+            type=dto.type,
+            status=dto.status,
+            line_name=dto.line_name,
+            started_at=dto.started_at,
+            ended_at=dto.ended_at,
+            duration_seconds=dto.duration_seconds,
+            dispensed_kg=dto.dispensed_kg,
+        )
+
+
+class FeedingHistoryPaginationResponseModel(BaseModel):
+    """Información de paginación para historial de alimentación."""
+
+    total: int
+    limit: int
+    offset: int
+    has_next: bool
+    has_previous: bool
+
+    @classmethod
+    def from_dto(cls, dto: FeedingHistoryPaginationDTO) -> "FeedingHistoryPaginationResponseModel":
+        return cls(
+            total=dto.total,
+            limit=dto.limit,
+            offset=dto.offset,
+            has_next=dto.has_next,
+            has_previous=dto.has_previous,
+        )
+
+
+class CageFeedingHistoryResponseModel(BaseModel):
+    """Response para el historial de alimentación de una jaula."""
+
+    items: List[FeedingHistoryItemResponseModel]
+    pagination: FeedingHistoryPaginationResponseModel
+
+    @classmethod
+    def from_dto(cls, dto: CageFeedingHistoryDTO) -> "CageFeedingHistoryResponseModel":
+        return cls(
+            items=[FeedingHistoryItemResponseModel.from_dto(i) for i in dto.items],
+            pagination=FeedingHistoryPaginationResponseModel.from_dto(dto.pagination),
         )

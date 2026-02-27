@@ -29,6 +29,7 @@ from application.use_cases.cage import (
     AdjustPopulationUseCase,
     CreateCageUseCase,
     DeleteCageUseCase,
+    GetCageFeedingHistoryUseCase,
     GetCageUseCase,
     GetPopulationHistoryUseCase,
     HarvestUseCase,
@@ -1012,6 +1013,13 @@ async def get_list_config_changes_use_case(
     return ListConfigChangesUseCase(config_change_log_repository=config_change_log_repo)
 
 
+async def get_cage_feeding_history_use_case(
+    session: AsyncSession = Depends(get_session),
+) -> GetCageFeedingHistoryUseCase:
+    """Crea instancia del caso de uso de historial de alimentación por jaula."""
+    return GetCageFeedingHistoryUseCase(session=session)
+
+
 # ============================================================================
 # Dependencias de Casos de Uso - Cage Group
 # ============================================================================
@@ -1162,6 +1170,8 @@ ListBiometryUseCaseDep = Annotated[ListBiometryUseCase, Depends(get_list_biometr
 ListMortalityUseCaseDep = Annotated[ListMortalityUseCase, Depends(get_list_mortality_use_case)]
 
 ListConfigChangesUseCaseDep = Annotated[ListConfigChangesUseCase, Depends(get_list_config_changes_use_case)]
+
+GetCageFeedingHistoryUseCaseDep = Annotated[GetCageFeedingHistoryUseCase, Depends(get_cage_feeding_history_use_case)]
 
 
 # ============================================================================
