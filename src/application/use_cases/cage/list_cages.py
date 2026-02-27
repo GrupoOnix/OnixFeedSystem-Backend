@@ -1,27 +1,24 @@
 """Use case para listar jaulas."""
 
-from typing import List, Optional
-
 from application.dtos.cage_dtos import (
     CageConfigResponse,
     CageListItemResponse,
     ListCagesResponse,
 )
 from domain.aggregates.cage import Cage
-from domain.repositories import ICageRepository  # , IFeedingOperationRepository  # DEPRECATED
-from domain.value_objects.identifiers import CageId
+from domain.repositories import ICageRepository, ICageFeedingRepository
 
 
 class ListCagesUseCase:
-    """Caso de uso para listar todas las jaulas. DEPRECATED - uses old feeding system."""
+    """Caso de uso para listar todas las jaulas."""
 
     def __init__(
         self,
         cage_repository: ICageRepository,
-        operation_repository: Optional[object] = None,  # IFeedingOperationRepository - DEPRECATED
+        cage_feeding_repository: ICageFeedingRepository,
     ):
         self.cage_repository = cage_repository
-        self.operation_repository = operation_repository
+        self.cage_feeding_repository = cage_feeding_repository
 
     async def execute(self) -> ListCagesResponse:
         """
@@ -32,9 +29,11 @@ class ListCagesUseCase:
         """
         cages = await self.cage_repository.list()
 
-        # TODO: Recalcular today_feeding_kg desde FeedingSession/CageFeeding (Phase 5)
-        # operation_repository fue removido al migrar al nuevo sistema de alimentación
-        items = [self._to_list_item(cage, today_feeding_kg=0.0) for cage in cages]
+        cage_ids = [str(cage.id.value) for cage in cages]
+        dispensed_map = await self.cage_feeding_repository.get_today_dispensed_by_cages(cage_ids)
+        items = [
+            self._to_list_item(cage, today_feeding_kg=dispensed_map.get(str(cage.id.value), 0.0)) for cage in cages
+        ]
 
         return ListCagesResponse(cages=items, total=len(items))
 

@@ -37,12 +37,13 @@ class CheckScheduleUseCase:
         self._session_repo = session_repository
 
     async def execute(self, request: Union[ManualFeedingRequest, CyclicFeedingRequest]) -> ScheduleCheckResponse:
-        if isinstance(request, ManualFeedingRequest):
-            estimated_seconds = await self._calculate_manual_duration(request)
-        else:
-            estimated_seconds = await self._calculate_cyclic_duration(request)
-
         config = await self._config_repo.get()
+        selector_positioning_seconds = float(config.selector_positioning_time_seconds)
+
+        if isinstance(request, ManualFeedingRequest):
+            estimated_seconds = await self._calculate_manual_duration(request, selector_positioning_seconds)
+        else:
+            estimated_seconds = await self._calculate_cyclic_duration(request, selector_positioning_seconds)
         now_utc = datetime.now(timezone.utc)
         remaining_seconds = config.seconds_remaining_in_window(now_utc)
         fits = OperatingScheduleService(config).fits_in_window(estimated_seconds, now_utc)
@@ -55,7 +56,7 @@ class CheckScheduleUseCase:
             remaining_minutes=round(remaining_seconds / 60, 2),
         )
 
-    async def _calculate_manual_duration(self, request: ManualFeedingRequest) -> float:
+    async def _calculate_manual_duration(self, request: ManualFeedingRequest, selector_positioning_seconds: float) -> float:
         line = await self._line_repo.find_by_id(LineId.from_string(request.line_id))
         if not line:
             raise ValueError(f"Línea con ID {request.line_id} no encontrada")
@@ -113,11 +114,12 @@ class CheckScheduleUseCase:
             rate_kg_per_min=request.rate_kg_per_min,
             transport_time_seconds=cage.config.transport_time_seconds,
             blower=line.blower,
+            selector_positioning_seconds=selector_positioning_seconds,
         )
 
         return estimated_seconds
 
-    async def _calculate_cyclic_duration(self, request: CyclicFeedingRequest) -> float:
+    async def _calculate_cyclic_duration(self, request: CyclicFeedingRequest, selector_positioning_seconds: float) -> float:
         line = await self._line_repo.find_by_id(LineId.from_string(request.line_id))
         if not line:
             raise ValueError(f"Línea con ID {request.line_id} no encontrada")
@@ -208,6 +210,7 @@ class CheckScheduleUseCase:
                 rate_kg_per_min=cfg.rate_kg_per_min,
                 transport_time_seconds=cage.config.transport_time_seconds,
                 blower=line.blower,
+                selector_positioning_seconds=selector_positioning_seconds,
             )
             estimated_seconds += visit_seconds * request.visits
 

@@ -876,26 +876,26 @@ async def get_create_cage_use_case(
 
 async def get_get_cage_use_case(
     cage_repo: CageRepository = Depends(get_cage_repo),
-    # operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),  # DEPRECATED
+    cage_feeding_repo: CageFeedingRepository = Depends(get_cage_feeding_repo),
 ) -> GetCageUseCase:
     """Crea instancia del caso de uso de obtención de jaula."""
-    return GetCageUseCase(cage_repository=cage_repo, operation_repository=None)  # TODO: Remove operation_repository
+    return GetCageUseCase(cage_repository=cage_repo, cage_feeding_repository=cage_feeding_repo)
 
 
 async def get_list_cages_use_case(
     cage_repo: CageRepository = Depends(get_cage_repo),
-    # operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),  # DEPRECATED
+    cage_feeding_repo: CageFeedingRepository = Depends(get_cage_feeding_repo),
 ) -> ListCagesUseCase:
     """Crea instancia del caso de uso de listado de jaulas."""
-    return ListCagesUseCase(cage_repository=cage_repo, operation_repository=None)  # TODO: Remove operation_repository
+    return ListCagesUseCase(cage_repository=cage_repo, cage_feeding_repository=cage_feeding_repo)
 
 
 async def get_update_cage_use_case(
     cage_repo: CageRepository = Depends(get_cage_repo),
-    # operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),  # DEPRECATED
+    cage_feeding_repo: CageFeedingRepository = Depends(get_cage_feeding_repo),
 ) -> UpdateCageUseCase:
     """Crea instancia del caso de uso de actualización de jaula."""
-    return UpdateCageUseCase(cage_repository=cage_repo, operation_repository=None)  # TODO: Remove operation_repository
+    return UpdateCageUseCase(cage_repository=cage_repo, cage_feeding_repository=cage_feeding_repo)
 
 
 async def get_delete_cage_use_case(
@@ -907,12 +907,10 @@ async def get_delete_cage_use_case(
 
 async def get_update_cage_config_use_case(
     cage_repo: CageRepository = Depends(get_cage_repo),
-    # operation_repo: FeedingOperationRepository = Depends(get_feeding_operation_repo),  # DEPRECATED
+    cage_feeding_repo: CageFeedingRepository = Depends(get_cage_feeding_repo),
 ) -> UpdateCageConfigUseCase:
     """Crea instancia del caso de uso de actualización de configuración."""
-    return UpdateCageConfigUseCase(
-        cage_repository=cage_repo, operation_repository=None
-    )  # TODO: Remove operation_repository
+    return UpdateCageConfigUseCase(cage_repository=cage_repo, cage_feeding_repository=cage_feeding_repo)
 
 
 async def get_set_population_use_case(
@@ -923,20 +921,44 @@ async def get_set_population_use_case(
     return SetPopulationUseCase(cage_repository=cage_repo, event_repository=event_repo)
 
 
+async def get_biometry_log_repo(
+    session: AsyncSession = Depends(get_session),
+) -> BiometryLogRepository:
+    """Crea instancia del repositorio de logs de biometría."""
+    return BiometryLogRepository(session)
+
+
+async def get_mortality_log_repo(
+    session: AsyncSession = Depends(get_session),
+) -> MortalityLogRepository:
+    """Crea instancia del repositorio de logs de mortalidad."""
+    return MortalityLogRepository(session)
+
+
 async def get_register_mortality_use_case(
     cage_repo: CageRepository = Depends(get_cage_repo),
     event_repo: PopulationEventRepository = Depends(get_population_event_repo),
+    mortality_log_repo: MortalityLogRepository = Depends(get_mortality_log_repo),
 ) -> RegisterMortalityUseCase:
     """Crea instancia del caso de uso de registro de mortalidad."""
-    return RegisterMortalityUseCase(cage_repository=cage_repo, event_repository=event_repo)
+    return RegisterMortalityUseCase(
+        cage_repository=cage_repo,
+        event_repository=event_repo,
+        mortality_log_repository=mortality_log_repo,
+    )
 
 
 async def get_update_biometry_use_case(
     cage_repo: CageRepository = Depends(get_cage_repo),
     event_repo: PopulationEventRepository = Depends(get_population_event_repo),
+    biometry_log_repo: BiometryLogRepository = Depends(get_biometry_log_repo),
 ) -> UpdateBiometryUseCase:
     """Crea instancia del caso de uso de actualización de biometría."""
-    return UpdateBiometryUseCase(cage_repository=cage_repo, event_repository=event_repo)
+    return UpdateBiometryUseCase(
+        cage_repository=cage_repo,
+        event_repository=event_repo,
+        biometry_log_repository=biometry_log_repo,
+    )
 
 
 async def get_harvest_use_case(
@@ -960,20 +982,6 @@ async def get_population_history_use_case(
 ) -> GetPopulationHistoryUseCase:
     """Crea instancia del caso de uso de historial de población."""
     return GetPopulationHistoryUseCase(event_repository=event_repo)
-
-
-async def get_biometry_log_repo(
-    session: AsyncSession = Depends(get_session),
-) -> BiometryLogRepository:
-    """Crea instancia del repositorio de logs de biometría."""
-    return BiometryLogRepository(session)
-
-
-async def get_mortality_log_repo(
-    session: AsyncSession = Depends(get_session),
-) -> MortalityLogRepository:
-    """Crea instancia del repositorio de logs de mortalidad."""
-    return MortalityLogRepository(session)
 
 
 async def get_config_change_log_repo(

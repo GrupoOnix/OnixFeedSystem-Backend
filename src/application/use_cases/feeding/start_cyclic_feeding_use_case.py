@@ -19,7 +19,7 @@ from domain.repositories import (
     ISlotAssignmentRepository,
     ISystemConfigRepository,
 )
-from domain.services.feeding_time_calculator import SELECTOR_POSITIONING_SECONDS, calculate_visit_duration
+from domain.services.feeding_time_calculator import calculate_visit_duration
 from domain.services.operating_schedule_service import OperatingScheduleService
 from domain.value_objects import CageId, LineId
 from domain.value_objects.identifiers import CageGroupId, DoserId
@@ -84,6 +84,8 @@ class StartCyclicFeedingUseCase:
         # Paso 4: Calcular duración estimada total
         blow_before = float(line.blower.blow_before_feeding_time.value)
         blow_after = float(line.blower.blow_after_feeding_time.value)
+        config = await self.system_config_repo.get()
+        selector_positioning_seconds = float(config.selector_positioning_time_seconds)
 
         estimated_total_seconds = 0.0
         for cfg, cage, _assignment in cage_data:
@@ -97,12 +99,12 @@ class StartCyclicFeedingUseCase:
                 rate_kg_per_min=cfg.rate_kg_per_min,
                 transport_time_seconds=transport_time,
                 blower=line.blower,
+                selector_positioning_seconds=selector_positioning_seconds,
             )
             estimated_total_seconds += visit_seconds * request.visits
 
         # Validar horario operativo
         if not request.allow_overtime:
-            config = await self.system_config_repo.get()
             OperatingScheduleService(config).assert_fits_in_window(estimated_total_seconds)
 
         # Paso 5: Crear entidades de dominio
@@ -168,7 +170,7 @@ class StartCyclicFeedingUseCase:
                 transport_time_map=transport_time_map,
                 blow_before_seconds=blow_before,
                 blow_after_seconds=blow_after,
-                selector_positioning_seconds=SELECTOR_POSITIONING_SECONDS,
+                selector_positioning_seconds=selector_positioning_seconds,
             )
         )
 

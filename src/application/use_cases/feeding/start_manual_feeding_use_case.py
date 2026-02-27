@@ -16,7 +16,7 @@ from domain.repositories import (
     ISlotAssignmentRepository,
     ISystemConfigRepository,
 )
-from domain.services.feeding_time_calculator import SELECTOR_POSITIONING_SECONDS, calculate_visit_duration
+from domain.services.feeding_time_calculator import calculate_visit_duration
 from domain.services.operating_schedule_service import OperatingScheduleService
 from domain.value_objects import CageId, LineId
 from domain.value_objects.identifiers import DoserId
@@ -53,15 +53,17 @@ class StartManualFeedingUseCase:
         selected_doser = line.get_doser_by_id(DoserId.from_string(request.doser_id))
         assert selected_doser is not None
 
+        config = await self.system_config_repo.get()
+
         estimated_seconds = calculate_visit_duration(
             quantity_kg=request.quantity_kg,
             rate_kg_per_min=request.rate_kg_per_min,
             transport_time_seconds=cage.config.transport_time_seconds,  # type: ignore[arg-type]
             blower=line.blower,
+            selector_positioning_seconds=float(config.selector_positioning_time_seconds),
         )
 
         if not request.allow_overtime:
-            config = await self.system_config_repo.get()
             OperatingScheduleService(config).assert_fits_in_window(estimated_seconds)
 
         # Paso 2: CREAR ENTIDADES
@@ -109,7 +111,7 @@ class StartManualFeedingUseCase:
                 transport_time_map={cage_feeding.cage_id: float(cage.config.transport_time_seconds)},  # type: ignore[arg-type]
                 blow_before_seconds=float(line.blower.blow_before_feeding_time.value),
                 blow_after_seconds=float(line.blower.blow_after_feeding_time.value),
-                selector_positioning_seconds=SELECTOR_POSITIONING_SECONDS,
+                selector_positioning_seconds=float(config.selector_positioning_time_seconds),
             )
         )
 

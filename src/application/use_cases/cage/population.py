@@ -10,8 +10,10 @@ from application.dtos.cage_dtos import (
     UpdateBiometryRequest,
 )
 from domain.aggregates.cage import Cage
-from domain.repositories import ICageRepository, IPopulationEventRepository
+from domain.repositories import IBiometryLogRepository, ICageRepository, IMortalityLogRepository, IPopulationEventRepository
+from domain.value_objects.biometry_log_entry import BiometryLogEntry
 from domain.value_objects.identifiers import CageId
+from domain.value_objects.mortality_log_entry import MortalityLogEntry
 
 
 class SetPopulationUseCase:
@@ -65,9 +67,11 @@ class RegisterMortalityUseCase:
         self,
         cage_repository: ICageRepository,
         event_repository: IPopulationEventRepository,
+        mortality_log_repository: IMortalityLogRepository,
     ):
         self.cage_repository = cage_repository
         self.event_repository = event_repository
+        self.mortality_log_repository = mortality_log_repository
 
     async def execute(self, cage_id: str, request: RegisterMortalityRequest) -> CageResponse:
         """
@@ -98,6 +102,15 @@ class RegisterMortalityUseCase:
         await self.cage_repository.save(cage)
         await self.event_repository.save(event)
 
+        # Persistir en tabla de log dedicada
+        log_entry = MortalityLogEntry.create(
+            cage_id=cage.id,
+            dead_fish_count=request.dead_count,
+            mortality_date=request.event_date,
+            note=request.note,
+        )
+        await self.mortality_log_repository.save(log_entry)
+
         return _to_response(cage)
 
 
@@ -108,9 +121,11 @@ class UpdateBiometryUseCase:
         self,
         cage_repository: ICageRepository,
         event_repository: IPopulationEventRepository,
+        biometry_log_repository: IBiometryLogRepository,
     ):
         self.cage_repository = cage_repository
         self.event_repository = event_repository
+        self.biometry_log_repository = biometry_log_repository
 
     async def execute(self, cage_id: str, request: UpdateBiometryRequest) -> CageResponse:
         """
@@ -130,6 +145,10 @@ class UpdateBiometryUseCase:
         if not cage:
             raise ValueError(f"No existe una jaula con ID '{cage_id}'")
 
+        # Capturar valores previos antes de actualizar
+        old_avg_weight = cage.avg_weight_grams
+        old_fish_count = cage.fish_count
+
         # Crear evento y actualizar biometría
         event = cage.update_biometry(
             avg_weight_grams=request.avg_weight_grams,
@@ -140,6 +159,18 @@ class UpdateBiometryUseCase:
         # Persistir cambios
         await self.cage_repository.save(cage)
         await self.event_repository.save(event)
+
+        # Persistir en tabla de log dedicada
+        log_entry = BiometryLogEntry.create(
+            cage_id=cage.id,
+            old_fish_count=old_fish_count,
+            new_fish_count=cage.fish_count,
+            old_average_weight_g=old_avg_weight,
+            new_average_weight_g=request.avg_weight_grams,
+            sampling_date=request.event_date,
+            note=request.note,
+        )
+        await self.biometry_log_repository.save(log_entry)
 
         return _to_response(cage)
 

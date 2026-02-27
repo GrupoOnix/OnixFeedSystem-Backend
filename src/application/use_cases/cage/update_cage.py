@@ -1,28 +1,26 @@
 """Use case para actualizar una jaula."""
 
-from typing import Optional
-
 from application.dtos.cage_dtos import (
     CageConfigResponse,
     CageResponse,
     UpdateCageRequest,
 )
 from domain.aggregates.cage import Cage
-from domain.repositories import ICageRepository  # , IFeedingOperationRepository  # DEPRECATED
+from domain.repositories import ICageRepository, ICageFeedingRepository
 from domain.value_objects.identifiers import CageId
 from domain.value_objects.names import CageName
 
 
 class UpdateCageUseCase:
-    """Caso de uso para actualizar nombre y/o status de una jaula. DEPRECATED - uses old feeding system."""
+    """Caso de uso para actualizar nombre y/o status de una jaula."""
 
     def __init__(
         self,
         cage_repository: ICageRepository,
-        operation_repository: Optional[object] = None,  # IFeedingOperationRepository - DEPRECATED
+        cage_feeding_repository: ICageFeedingRepository,
     ):
         self.cage_repository = cage_repository
-        self.operation_repository = operation_repository
+        self.cage_feeding_repository = cage_feeding_repository
 
     async def execute(self, cage_id: str, request: UpdateCageRequest) -> CageResponse:
         """
@@ -73,7 +71,7 @@ class UpdateCageUseCase:
         await self.cage_repository.save(cage)
 
         # Obtener alimentación del día
-        today_feeding_kg = await self.operation_repository.get_today_dispensed_by_cage(cage_id_vo)
+        today_feeding_kg = await self.cage_feeding_repository.get_today_dispensed_by_cage(cage_id)
 
         return self._to_response(cage, today_feeding_kg)
 

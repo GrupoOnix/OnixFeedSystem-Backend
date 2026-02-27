@@ -32,6 +32,7 @@ from .value_objects import (
     LineName,
     MortalityLogEntry,
     ScheduledAlertId,
+    SessionId,
     SiloId,
     SiloName,
 )
@@ -284,6 +285,16 @@ class ICageFeedingRepository(ABC):
 
     @abstractmethod
     async def find_current_by_session(self, session_id: str) -> Optional[CageFeeding]: ...
+
+    @abstractmethod
+    async def get_today_dispensed_by_cage(self, cage_id: str) -> float:
+        """Calcula el total de alimento dispensado a una jaula en el día actual."""
+        ...
+
+    @abstractmethod
+    async def get_today_dispensed_by_cages(self, cage_ids: List[str]) -> dict[str, float]:
+        """Calcula el total de alimento dispensado para múltiples jaulas en el día actual."""
+        ...
 
 
 class IFeedingEventRepository(ABC):
