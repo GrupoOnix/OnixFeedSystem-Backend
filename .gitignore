@@ -18,3 +18,11 @@ __pycache__/
 alembic/__pycache__/
 alembic/versions/__pycache__/
 
+# Claude Code
+.claude/
+CLAUDE.md
+AGENTS.md
+
+# Ruff
+.ruff_cache/
+
