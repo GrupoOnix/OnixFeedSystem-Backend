@@ -318,6 +318,29 @@ class CoolerId:
 
 
 # ============================================================================
+# Identificadores de Usuario
+# ============================================================================
+
+
+@dataclass(frozen=True)
+class UserId:
+    """Identificador único para un usuario."""
+
+    value: UUID
+
+    @classmethod
+    def generate(cls) -> UserId:
+        return cls(uuid4())
+
+    @classmethod
+    def from_string(cls, id_str: str) -> UserId:
+        return cls(UUID(id_str))
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
+# ============================================================================
 # Identificadores de Comida y Visita
 # ============================================================================
 

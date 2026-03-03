@@ -9,7 +9,7 @@ from application.dtos.sensor_dtos import SensorDetailDTO, UpdateSensorDTO
 from domain.exceptions import FeedingLineNotFoundException
 from domain.repositories import IFeedingLineRepository
 from domain.value_objects import SensorId, SensorName
-from domain.value_objects.identifiers import LineId
+from domain.value_objects.identifiers import LineId, UserId
 
 
 class SensorNotFoundException(Exception):
@@ -33,7 +33,7 @@ class UpdateSensorUseCase:
         self._feeding_line_repo = feeding_line_repo
 
     async def execute(
-        self, line_id_str: str, sensor_id_str: str, update_dto: UpdateSensorDTO
+        self, line_id_str: str, sensor_id_str: str, update_dto: UpdateSensorDTO, user_id: UserId
     ) -> SensorDetailDTO:
         """
         Actualiza la configuración de un sensor.
@@ -42,6 +42,7 @@ class UpdateSensorUseCase:
             line_id_str: ID de la línea
             sensor_id_str: ID del sensor
             update_dto: Datos a actualizar
+            user_id: ID del usuario autenticado
 
         Returns:
             SensorDetailDTO: Sensor actualizado
@@ -54,18 +55,14 @@ class UpdateSensorUseCase:
         sensor_id = SensorId.from_string(sensor_id_str)
 
         # 1. Obtener la línea
-        line = await self._feeding_line_repo.find_by_id(line_id)
+        line = await self._feeding_line_repo.find_by_id(line_id, user_id)
         if not line:
-            raise FeedingLineNotFoundException(
-                f"No se encontró la línea de alimentación con ID: {line_id}"
-            )
+            raise FeedingLineNotFoundException(f"No se encontró la línea de alimentación con ID: {line_id}")
 
         # 2. Buscar el sensor
         sensor = line.get_sensor_by_id(sensor_id)
         if not sensor:
-            raise SensorNotFoundException(
-                f"No se encontró el sensor con ID: {sensor_id} en la línea {line_id}"
-            )
+            raise SensorNotFoundException(f"No se encontró el sensor con ID: {sensor_id} en la línea {line_id}")
 
         # 3. Aplicar actualizaciones
         sensor.update(

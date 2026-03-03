@@ -4,6 +4,7 @@ from application.dtos.alert_dtos import AlertDTO, ListAlertsRequest, ListAlertsR
 from domain.aggregates.alert import Alert
 from domain.enums import AlertCategory, AlertStatus, AlertType
 from domain.repositories import IAlertRepository
+from domain.value_objects import UserId
 
 
 class ListAlertsUseCase:
@@ -12,12 +13,13 @@ class ListAlertsUseCase:
     def __init__(self, alert_repository: IAlertRepository):
         self._alert_repo = alert_repository
 
-    async def execute(self, request: ListAlertsRequest) -> ListAlertsResponse:
+    async def execute(self, request: ListAlertsRequest, user_id: UserId) -> ListAlertsResponse:
         """
         Lista alertas con filtros opcionales.
 
         Args:
             request: Filtros y paginación.
+            user_id: ID del usuario propietario.
 
         Returns:
             Lista de alertas que cumplen los filtros.
@@ -37,6 +39,7 @@ class ListAlertsUseCase:
 
         # Obtener alertas y conteo total en paralelo
         alerts = await self._alert_repo.list(
+            user_id=user_id,
             status=status_list,
             type=type_list,
             category=category_list,
@@ -47,6 +50,7 @@ class ListAlertsUseCase:
 
         # Obtener conteo global (sin limit/offset)
         total = await self._alert_repo.count(
+            user_id=user_id,
             status=status_list,
             type=type_list,
             category=category_list,

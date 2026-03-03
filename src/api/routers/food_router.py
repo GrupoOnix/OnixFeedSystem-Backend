@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 
 from api.dependencies import (
     CreateFoodUseCaseDep,
+    CurrentUser,
     DeleteFoodUseCaseDep,
     GetFoodUseCaseDep,
     ListFoodsUseCaseDep,
@@ -31,6 +32,7 @@ router = APIRouter(prefix="/foods", tags=["Foods"])
 @router.get("", response_model=ListFoodsResponse)
 async def list_foods(
     use_case: ListFoodsUseCaseDep,
+    current_user: CurrentUser,
     active_only: bool = Query(False, description="Filtrar solo alimentos activos"),
 ) -> ListFoodsResponse:
     """
@@ -39,7 +41,7 @@ async def list_foods(
     - **active_only**: (Opcional) Si es true, solo retorna alimentos activos
     """
     try:
-        return await use_case.execute(active_only=active_only)
+        return await use_case.execute(user_id=current_user.id, active_only=active_only)
 
     except DomainException as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -52,14 +54,18 @@ async def list_foods(
 
 
 @router.get("/{food_id}", response_model=FoodDetailResponse)
-async def get_food(food_id: str, use_case: GetFoodUseCaseDep) -> FoodDetailResponse:
+async def get_food(
+    food_id: str,
+    use_case: GetFoodUseCaseDep,
+    current_user: CurrentUser,
+) -> FoodDetailResponse:
     """
     Obtiene los detalles de un alimento específico.
 
     - **food_id**: ID del alimento
     """
     try:
-        return await use_case.execute(food_id)
+        return await use_case.execute(food_id, user_id=current_user.id)
 
     except FoodNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
@@ -79,7 +85,9 @@ async def get_food(food_id: str, use_case: GetFoodUseCaseDep) -> FoodDetailRespo
 
 @router.post("", response_model=FoodDetailResponse, status_code=status.HTTP_201_CREATED)
 async def create_food(
-    request: CreateFoodRequest, use_case: CreateFoodUseCaseDep
+    request: CreateFoodRequest,
+    use_case: CreateFoodUseCaseDep,
+    current_user: CurrentUser,
 ) -> FoodDetailResponse:
     """
     Crea un nuevo alimento.
@@ -97,7 +105,7 @@ async def create_food(
     - Todos los valores numéricos deben ser positivos
     """
     try:
-        return await use_case.execute(request)
+        return await use_case.execute(request, user_id=current_user.id)
 
     except DuplicateFoodNameError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
@@ -106,9 +114,7 @@ async def create_food(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Datos inválidos: {str(e)}"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Datos inválidos: {str(e)}")
 
     except DomainException as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -122,7 +128,10 @@ async def create_food(
 
 @router.patch("/{food_id}", response_model=FoodDetailResponse)
 async def update_food(
-    food_id: str, request: UpdateFoodRequest, use_case: UpdateFoodUseCaseDep
+    food_id: str,
+    request: UpdateFoodRequest,
+    use_case: UpdateFoodUseCaseDep,
+    current_user: CurrentUser,
 ) -> FoodDetailResponse:
     """
     Actualiza un alimento existente.
@@ -141,7 +150,7 @@ async def update_food(
     - Todos los valores numéricos deben ser positivos
     """
     try:
-        return await use_case.execute(food_id, request)
+        return await use_case.execute(food_id, request, user_id=current_user.id)
 
     except FoodNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
@@ -153,9 +162,7 @@ async def update_food(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Datos inválidos: {str(e)}"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Datos inválidos: {str(e)}")
 
     except DomainException as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -172,6 +179,7 @@ async def toggle_food_active(
     food_id: str,
     request: ToggleFoodActiveRequest,
     use_case: ToggleFoodActiveUseCaseDep,
+    current_user: CurrentUser,
 ) -> FoodDetailResponse:
     """
     Activa o desactiva un alimento.
@@ -182,15 +190,13 @@ async def toggle_food_active(
     Los alimentos inactivos no se muestran en dropdowns de selección.
     """
     try:
-        return await use_case.execute(food_id, request)
+        return await use_case.execute(food_id, request, user_id=current_user.id)
 
     except FoodNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error: {str(e)}"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error: {str(e)}")
 
     except DomainException as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -203,7 +209,11 @@ async def toggle_food_active(
 
 
 @router.delete("/{food_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_food(food_id: str, use_case: DeleteFoodUseCaseDep) -> None:
+async def delete_food(
+    food_id: str,
+    use_case: DeleteFoodUseCaseDep,
+    current_user: CurrentUser,
+) -> None:
     """
     Elimina un alimento.
 
@@ -213,7 +223,7 @@ async def delete_food(food_id: str, use_case: DeleteFoodUseCaseDep) -> None:
     - No se puede eliminar un alimento que esté asignado a algún silo
     """
     try:
-        await use_case.execute(food_id)
+        await use_case.execute(food_id, user_id=current_user.id)
 
     except FoodNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

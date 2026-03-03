@@ -10,36 +10,35 @@ from application.dtos.feeding_line_dtos import (
     SensorDTO,
 )
 from domain.repositories import IFeedingLineRepository
+from domain.value_objects import UserId
 from infrastructure.persistence.models import CageModel
 
 
 class ListFeedingLinesUseCase:
     """Caso de uso para listar todas las líneas de alimentación."""
 
-    def __init__(
-        self, feeding_line_repository: IFeedingLineRepository, session: AsyncSession
-    ):
+    def __init__(self, feeding_line_repository: IFeedingLineRepository, session: AsyncSession):
         self._feeding_line_repository = feeding_line_repository
         self._session = session
 
-    async def execute(self) -> ListFeedingLinesResponse:
+    async def execute(self, user_id: UserId) -> ListFeedingLinesResponse:
         """
         Ejecuta el caso de uso para listar todas las líneas de alimentación.
+
+        Args:
+            user_id: ID del usuario autenticado
 
         Returns:
             ListFeedingLinesResponse con la lista de líneas y sus componentes
         """
-        # Obtener todas las líneas
-        feeding_lines = await self._feeding_line_repository.get_all()
+        # Obtener todas las líneas del usuario
+        feeding_lines = await self._feeding_line_repository.get_all(user_id)
 
         # Obtener conteos de jaulas por línea
         cage_counts = await self._get_cage_counts_by_line()
 
         # Convertir a DTOs
-        line_dtos = [
-            self._to_dto(line, cage_counts.get(str(line.id.value), 0))
-            for line in feeding_lines
-        ]
+        line_dtos = [self._to_dto(line, cage_counts.get(str(line.id.value), 0)) for line in feeding_lines]
 
         return ListFeedingLinesResponse(feeding_lines=line_dtos)
 

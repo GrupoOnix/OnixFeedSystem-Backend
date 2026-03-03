@@ -5,6 +5,7 @@ from typing import Dict
 from fastapi import APIRouter, HTTPException, status
 
 from api.dependencies import (
+    CurrentUser,
     GetFeedingLineUseCaseDep,
     ListFeedingLinesUseCaseDep,
     MoveSelectorToSlotUseCaseDep,
@@ -28,6 +29,7 @@ router = APIRouter(prefix="/feeding-lines", tags=["Feeding Lines"])
 @router.get("", response_model=ListFeedingLinesResponse)
 async def list_feeding_lines(
     use_case: ListFeedingLinesUseCaseDep,
+    current_user: CurrentUser,
 ) -> ListFeedingLinesResponse:
     """
     Lista todas las líneas de alimentación del sistema.
@@ -40,7 +42,7 @@ async def list_feeding_lines(
     - Conteo total de jaulas asignadas
     """
     try:
-        return await use_case.execute()
+        return await use_case.execute(user_id=current_user.id)
 
     except DomainException as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -54,7 +56,10 @@ async def list_feeding_lines(
 
 @router.patch("/{line_id}/selector", status_code=status.HTTP_200_OK)
 async def update_selector(
-    line_id: str, request: UpdateSelectorRequest, use_case: UpdateSelectorUseCaseDep
+    line_id: str,
+    request: UpdateSelectorRequest,
+    use_case: UpdateSelectorUseCaseDep,
+    current_user: CurrentUser,
 ) -> Dict[str, str]:
     """
     Actualiza la configuración del selector de una línea de alimentación.
@@ -71,7 +76,7 @@ async def update_selector(
     Retorna un mensaje de éxito si la actualización se realizó correctamente.
     """
     try:
-        await use_case.execute(line_id, request)
+        await use_case.execute(line_id, request, user_id=current_user.id)
         return {"message": "Selector actualizado exitosamente"}
 
     except FeedingLineNotFoundException as e:
@@ -93,11 +98,12 @@ async def update_selector(
         )
 
 
-@router.post(
-    "/{line_id}/selector/move-to-slot/{slot_number}", status_code=status.HTTP_200_OK
-)
+@router.post("/{line_id}/selector/move-to-slot/{slot_number}", status_code=status.HTTP_200_OK)
 async def move_selector_to_slot(
-    line_id: str, slot_number: int, use_case: MoveSelectorToSlotUseCaseDep
+    line_id: str,
+    slot_number: int,
+    use_case: MoveSelectorToSlotUseCaseDep,
+    current_user: CurrentUser,
 ) -> Dict[str, str]:
     """
     Mueve el selector de una línea a un slot específico.
@@ -113,7 +119,7 @@ async def move_selector_to_slot(
     Retorna un mensaje de éxito si el movimiento se realizó correctamente.
     """
     try:
-        await use_case.execute(line_id, slot_number)
+        await use_case.execute(line_id, slot_number, user_id=current_user.id)
         return {"message": f"Selector movido a slot {slot_number} exitosamente"}
 
     except FeedingLineNotFoundException as e:
@@ -137,7 +143,9 @@ async def move_selector_to_slot(
 
 @router.post("/{line_id}/selector/reset-position", status_code=status.HTTP_200_OK)
 async def reset_selector_position(
-    line_id: str, use_case: ResetSelectorPositionUseCaseDep
+    line_id: str,
+    use_case: ResetSelectorPositionUseCaseDep,
+    current_user: CurrentUser,
 ) -> Dict[str, str]:
     """
     Reinicia la posición del selector a neutral/home (None).
@@ -152,7 +160,7 @@ async def reset_selector_position(
     Retorna un mensaje de éxito si el reinicio se realizó correctamente.
     """
     try:
-        await use_case.execute(line_id)
+        await use_case.execute(line_id, user_id=current_user.id)
         return {"message": "Posición del selector reiniciada exitosamente"}
 
     except FeedingLineNotFoundException as e:
@@ -170,7 +178,10 @@ async def reset_selector_position(
 
 @router.patch("/{line_id}/blower", status_code=status.HTTP_200_OK)
 async def update_blower(
-    line_id: str, request: UpdateBlowerRequest, use_case: UpdateBlowerUseCaseDep
+    line_id: str,
+    request: UpdateBlowerRequest,
+    use_case: UpdateBlowerUseCaseDep,
+    current_user: CurrentUser,
 ) -> Dict[str, str]:
     """
     Actualiza la configuración del blower de una línea de alimentación.
@@ -189,7 +200,7 @@ async def update_blower(
     Retorna un mensaje de éxito si la actualización se realizó correctamente.
     """
     try:
-        await use_case.execute(line_id, request)
+        await use_case.execute(line_id, request, user_id=current_user.id)
         return {"message": "Blower actualizado exitosamente"}
 
     except FeedingLineNotFoundException as e:
@@ -217,6 +228,7 @@ async def update_doser(
     doser_id: str,
     request: UpdateDoserRequest,
     use_case: UpdateDoserUseCaseDep,
+    current_user: CurrentUser,
 ) -> Dict[str, str]:
     """
     Actualiza la configuración de un doser específico de una línea de alimentación.
@@ -237,7 +249,7 @@ async def update_doser(
     Retorna un mensaje de éxito si la actualización se realizó correctamente.
     """
     try:
-        await use_case.execute(line_id, doser_id, request)
+        await use_case.execute(line_id, doser_id, request, user_id=current_user.id)
         return {"message": "Doser actualizado exitosamente"}
 
     except FeedingLineNotFoundException as e:
@@ -261,7 +273,9 @@ async def update_doser(
 
 @router.get("/{line_id}", response_model=FeedingLineDTO)
 async def get_feeding_line(
-    line_id: str, use_case: GetFeedingLineUseCaseDep
+    line_id: str,
+    use_case: GetFeedingLineUseCaseDep,
+    current_user: CurrentUser,
 ) -> FeedingLineDTO:
     """
     Obtiene los detalles de una línea de alimentación específica.
@@ -276,7 +290,7 @@ async def get_feeding_line(
     - Conteo total de jaulas asignadas
     """
     try:
-        return await use_case.execute(line_id)
+        return await use_case.execute(line_id, user_id=current_user.id)
 
     except FeedingLineNotFoundException as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

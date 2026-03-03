@@ -17,6 +17,7 @@ from infrastructure.persistence.repositories import (
     AlertRepository,
     ScheduledAlertRepository,
     SiloRepository,
+    UserRepository,
 )
 from infrastructure.services.alert_scheduler_service import AlertSchedulerService
 from infrastructure.services.silo_monitor_service import SiloMonitorService
@@ -44,14 +45,20 @@ async def scheduled_alerts_job():
     while True:
         try:
             async with get_session_context() as session:
+                user_repo = UserRepository(session)
+                user_ids = await user_repo.get_all_user_ids()
+
                 scheduled_repo = ScheduledAlertRepository(session)
                 alert_repo = AlertRepository(session)
                 service = AlertSchedulerService(scheduled_repo, alert_repo)
 
-                count = await service.check_and_trigger_alerts()
+                total_count = 0
+                for uid in user_ids:
+                    count = await service.check_and_trigger_alerts(uid)
+                    total_count += count
 
-                if count > 0:
-                    logger.info(f"Alertas programadas disparadas: {count}")
+                if total_count > 0:
+                    logger.info(f"Alertas programadas disparadas: {total_count}")
 
                 await session.commit()
 
@@ -84,14 +91,20 @@ async def silo_monitor_job():
     while True:
         try:
             async with get_session_context() as session:
+                user_repo = UserRepository(session)
+                user_ids = await user_repo.get_all_user_ids()
+
                 silo_repo = SiloRepository(session)
                 alert_repo = AlertRepository(session)
                 service = SiloMonitorService(silo_repo, alert_repo)
 
-                count = await service.check_all_silos()
+                total_count = 0
+                for uid in user_ids:
+                    count = await service.check_all_silos(uid)
+                    total_count += count
 
-                if count > 0:
-                    logger.info(f"Alertas de nivel bajo de silos generadas: {count}")
+                if total_count > 0:
+                    logger.info(f"Alertas de nivel bajo de silos generadas: {total_count}")
 
                 await session.commit()
 

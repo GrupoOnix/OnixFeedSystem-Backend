@@ -8,6 +8,7 @@ from application.dtos.feeding_history_dtos import (
     FeedingHistoryItemDTO,
     FeedingHistoryPaginationDTO,
 )
+from domain.value_objects.identifiers import UserId
 from infrastructure.persistence.models.cage_feeding_model import CageFeedingModel
 from infrastructure.persistence.models.feeding_line_model import FeedingLineModel
 from infrastructure.persistence.models.feeding_session_model import FeedingSessionModel
@@ -28,6 +29,7 @@ class GetCageFeedingHistoryUseCase:
     async def execute(
         self,
         cage_id: str,
+        user_id: UserId,
         limit: int = 10,
         offset: int = 0,
     ) -> CageFeedingHistoryDTO:
@@ -49,7 +51,10 @@ class GetCageFeedingHistoryUseCase:
             )
             .join(FeedingSessionModel, join_condition)
             .join(FeedingLineModel, FeedingSessionModel.line_id == FeedingLineModel.id)
-            .where(CageFeedingModel.cage_id == cage_uuid)
+            .where(
+                CageFeedingModel.cage_id == cage_uuid,
+                FeedingSessionModel.user_id == user_id.value,
+            )
             .order_by(desc(FeedingSessionModel.actual_start))
         )
 
@@ -57,7 +62,10 @@ class GetCageFeedingHistoryUseCase:
             select(func.count())
             .select_from(CageFeedingModel)
             .join(FeedingSessionModel, join_condition)
-            .where(CageFeedingModel.cage_id == cage_uuid)
+            .where(
+                CageFeedingModel.cage_id == cage_uuid,
+                FeedingSessionModel.user_id == user_id.value,
+            )
         )
 
         total = (await self._session.execute(count_stmt)).scalar_one()

@@ -1,6 +1,5 @@
-
 from domain.repositories import ICageRepository, IBiometryLogRepository
-from domain.value_objects import CageId, FishCount, Weight
+from domain.value_objects import CageId, FishCount, Weight, UserId
 from domain.value_objects.biometry_log_entry import BiometryLogEntry
 from application.dtos.biometry_dtos import RegisterBiometryRequest
 
@@ -8,28 +7,21 @@ from application.dtos.biometry_dtos import RegisterBiometryRequest
 class RegisterBiometryUseCase:
     """
     Registra un muestreo de biometría y actualiza los datos de la jaula.
-    
+
     Patrón transaccional:
     - Si cualquier operación falla, toda la transacción se revierte
     - No hay commits explícitos, SQLAlchemy maneja la transacción
     """
 
-    def __init__(
-        self,
-        cage_repository: ICageRepository,
-        biometry_log_repository: IBiometryLogRepository
-    ):
+    def __init__(self, cage_repository: ICageRepository, biometry_log_repository: IBiometryLogRepository):
         self._cage_repo = cage_repository
         self._biometry_log_repo = biometry_log_repository
 
-    async def execute(self, cage_id: str, request: RegisterBiometryRequest) -> None:
+    async def execute(self, cage_id: str, request: RegisterBiometryRequest, user_id: UserId) -> None:
         if not request.fish_count and not request.average_weight_g:
-            raise ValueError(
-                "Debe proporcionar al menos uno de los siguientes campos: "
-                "fish_count o average_weight_g"
-            )
+            raise ValueError("Debe proporcionar al menos uno de los siguientes campos: fish_count o average_weight_g")
 
-        cage = await self._cage_repo.find_by_id(CageId.from_string(cage_id))
+        cage = await self._cage_repo.find_by_id(CageId.from_string(cage_id), user_id)
         if not cage:
             raise ValueError(f"La jaula con ID '{cage_id}' no existe")
 
@@ -55,7 +47,7 @@ class RegisterBiometryUseCase:
             old_average_weight_g=old_avg_weight,
             new_average_weight_g=new_avg_weight,
             sampling_date=request.sampling_date,
-            note=request.note
+            note=request.note,
         )
 
         await self._cage_repo.save(cage)

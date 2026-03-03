@@ -2,6 +2,8 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID, uuid4
 
+from domain.value_objects.identifiers import UserId
+
 
 # Tipos válidos de feedback
 VALID_FEEDBACK_TYPES = ("suggestion", "bug", "general")
@@ -22,6 +24,7 @@ class Feedback:
         message: str,
         name: Optional[str] = None,
         email: Optional[str] = None,
+        user_id: Optional[UserId] = None,
     ):
         """
         Crea una nueva instancia de Feedback.
@@ -31,6 +34,7 @@ class Feedback:
             message: Contenido del mensaje de feedback
             name: Nombre del usuario (opcional)
             email: Email del usuario (opcional)
+            user_id: ID del usuario que envía el feedback
 
         Raises:
             ValueError: Si el tipo no es válido o el mensaje está vacío
@@ -44,6 +48,9 @@ class Feedback:
         self._type: str = type
         self._message: str = message.strip()
         self._created_at: datetime = datetime.now(timezone.utc)
+
+        # Multi-usuario
+        self._user_id: Optional[UserId] = user_id
 
     @staticmethod
     def _validate_type(type: str) -> None:
@@ -84,6 +91,10 @@ class Feedback:
     @property
     def created_at(self) -> datetime:
         return self._created_at
+
+    @property
+    def user_id(self) -> Optional[UserId]:
+        return self._user_id
 
     def __repr__(self) -> str:
         return f"Feedback(id={self._id}, type={self._type}, name={self._name}, created_at={self._created_at})"

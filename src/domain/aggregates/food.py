@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from domain.value_objects import FoodId, FoodName
+from domain.value_objects.identifiers import UserId
 
 
 class Food:
@@ -44,6 +45,9 @@ class Food:
         self._active = active
         self._created_at = datetime.now(timezone.utc)
         self._updated_at = datetime.now(timezone.utc)
+
+        # Multi-usuario
+        self._user_id: Optional[UserId] = None
 
     @staticmethod
     def _validate_numeric_fields(ppk: float, size_mm: float) -> None:
@@ -101,6 +105,10 @@ class Food:
     @property
     def updated_at(self) -> datetime:
         return self._updated_at
+
+    @property
+    def user_id(self) -> Optional[UserId]:
+        return self._user_id
 
     # Business methods
 

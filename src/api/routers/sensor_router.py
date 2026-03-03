@@ -5,10 +5,10 @@ Proporciona acceso a las lecturas en tiempo real de los sensores
 y gestión de configuración de sensores en las líneas de alimentación.
 """
 
-
 from fastapi import APIRouter, HTTPException, status
 
 from api.dependencies import (
+    CurrentUser,
     GetLineSensorsUseCaseDep,
     GetSensorReadingsUseCaseDep,
     UpdateSensorUseCaseDep,
@@ -97,6 +97,7 @@ router = APIRouter(prefix="/feeding-lines", tags=["sensors"])
 async def get_sensor_readings(
     line_id: str,
     use_case: GetSensorReadingsUseCaseDep,
+    current_user: CurrentUser,
 ) -> SensorReadingsResponse:
     """
     Endpoint para obtener lecturas en tiempo real de sensores de una línea.
@@ -106,7 +107,7 @@ async def get_sensor_readings(
     """
     try:
         # Ejecutar caso de uso
-        sensor_readings = await use_case.execute(line_id)
+        sensor_readings = await use_case.execute(line_id, user_id=current_user.id)
 
         # Convertir a modelo de respuesta
         return SensorReadingsResponse(
@@ -156,10 +157,11 @@ async def get_sensor_readings(
 async def list_sensors(
     line_id: str,
     use_case: GetLineSensorsUseCaseDep,
+    current_user: CurrentUser,
 ) -> SensorsListResponse:
     """Lista todos los sensores de una línea."""
     try:
-        result = await use_case.execute(line_id)
+        result = await use_case.execute(line_id, user_id=current_user.id)
 
         return SensorsListResponse(
             line_id=result.line_id,
@@ -204,6 +206,7 @@ async def update_sensor(
     sensor_id: str,
     request: UpdateSensorRequest,
     use_case: UpdateSensorUseCaseDep,
+    current_user: CurrentUser,
 ) -> SensorDetailResponse:
     """Actualiza la configuración de un sensor."""
     try:
@@ -215,7 +218,7 @@ async def update_sensor(
             critical_threshold=request.critical_threshold,
         )
 
-        result = await use_case.execute(line_id, sensor_id, update_dto)
+        result = await use_case.execute(line_id, sensor_id, update_dto, user_id=current_user.id)
 
         return SensorDetailResponse(
             id=result.id,

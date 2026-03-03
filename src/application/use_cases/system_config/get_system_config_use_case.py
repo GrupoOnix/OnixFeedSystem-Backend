@@ -2,14 +2,15 @@
 
 from api.models.system_config_models import SystemConfigResponse
 from domain.repositories import ISystemConfigRepository
+from domain.value_objects.identifiers import UserId
 
 
 class GetSystemConfigUseCase:
     def __init__(self, config_repository: ISystemConfigRepository) -> None:
         self._repo = config_repository
 
-    async def execute(self) -> SystemConfigResponse:
-        config = await self._repo.get()
+    async def execute(self, user_id: UserId) -> SystemConfigResponse:
+        config = await self._repo.get(user_id)
         return SystemConfigResponse(
             feeding_start_time=config.feeding_start_time.strftime("%H:%M"),
             feeding_end_time=config.feeding_end_time.strftime("%H:%M"),

@@ -1,9 +1,9 @@
 """Caso de uso para listar alertas programadas."""
 
-
 from application.dtos.alert_dtos import ListScheduledAlertsResponse, ScheduledAlertDTO
 from domain.aggregates.scheduled_alert import ScheduledAlert
 from domain.repositories import IScheduledAlertRepository
+from domain.value_objects import UserId
 
 
 class ListScheduledAlertsUseCase:
@@ -12,14 +12,17 @@ class ListScheduledAlertsUseCase:
     def __init__(self, scheduled_alert_repository: IScheduledAlertRepository):
         self._repo = scheduled_alert_repository
 
-    async def execute(self) -> ListScheduledAlertsResponse:
+    async def execute(self, user_id: UserId) -> ListScheduledAlertsResponse:
         """
-        Lista todas las alertas programadas.
+        Lista todas las alertas programadas del usuario.
+
+        Args:
+            user_id: ID del usuario propietario.
 
         Returns:
             Lista de alertas programadas ordenadas por próxima fecha de disparo.
         """
-        scheduled_alerts = await self._repo.get_all()
+        scheduled_alerts = await self._repo.get_all(user_id=user_id)
         dtos = [self._to_dto(sa) for sa in scheduled_alerts]
         return ListScheduledAlertsResponse(scheduled_alerts=dtos)
 

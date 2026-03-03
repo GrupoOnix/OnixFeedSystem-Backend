@@ -6,6 +6,7 @@ from typing import List, Optional
 
 from domain.aggregates.cage import Cage
 from domain.value_objects.identifiers import CageGroupId, CageId
+from domain.value_objects.identifiers import UserId
 from domain.value_objects.names import CageGroupName
 
 
@@ -61,6 +62,9 @@ class CageGroup:
         self._created_at = datetime.now(timezone.utc)
         self._updated_at = datetime.now(timezone.utc)
 
+        # Multi-usuario
+        self._user_id: Optional[UserId] = None
+
     # =========================================================================
     # PROPIEDADES DE IDENTIDAD
     # =========================================================================
@@ -95,6 +99,10 @@ class CageGroup:
         """Fecha de última actualización del grupo."""
         return self._updated_at
 
+    @property
+    def user_id(self) -> Optional[UserId]:
+        return self._user_id
+
     # =========================================================================
     # MÉTODOS DE GESTIÓN DE JAULAS
     # =========================================================================
@@ -128,8 +136,7 @@ class CageGroup:
 
         if len(self._cage_ids) == 1:
             raise ValueError(
-                "No se puede remover la última jaula del grupo. "
-                "Un grupo debe contener al menos una jaula."
+                "No se puede remover la última jaula del grupo. Un grupo debe contener al menos una jaula."
             )
 
         self._cage_ids.remove(cage_id)
@@ -206,9 +213,7 @@ class CageGroup:
             Esto permite calcular métricas incluso si algunas jaulas fueron eliminadas.
         """
         # Filtrar solo las jaulas que pertenecen al grupo
-        relevant_cages = [
-            cage for cage in cages if cage.id in self._cage_ids
-        ]
+        relevant_cages = [cage for cage in cages if cage.id in self._cage_ids]
 
         if not relevant_cages:
             return CageGroupMetrics(
@@ -222,9 +227,7 @@ class CageGroup:
         # Calcular totales
         total_population = sum(cage.fish_count for cage in relevant_cages)
         total_biomass = sum(cage.biomass_kg for cage in relevant_cages)
-        total_volume = sum(
-            cage.config.volume_m3 or 0.0 for cage in relevant_cages
-        )
+        total_volume = sum(cage.config.volume_m3 or 0.0 for cage in relevant_cages)
 
         # Calcular promedios
         avg_weight = (
@@ -232,9 +235,7 @@ class CageGroup:
             if total_population > 0
             else 0.0
         )
-        avg_density = (
-            total_biomass / total_volume if total_volume > 0 else 0.0
-        )
+        avg_density = total_biomass / total_volume if total_volume > 0 else 0.0
 
         return CageGroupMetrics(
             total_population=total_population,

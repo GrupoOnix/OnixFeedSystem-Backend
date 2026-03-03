@@ -51,6 +51,7 @@ from .identifiers import (
     SensorId,
     SessionId,
     SiloId,
+    UserId,
     VisitaId,
 )
 
@@ -94,6 +95,7 @@ __all__ = [
     "AlertId",
     "ScheduledAlertId",
     "ComidaId",
+    "UserId",
     "VisitaId",
     # Names
     "LineName",

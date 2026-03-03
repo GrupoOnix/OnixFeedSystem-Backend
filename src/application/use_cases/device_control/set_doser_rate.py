@@ -24,22 +24,23 @@ class SetDoserRateUseCase:
         self._doser_repo = doser_repository
         self._machine = machine_service
 
-    async def execute(self, doser_id: str, rate_kg_min: float) -> None:
+    async def execute(self, doser_id: str, rate_kg_min: float, user_id: UUID | None = None) -> None:
         """
         Establece la tasa de dosificación de un doser específico.
 
         Args:
             doser_id: ID del doser
             rate_kg_min: Tasa de dosificación en kg/min
+            user_id: ID del usuario autenticado para validar ownership
 
         Raises:
-            ValueError: Si el doser no existe o la tasa está fuera de rango
+            ValueError: Si el doser no existe, no pertenece al usuario, o la tasa está fuera de rango
         """
         # Convertir ID a UUID
         doser_uuid = UUID(doser_id)
 
         # Buscar doser con contexto
-        result = await self._doser_repo.find_by_id_with_context(doser_uuid)
+        result = await self._doser_repo.find_by_id_with_context(doser_uuid, user_id=user_id)
         if not result:
             raise ValueError(f"Doser {doser_id} no encontrado")
 

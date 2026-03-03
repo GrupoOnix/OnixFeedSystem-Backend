@@ -24,22 +24,23 @@ class SetCoolerPowerUseCase:
         self._cooler_repo = cooler_repository
         self._machine = machine_service
 
-    async def execute(self, cooler_id: str, power_percentage: float) -> None:
+    async def execute(self, cooler_id: str, power_percentage: float, user_id: UUID | None = None) -> None:
         """
         Establece la potencia de un cooler específico.
 
         Args:
             cooler_id: ID del cooler
             power_percentage: Potencia a establecer (0-100%)
+            user_id: ID del usuario autenticado para validar ownership
 
         Raises:
-            ValueError: Si el cooler no existe o la potencia está fuera de rango
+            ValueError: Si el cooler no existe, no pertenece al usuario, o la potencia está fuera de rango
         """
         # Convertir ID a UUID
         cooler_uuid = UUID(cooler_id)
 
         # Buscar cooler con contexto
-        result = await self._cooler_repo.find_by_id_with_context(cooler_uuid)
+        result = await self._cooler_repo.find_by_id_with_context(cooler_uuid, user_id=user_id)
         if not result:
             raise ValueError(f"Cooler {cooler_id} no encontrado")
 

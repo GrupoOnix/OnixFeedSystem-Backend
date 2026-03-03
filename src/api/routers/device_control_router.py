@@ -1,10 +1,11 @@
-"""Router para control directo de devices (blower, doser, selector)."""
+"""Router para control directo de devices (blower, doser, selector, cooler)."""
 
 from typing import Dict
 
 from fastapi import APIRouter, HTTPException, status
 
 from api.dependencies import (
+    CurrentUser,
     GetBlowerStatusUseCaseDep,
     GetDoserStatusUseCaseDep,
     GetSelectorStatusUseCaseDep,
@@ -36,10 +37,16 @@ from domain.exceptions import DomainException
 router = APIRouter(prefix="/device-control", tags=["Device Control"])
 
 
+# =========================================================================
+# Blower Control
+# =========================================================================
+
+
 @router.post("/blowers/{blower_id}/on", status_code=status.HTTP_200_OK)
 async def turn_blower_on(
     blower_id: str,
     use_case: TurnBlowerOnUseCaseDep,
+    current_user: CurrentUser,
 ) -> Dict[str, str]:
     """
     Enciende un blower específico.
@@ -49,7 +56,7 @@ async def turn_blower_on(
     - **blower_id**: ID del blower (UUID)
     """
     try:
-        await use_case.execute(blower_id)
+        await use_case.execute(blower_id, user_id=current_user.id)
         return {"message": "Blower turned on successfully"}
 
     except ValueError as e:
@@ -72,6 +79,7 @@ async def turn_blower_on(
 async def turn_blower_off(
     blower_id: str,
     use_case: TurnBlowerOffUseCaseDep,
+    current_user: CurrentUser,
 ) -> Dict[str, str]:
     """
     Apaga un blower específico.
@@ -81,7 +89,7 @@ async def turn_blower_off(
     - **blower_id**: ID del blower (UUID)
     """
     try:
-        await use_case.execute(blower_id)
+        await use_case.execute(blower_id, user_id=current_user.id)
         return {"message": "Blower turned off successfully"}
 
     except ValueError as e:
@@ -105,6 +113,7 @@ async def set_blower_power(
     blower_id: str,
     request: SetBlowerPowerRequest,
     use_case: SetBlowerPowerUseCaseDep,
+    current_user: CurrentUser,
 ) -> Dict[str, str]:
     """
     Establece la potencia de un blower específico.
@@ -116,10 +125,8 @@ async def set_blower_power(
     - **power_percentage**: Potencia del blower (0-100%)
     """
     try:
-        await use_case.execute(blower_id, request.power_percentage)
-        return {
-            "message": f"Blower power set to {request.power_percentage}% successfully"
-        }
+        await use_case.execute(blower_id, request.power_percentage, user_id=current_user.id)
+        return {"message": f"Blower power set to {request.power_percentage}% successfully"}
 
     except ValueError as e:
         raise HTTPException(
@@ -137,10 +144,46 @@ async def set_blower_power(
         )
 
 
+@router.get("/blowers/{blower_id}/status", status_code=status.HTTP_200_OK)
+async def get_blower_status(
+    blower_id: str,
+    use_case: GetBlowerStatusUseCaseDep,
+    current_user: CurrentUser,
+) -> BlowerStatusResponse:
+    """
+    Obtiene el estado actual de un blower específico.
+
+    - **blower_id**: ID del blower (UUID)
+    """
+    try:
+        return await use_case.execute(blower_id, user_id=current_user.id)
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+
+    except DomainException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}",
+        )
+
+
+# =========================================================================
+# Doser Control
+# =========================================================================
+
+
 @router.post("/dosers/{doser_id}/on", status_code=status.HTTP_200_OK)
 async def turn_doser_on(
     doser_id: str,
     use_case: TurnDoserOnUseCaseDep,
+    current_user: CurrentUser,
 ) -> Dict[str, str]:
     """
     Enciende un doser específico.
@@ -150,7 +193,7 @@ async def turn_doser_on(
     - **doser_id**: ID del doser (UUID)
     """
     try:
-        await use_case.execute(doser_id)
+        await use_case.execute(doser_id, user_id=current_user.id)
         return {"message": "Doser turned on successfully"}
 
     except ValueError as e:
@@ -173,6 +216,7 @@ async def turn_doser_on(
 async def turn_doser_off(
     doser_id: str,
     use_case: TurnDoserOffUseCaseDep,
+    current_user: CurrentUser,
 ) -> Dict[str, str]:
     """
     Apaga un doser específico.
@@ -182,7 +226,7 @@ async def turn_doser_off(
     - **doser_id**: ID del doser (UUID)
     """
     try:
-        await use_case.execute(doser_id)
+        await use_case.execute(doser_id, user_id=current_user.id)
         return {"message": "Doser turned off successfully"}
 
     except ValueError as e:
@@ -206,6 +250,7 @@ async def set_doser_rate(
     doser_id: str,
     request: SetDoserRateRequest,
     use_case: SetDoserRateUseCaseDep,
+    current_user: CurrentUser,
 ) -> Dict[str, str]:
     """
     Establece la tasa de dosificación de un doser específico.
@@ -217,10 +262,8 @@ async def set_doser_rate(
     - **rate_kg_min**: Tasa de dosificación en kg/min
     """
     try:
-        await use_case.execute(doser_id, request.rate_kg_min)
-        return {
-            "message": f"Doser rate set to {request.rate_kg_min} kg/min successfully"
-        }
+        await use_case.execute(doser_id, request.rate_kg_min, user_id=current_user.id)
+        return {"message": f"Doser rate set to {request.rate_kg_min} kg/min successfully"}
 
     except ValueError as e:
         raise HTTPException(
@@ -243,6 +286,7 @@ async def set_doser_speed(
     doser_id: str,
     request: SetDoserSpeedRequest,
     use_case: SetDoserSpeedUseCaseDep,
+    current_user: CurrentUser,
 ) -> Dict[str, str]:
     """
     Establece la velocidad del motor de un doser específico.
@@ -254,7 +298,7 @@ async def set_doser_speed(
     - **speed_percentage**: Velocidad del motor (1-100%)
     """
     try:
-        await use_case.execute(doser_id, request.speed_percentage)
+        await use_case.execute(doser_id, request.speed_percentage, user_id=current_user.id)
         return {"message": f"Doser speed set to {request.speed_percentage}%"}
 
     except ValueError as e:
@@ -273,11 +317,47 @@ async def set_doser_speed(
         )
 
 
+@router.get("/dosers/{doser_id}/status", status_code=status.HTTP_200_OK)
+async def get_doser_status(
+    doser_id: str,
+    use_case: GetDoserStatusUseCaseDep,
+    current_user: CurrentUser,
+) -> DoserStatusResponse:
+    """
+    Obtiene el estado actual de un doser específico.
+
+    - **doser_id**: ID del doser (UUID)
+    """
+    try:
+        return await use_case.execute(doser_id, user_id=current_user.id)
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+
+    except DomainException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}",
+        )
+
+
+# =========================================================================
+# Selector Control
+# =========================================================================
+
+
 @router.post("/selectors/{selector_id}/move", status_code=status.HTTP_200_OK)
 async def move_selector(
     selector_id: str,
     request: MoveSelectorRequest,
     use_case: MoveSelectorDirectUseCaseDep,
+    current_user: CurrentUser,
 ) -> Dict[str, str]:
     """
     Mueve un selector específico a un slot.
@@ -289,7 +369,7 @@ async def move_selector(
     - **slot_number**: Número de slot destino (1 a capacity)
     """
     try:
-        await use_case.execute(selector_id, request.slot_number)
+        await use_case.execute(selector_id, request.slot_number, user_id=current_user.id)
         return {"message": f"Selector moved to slot {request.slot_number} successfully"}
 
     except ValueError as e:
@@ -312,6 +392,7 @@ async def move_selector(
 async def reset_selector(
     selector_id: str,
     use_case: ResetSelectorDirectUseCaseDep,
+    current_user: CurrentUser,
 ) -> Dict[str, str]:
     """
     Resetea la posición de un selector específico a neutral.
@@ -322,66 +403,8 @@ async def reset_selector(
     - **selector_id**: ID del selector (UUID)
     """
     try:
-        await use_case.execute(selector_id)
+        await use_case.execute(selector_id, user_id=current_user.id)
         return {"message": "Selector position reset successfully"}
-
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e),
-        )
-
-    except DomainException as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error interno del servidor: {str(e)}",
-        )
-
-
-@router.get("/blowers/{blower_id}/status", status_code=status.HTTP_200_OK)
-async def get_blower_status(
-    blower_id: str,
-    use_case: GetBlowerStatusUseCaseDep,
-) -> BlowerStatusResponse:
-    """
-    Obtiene el estado actual de un blower específico.
-
-    - **blower_id**: ID del blower (UUID)
-    """
-    try:
-        return await use_case.execute(blower_id)
-
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e),
-        )
-
-    except DomainException as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error interno del servidor: {str(e)}",
-        )
-
-
-@router.get("/dosers/{doser_id}/status", status_code=status.HTTP_200_OK)
-async def get_doser_status(
-    doser_id: str,
-    use_case: GetDoserStatusUseCaseDep,
-) -> DoserStatusResponse:
-    """
-    Obtiene el estado actual de un doser específico.
-
-    - **doser_id**: ID del doser (UUID)
-    """
-    try:
-        return await use_case.execute(doser_id)
 
     except ValueError as e:
         raise HTTPException(
@@ -403,6 +426,7 @@ async def get_doser_status(
 async def get_selector_status(
     selector_id: str,
     use_case: GetSelectorStatusUseCaseDep,
+    current_user: CurrentUser,
 ) -> SelectorStatusResponse:
     """
     Obtiene el estado actual de un selector específico.
@@ -410,7 +434,7 @@ async def get_selector_status(
     - **selector_id**: ID del selector (UUID)
     """
     try:
-        return await use_case.execute(selector_id)
+        return await use_case.execute(selector_id, user_id=current_user.id)
 
     except ValueError as e:
         raise HTTPException(
@@ -437,6 +461,7 @@ async def get_selector_status(
 async def turn_cooler_on(
     cooler_id: str,
     use_case: TurnCoolerOnUseCaseDep,
+    current_user: CurrentUser,
 ) -> Dict[str, str]:
     """
     Enciende un cooler específico.
@@ -446,7 +471,7 @@ async def turn_cooler_on(
     - **cooler_id**: ID del cooler (UUID)
     """
     try:
-        await use_case.execute(cooler_id)
+        await use_case.execute(cooler_id, user_id=current_user.id)
         return {"message": "Cooler turned on successfully"}
 
     except ValueError as e:
@@ -469,6 +494,7 @@ async def turn_cooler_on(
 async def turn_cooler_off(
     cooler_id: str,
     use_case: TurnCoolerOffUseCaseDep,
+    current_user: CurrentUser,
 ) -> Dict[str, str]:
     """
     Apaga un cooler específico.
@@ -478,7 +504,7 @@ async def turn_cooler_off(
     - **cooler_id**: ID del cooler (UUID)
     """
     try:
-        await use_case.execute(cooler_id)
+        await use_case.execute(cooler_id, user_id=current_user.id)
         return {"message": "Cooler turned off successfully"}
 
     except ValueError as e:
@@ -502,6 +528,7 @@ async def set_cooler_power(
     cooler_id: str,
     request: SetCoolerPowerRequest,
     use_case: SetCoolerPowerUseCaseDep,
+    current_user: CurrentUser,
 ) -> Dict[str, str]:
     """
     Establece la potencia de un cooler específico.
@@ -513,10 +540,8 @@ async def set_cooler_power(
     - **power_percentage**: Potencia del cooler (0-100%)
     """
     try:
-        await use_case.execute(cooler_id, request.power_percentage)
-        return {
-            "message": f"Cooler power set to {request.power_percentage}% successfully"
-        }
+        await use_case.execute(cooler_id, request.power_percentage, user_id=current_user.id)
+        return {"message": f"Cooler power set to {request.power_percentage}% successfully"}
 
     except ValueError as e:
         raise HTTPException(

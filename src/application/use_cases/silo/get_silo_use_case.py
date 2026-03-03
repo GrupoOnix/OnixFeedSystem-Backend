@@ -1,7 +1,7 @@
 from application.dtos.silo_dtos import SiloDTO
 from domain.exceptions import SiloNotFoundError
 from domain.repositories import ISiloRepository
-from domain.value_objects import SiloId
+from domain.value_objects import SiloId, UserId
 
 
 class GetSiloUseCase:
@@ -10,12 +10,13 @@ class GetSiloUseCase:
     def __init__(self, silo_repository: ISiloRepository):
         self._silo_repository = silo_repository
 
-    async def execute(self, silo_id: str) -> SiloDTO:
+    async def execute(self, silo_id: str, user_id: UserId) -> SiloDTO:
         """
         Ejecuta el caso de uso para obtener un silo por ID.
 
         Args:
             silo_id: ID del silo como string
+            user_id: ID del usuario propietario
 
         Returns:
             SiloDTO con los datos del silo y su línea asociada
@@ -27,7 +28,7 @@ class GetSiloUseCase:
         silo_id_vo = SiloId.from_string(silo_id)
 
         # Buscar silo con información de línea
-        result = await self._silo_repository.find_by_id_with_line_info(silo_id_vo)
+        result = await self._silo_repository.find_by_id_with_line_info(silo_id_vo, user_id)
 
         if not result:
             raise SiloNotFoundError(f"Silo con ID {silo_id} no encontrado")

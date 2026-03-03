@@ -4,6 +4,7 @@ from application.dtos.alert_dtos import CreateScheduledAlertRequest, ScheduledAl
 from domain.aggregates.scheduled_alert import ScheduledAlert
 from domain.enums import AlertCategory, AlertType, ScheduledAlertFrequency
 from domain.repositories import IScheduledAlertRepository
+from domain.value_objects import UserId
 
 
 class CreateScheduledAlertUseCase:
@@ -12,12 +13,13 @@ class CreateScheduledAlertUseCase:
     def __init__(self, scheduled_alert_repository: IScheduledAlertRepository):
         self._repo = scheduled_alert_repository
 
-    async def execute(self, request: CreateScheduledAlertRequest) -> ScheduledAlertDTO:
+    async def execute(self, request: CreateScheduledAlertRequest, user_id: UserId) -> ScheduledAlertDTO:
         """
         Crea una nueva alerta programada.
 
         Args:
             request: Datos de la alerta programada.
+            user_id: ID del usuario propietario.
 
         Returns:
             Alerta programada creada.
@@ -47,6 +49,8 @@ class CreateScheduledAlertUseCase:
             custom_days_interval=request.custom_days_interval,
             metadata=request.metadata,
         )
+
+        scheduled_alert._user_id = user_id
 
         # Guardar
         await self._repo.save(scheduled_alert)

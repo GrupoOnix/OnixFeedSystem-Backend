@@ -18,18 +18,19 @@ class TurnDoserOnUseCase:
         self._doser_repo = doser_repository
         self._machine = machine_service
 
-    async def execute(self, doser_id: str) -> None:
+    async def execute(self, doser_id: str, user_id: UUID | None = None) -> None:
         """
         Enciende el doser a su tasa configurada.
 
         Args:
             doser_id: ID del doser
+            user_id: ID del usuario autenticado para validar ownership
 
         Raises:
-            ValueError: Si el doser no existe o no tiene un rate válido configurado
+            ValueError: Si el doser no existe o no pertenece al usuario
         """
         doser_uuid = UUID(doser_id)
-        result = await self._doser_repo.find_by_id_with_context(doser_uuid)
+        result = await self._doser_repo.find_by_id_with_context(doser_uuid, user_id=user_id)
 
         if not result:
             raise ValueError(f"Doser {doser_id} no encontrado")
@@ -66,21 +67,22 @@ class TurnDoserOffUseCase:
         self._doser_repo = doser_repository
         self._machine = machine_service
 
-    async def execute(self, doser_id: str) -> None:
+    async def execute(self, doser_id: str, user_id: UUID | None = None) -> None:
         """
         Apaga el doser.
-        
+
         El current_rate configurado se mantiene guardado para cuando
         se vuelva a encender.
 
         Args:
             doser_id: ID del doser
+            user_id: ID del usuario autenticado para validar ownership
 
         Raises:
-            ValueError: Si el doser no existe
+            ValueError: Si el doser no existe o no pertenece al usuario
         """
         doser_uuid = UUID(doser_id)
-        result = await self._doser_repo.find_by_id_with_context(doser_uuid)
+        result = await self._doser_repo.find_by_id_with_context(doser_uuid, user_id=user_id)
 
         if not result:
             raise ValueError(f"Doser {doser_id} no encontrado")

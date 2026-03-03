@@ -26,22 +26,23 @@ class MoveSelectorToSlotDirectUseCase:
         self._selector_repo = selector_repository
         self._machine = machine_service
 
-    async def execute(self, selector_id: str, slot_number: int) -> None:
+    async def execute(self, selector_id: str, slot_number: int, user_id: UUID | None = None) -> None:
         """
         Mueve un selector específico a un slot.
 
         Args:
             selector_id: ID del selector
             slot_number: Número de slot destino (1 a capacity)
+            user_id: ID del usuario autenticado para validar ownership
 
         Raises:
-            ValueError: Si el selector no existe o el slot está fuera de rango
+            ValueError: Si el selector no existe, no pertenece al usuario, o el slot está fuera de rango
         """
         # Convertir ID a UUID
         selector_uuid = UUID(selector_id)
 
         # Buscar selector con contexto
-        result = await self._selector_repo.find_by_id_with_context(selector_uuid)
+        result = await self._selector_repo.find_by_id_with_context(selector_uuid, user_id=user_id)
         if not result:
             raise ValueError(f"Selector {selector_id} no encontrado")
 

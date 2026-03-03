@@ -11,6 +11,7 @@ from domain.aggregates.alert import Alert
 from domain.enums import AlertCategory, AlertType
 from domain.repositories import IAlertRepository
 from domain.value_objects import AlertId
+from domain.value_objects.identifiers import UserId
 
 
 class AlertTriggerService:
@@ -37,6 +38,7 @@ class AlertTriggerService:
         current_level: float,
         max_capacity: float,
         percentage: float,
+        user_id: UserId,
         critical_threshold: float = 10.0,
     ) -> Optional[AlertId]:
         """
@@ -58,15 +60,10 @@ class AlertTriggerService:
             ID de la alerta (existente o nueva), o None si está silenciada.
         """
         # Determinar tipo de alerta usando el umbral crítico del silo
-        alert_type = (
-            AlertType.CRITICAL if percentage < critical_threshold else AlertType.WARNING
-        )
+        alert_type = AlertType.CRITICAL if percentage < critical_threshold else AlertType.WARNING
 
         # Preparar mensaje y metadata
-        message = (
-            f"El silo está al {percentage:.1f}% de capacidad "
-            f"({current_level:.0f}/{max_capacity:.0f} kg)"
-        )
+        message = f"El silo está al {percentage:.1f}% de capacidad ({current_level:.0f}/{max_capacity:.0f} kg)"
         metadata = {
             "silo_id": silo_id,
             "current_level": current_level,
@@ -75,7 +72,7 @@ class AlertTriggerService:
         }
 
         # Buscar cualquier alerta para este silo (incluyendo silenciadas)
-        any_alert = await self._alert_repo.find_any_by_silo(silo_id)
+        any_alert = await self._alert_repo.find_any_by_silo(silo_id, user_id)
 
         if any_alert:
             # Si la alerta está silenciada, NO hacer nada (evitar duplicados)
@@ -99,6 +96,7 @@ class AlertTriggerService:
                 message=message,
                 source=silo_name,
                 metadata=metadata,
+                user_id=user_id,
             )
 
     async def sensor_out_of_range(
@@ -110,6 +108,7 @@ class AlertTriggerService:
         current_value: float,
         normal_range: Tuple[float, float],
         unit: str,
+        user_id: UserId,
     ) -> AlertId:
         """
         Sensor fuera de rango.
@@ -140,6 +139,7 @@ class AlertTriggerService:
                 "normal_range": list(normal_range),
                 "unit": unit,
             },
+            user_id=user_id,
         )
 
     async def device_incomplete_config(
@@ -150,6 +150,7 @@ class AlertTriggerService:
         line_id: str,
         line_name: str,
         missing_fields: List[str],
+        user_id: UserId,
     ) -> AlertId:
         """
         Dispositivo con configuración incompleta o incorrecta.
@@ -179,6 +180,7 @@ class AlertTriggerService:
                 "line_name": line_name,
                 "missing_fields": missing_fields,
             },
+            user_id=user_id,
         )
 
     # =========================================================================
@@ -193,6 +195,7 @@ class AlertTriggerService:
         line_name: str,
         error_code: str,
         error_message: str,
+        user_id: UserId,
     ) -> AlertId:
         """
         Dispositivo reporta error.
@@ -211,6 +214,7 @@ class AlertTriggerService:
                 "line_name": line_name,
                 "error_code": error_code,
             },
+            user_id=user_id,
         )
 
     async def connection_lost(
@@ -220,6 +224,7 @@ class AlertTriggerService:
         line_id: str,
         line_name: str,
         last_seen: str,  # ISO format datetime string
+        user_id: UserId,
     ) -> AlertId:
         """
         Sin heartbeat de dispositivo (timeout).
@@ -238,6 +243,7 @@ class AlertTriggerService:
                 "line_name": line_name,
                 "last_seen": last_seen,
             },
+            user_id=user_id,
         )
 
     async def feeding_operation_failed(
@@ -250,6 +256,7 @@ class AlertTriggerService:
         reason: str,
         amount_dispensed: float,
         amount_target: float,
+        user_id: UserId,
     ) -> AlertId:
         """
         Operación de feeding falla.
@@ -261,8 +268,7 @@ class AlertTriggerService:
             category=AlertCategory.FEEDING,
             title="Fallo en operación de alimentación",
             message=(
-                f"La operación falló: {reason}. "
-                f"Dispensado: {amount_dispensed:.1f}kg de {amount_target:.1f}kg objetivo"
+                f"La operación falló: {reason}. Dispensado: {amount_dispensed:.1f}kg de {amount_target:.1f}kg objetivo"
             ),
             source=f"{line_name} - {cage_name}",
             metadata={
@@ -275,6 +281,7 @@ class AlertTriggerService:
                 "amount_dispensed": amount_dispensed,
                 "amount_target": amount_target,
             },
+            user_id=user_id,
         )
 
     # =========================================================================
@@ -287,6 +294,7 @@ class AlertTriggerService:
         category: AlertCategory,
         title: str,
         message: str,
+        user_id: UserId,
         source: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> AlertId:
@@ -302,6 +310,7 @@ class AlertTriggerService:
             message=message,
             source=source,
             metadata=metadata,
+            user_id=user_id,
         )
 
     async def _create_alert(
@@ -310,6 +319,7 @@ class AlertTriggerService:
         category: AlertCategory,
         title: str,
         message: str,
+        user_id: UserId,
         source: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> AlertId:
@@ -322,5 +332,6 @@ class AlertTriggerService:
             source=source,
             metadata=metadata,
         )
+        alert._user_id = user_id
         await self._alert_repo.save(alert)
         return alert.id

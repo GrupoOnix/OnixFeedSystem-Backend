@@ -5,11 +5,12 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy import Column, DateTime
+from sqlalchemy import Column, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlmodel import Field, SQLModel
 
 from domain.aggregates.cage_group import CageGroup
-from domain.value_objects.identifiers import CageGroupId, CageId
+from domain.value_objects.identifiers import CageGroupId, CageId, UserId
 from domain.value_objects.names import CageGroupName
 
 
@@ -17,11 +18,16 @@ class CageGroupModel(SQLModel, table=True):
     """Modelo SQLModel para grupos de jaulas."""
 
     __tablename__ = "cage_groups"
+    __table_args__ = (UniqueConstraint("name", "user_id", name="uq_cage_groups_name_user"),)
 
     id: UUID = Field(primary_key=True)
-    name: str = Field(unique=True, max_length=255)
+    name: str = Field(max_length=255)
     description: Optional[str] = Field(default=None)
     cage_ids: str = Field()  # JSON array serializado como string
+    user_id: Optional[UUID] = Field(
+        default=None,
+        sa_column=Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True),
+    )
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
     updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
 
@@ -29,15 +35,14 @@ class CageGroupModel(SQLModel, table=True):
     def from_domain(cage_group: CageGroup) -> "CageGroupModel":
         """Convierte entidad de dominio a modelo de persistencia."""
         # Serializar lista de CageId a JSON string
-        cage_ids_str = json.dumps(
-            [str(cage_id.value) for cage_id in cage_group.cage_ids]
-        )
+        cage_ids_str = json.dumps([str(cage_id.value) for cage_id in cage_group.cage_ids])
 
         return CageGroupModel(
             id=cage_group.id.value,
             name=str(cage_group.name),
             description=cage_group.description,
             cage_ids=cage_ids_str,
+            user_id=cage_group.user_id.value if cage_group.user_id else None,
             created_at=cage_group.created_at,
             updated_at=cage_group.updated_at,
         )
@@ -58,5 +63,7 @@ class CageGroupModel(SQLModel, table=True):
         cage_group._set_id(CageGroupId(self.id))
         cage_group._set_created_at(self.created_at)
         cage_group._set_updated_at(self.updated_at)
+        if self.user_id:
+            cage_group._user_id = UserId(self.user_id)
 
         return cage_group

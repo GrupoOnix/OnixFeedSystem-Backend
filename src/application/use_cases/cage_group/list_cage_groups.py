@@ -10,7 +10,7 @@ from application.dtos.cage_group_dtos import (
 from domain.aggregates.cage import Cage
 from domain.aggregates.cage_group import CageGroup
 from domain.repositories import ICageGroupRepository, ICageRepository
-from domain.value_objects.identifiers import CageId
+from domain.value_objects.identifiers import CageId, UserId
 
 
 class ListCageGroupsUseCase:
@@ -26,6 +26,7 @@ class ListCageGroupsUseCase:
 
     async def execute(
         self,
+        user_id: UserId,
         search: str | None = None,
         limit: int = 50,
         offset: int = 0,
@@ -34,6 +35,7 @@ class ListCageGroupsUseCase:
         Lista grupos de jaulas con filtros opcionales.
 
         Args:
+            user_id: ID del usuario propietario
             search: Búsqueda en nombre, descripción o cage_ids (opcional)
             limit: Cantidad máxima de resultados (default 50)
             offset: Desplazamiento para paginación (default 0)
@@ -42,33 +44,29 @@ class ListCageGroupsUseCase:
             ListCageGroupsResponse con los grupos y total
         """
         # 1. Obtener grupos con filtros
-        groups = await self.group_repository.list(
-            search=search, limit=limit, offset=offset
-        )
+        groups = await self.group_repository.list(user_id=user_id, search=search, limit=limit, offset=offset)
 
         # 2. Contar total
-        total = await self.group_repository.count(search=search)
+        total = await self.group_repository.count(user_id=user_id, search=search)
 
         # 3. Convertir a response con métricas
         group_responses = []
         for group in groups:
-            cages = await self._load_cages(group.cage_ids)
+            cages = await self._load_cages(group.cage_ids, user_id)
             group_responses.append(self._to_response(group, cages))
 
         return ListCageGroupsResponse(groups=group_responses, total=total)
 
-    async def _load_cages(self, cage_ids: List[CageId]) -> List[Cage]:
+    async def _load_cages(self, cage_ids: List[CageId], user_id: UserId) -> List[Cage]:
         """Carga las jaulas desde el repositorio."""
         cages = []
         for cage_id in cage_ids:
-            cage = await self.cage_repository.find_by_id(cage_id)
+            cage = await self.cage_repository.find_by_id(cage_id, user_id)
             if cage:  # Ignorar jaulas que no existan
                 cages.append(cage)
         return cages
 
-    def _to_response(
-        self, cage_group: CageGroup, cages: List[Cage]
-    ) -> CageGroupResponse:
+    def _to_response(self, cage_group: CageGroup, cages: List[Cage]) -> CageGroupResponse:
         """Convierte la entidad a response DTO."""
         metrics = cage_group.calculate_metrics(cages)
 

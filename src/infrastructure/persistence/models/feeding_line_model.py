@@ -2,11 +2,12 @@ from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 from uuid import UUID
 
-from sqlalchemy import Column, DateTime
+from sqlalchemy import Column, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlmodel import Field, Relationship, SQLModel
 
 from domain.aggregates.feeding_line.feeding_line import FeedingLine
-from domain.value_objects import LineId, LineName
+from domain.value_objects import LineId, LineName, UserId
 
 if TYPE_CHECKING:
     from .blower_model import BlowerModel
@@ -19,9 +20,14 @@ if TYPE_CHECKING:
 
 class FeedingLineModel(SQLModel, table=True):
     __tablename__ = "feeding_lines"
+    __table_args__ = (UniqueConstraint("name", "user_id", name="uq_feeding_lines_name_user"),)
 
     id: UUID = Field(primary_key=True)
-    name: str = Field(unique=True, max_length=100)
+    name: str = Field(max_length=100)
+    user_id: Optional[UUID] = Field(
+        default=None,
+        sa_column=Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True),
+    )
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
 
     blower: Optional["BlowerModel"] = Relationship(
@@ -64,6 +70,7 @@ class FeedingLineModel(SQLModel, table=True):
         line_model = FeedingLineModel(
             id=line.id.value,
             name=str(line.name),
+            user_id=line.user_id.value if line.user_id else None,
             created_at=line._created_at,
         )
 
@@ -108,6 +115,8 @@ class FeedingLineModel(SQLModel, table=True):
 
         line._id = LineId(self.id)
         line._created_at = self.created_at
+        if self.user_id:
+            line._user_id = UserId(self.user_id)
 
         # Nota: Las asignaciones de cages se consultan por CageRepository si es necesario
         # No se cargan aquí para mantener agregates independientes

@@ -8,7 +8,7 @@ from application.dtos.cage_dtos import (
 from domain.aggregates.cage import Cage
 from domain.repositories import ICageRepository, ICageFeedingRepository
 from domain.value_objects.cage_configuration import CageConfiguration
-from domain.value_objects.identifiers import CageId
+from domain.value_objects.identifiers import CageId, UserId
 
 
 class UpdateCageConfigUseCase:
@@ -22,7 +22,7 @@ class UpdateCageConfigUseCase:
         self.cage_repository = cage_repository
         self.cage_feeding_repository = cage_feeding_repository
 
-    async def execute(self, cage_id: str, request: UpdateCageConfigRequest) -> CageResponse:
+    async def execute(self, cage_id: str, request: UpdateCageConfigRequest, user_id: UserId) -> CageResponse:
         """
         Actualiza la configuración de una jaula.
 
@@ -31,6 +31,7 @@ class UpdateCageConfigUseCase:
         Args:
             cage_id: ID de la jaula
             request: Configuración a actualizar
+            user_id: ID del usuario propietario
 
         Returns:
             CageResponse con los datos actualizados
@@ -39,7 +40,7 @@ class UpdateCageConfigUseCase:
             ValueError: Si la jaula no existe
         """
         cage_id_vo = CageId.from_string(cage_id)
-        cage = await self.cage_repository.find_by_id(cage_id_vo)
+        cage = await self.cage_repository.find_by_id(cage_id_vo, user_id)
         if not cage:
             raise ValueError(f"No existe una jaula con ID '{cage_id}'")
 

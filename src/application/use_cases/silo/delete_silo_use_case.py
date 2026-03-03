@@ -1,6 +1,6 @@
 from domain.exceptions import SiloInUseError, SiloNotFoundError
 from domain.repositories import ISiloRepository
-from domain.value_objects import SiloId
+from domain.value_objects import SiloId, UserId
 
 
 class DeleteSiloUseCase:
@@ -9,12 +9,13 @@ class DeleteSiloUseCase:
     def __init__(self, silo_repository: ISiloRepository):
         self._silo_repository = silo_repository
 
-    async def execute(self, silo_id: str) -> None:
+    async def execute(self, silo_id: str, user_id: UserId) -> None:
         """
         Ejecuta el caso de uso para eliminar un silo.
 
         Args:
             silo_id: ID del silo a eliminar
+            user_id: ID del usuario propietario
 
         Raises:
             SiloNotFoundError: Si el silo no existe
@@ -22,16 +23,14 @@ class DeleteSiloUseCase:
         """
         # Buscar el silo
         silo_id_vo = SiloId.from_string(silo_id)
-        silo = await self._silo_repository.find_by_id(silo_id_vo)
+        silo = await self._silo_repository.find_by_id(silo_id_vo, user_id)
 
         if not silo:
             raise SiloNotFoundError(f"Silo con ID {silo_id} no encontrado")
 
         # Validar que no esté asignado a un dosificador
         if silo.is_assigned:
-            raise SiloInUseError(
-                f"No se puede eliminar el silo '{silo.name}' porque está asignado a un dosificador"
-            )
+            raise SiloInUseError(f"No se puede eliminar el silo '{silo.name}' porque está asignado a un dosificador")
 
         # Eliminar el silo
-        await self._silo_repository.delete(silo_id_vo)
+        await self._silo_repository.delete(silo_id_vo, user_id)

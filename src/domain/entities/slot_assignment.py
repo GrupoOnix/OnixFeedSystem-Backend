@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID, uuid4
 
-from domain.value_objects.identifiers import CageId, LineId
+from domain.value_objects.identifiers import CageId, LineId, UserId
 
 
 @dataclass
@@ -25,6 +25,7 @@ class SlotAssignment:
     slot_number: int
     id: Optional[UUID] = None
     assigned_at: Optional[datetime] = None
+    user_id: Optional[UserId] = None
 
     def __post_init__(self) -> None:
         """Inicializa valores por defecto y valida."""

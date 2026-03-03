@@ -7,11 +7,10 @@ from domain.repositories import (
     IFeedingSessionRepository,
 )
 from domain.value_objects import LineId
-from domain.value_objects.identifiers import DoserId
+from domain.value_objects.identifiers import DoserId, UserId
 
 
 class UpdateFeedingRateUseCase:
-
     def __init__(
         self,
         session_repo: IFeedingSessionRepository,
@@ -26,8 +25,8 @@ class UpdateFeedingRateUseCase:
         self._machine = machine
         self._line_repo = line_repo
 
-    async def execute(self, session_id: str, new_rate: float) -> float:
-        session = await self._session_repo.find_by_id(session_id)
+    async def execute(self, session_id: str, new_rate: float, user_id: UserId) -> float:
+        session = await self._session_repo.find_by_id(session_id, user_id)
         if not session:
             raise ValueError(f"Sesión {session_id} no encontrada")
         if session.status.value not in ("IN_PROGRESS", "PAUSED"):
@@ -39,7 +38,7 @@ class UpdateFeedingRateUseCase:
             raise ValueError("No hay alimentación de jaula activa en esta sesión")
 
         if current.doser_id:
-            line = await self._line_repo.find_by_id(LineId.from_string(session.line_id))
+            line = await self._line_repo.find_by_id(LineId.from_string(session.line_id), user_id)
             if line:
                 doser = line.get_doser_by_id(DoserId.from_string(current.doser_id))
                 if doser and new_rate > doser.max_rate_kg_per_min:
@@ -67,7 +66,6 @@ class UpdateFeedingRateUseCase:
 
 
 class PauseFeedingUseCase:
-
     def __init__(
         self,
         session_repo: IFeedingSessionRepository,
@@ -78,8 +76,8 @@ class PauseFeedingUseCase:
         self._event_repo = event_repo
         self._machine = machine
 
-    async def execute(self, session_id: str, operator_id: str, reason: str) -> None:
-        session = await self._session_repo.find_by_id(session_id)
+    async def execute(self, session_id: str, operator_id: str, reason: str, user_id: UserId) -> None:
+        session = await self._session_repo.find_by_id(session_id, user_id)
         if not session:
             raise ValueError(f"Sesión {session_id} no encontrada")
 
@@ -96,7 +94,6 @@ class PauseFeedingUseCase:
 
 
 class ResumeFeedingUseCase:
-
     def __init__(
         self,
         session_repo: IFeedingSessionRepository,
@@ -107,8 +104,8 @@ class ResumeFeedingUseCase:
         self._event_repo = event_repo
         self._machine = machine
 
-    async def execute(self, session_id: str, operator_id: str) -> None:
-        session = await self._session_repo.find_by_id(session_id)
+    async def execute(self, session_id: str, operator_id: str, user_id: UserId) -> None:
+        session = await self._session_repo.find_by_id(session_id, user_id)
         if not session:
             raise ValueError(f"Sesión {session_id} no encontrada")
 
@@ -124,7 +121,6 @@ class ResumeFeedingUseCase:
 
 
 class CancelFeedingUseCase:
-
     def __init__(
         self,
         session_repo: IFeedingSessionRepository,
@@ -135,8 +131,8 @@ class CancelFeedingUseCase:
         self._event_repo = event_repo
         self._machine = machine
 
-    async def execute(self, session_id: str, operator_id: str, reason: str) -> None:
-        session = await self._session_repo.find_by_id(session_id)
+    async def execute(self, session_id: str, operator_id: str, reason: str, user_id: UserId) -> None:
+        session = await self._session_repo.find_by_id(session_id, user_id)
         if not session:
             raise ValueError(f"Sesión {session_id} no encontrada")
 
@@ -153,7 +149,6 @@ class CancelFeedingUseCase:
 
 
 class UpdateBlowerPowerUseCase:
-
     def __init__(
         self,
         session_repo: IFeedingSessionRepository,
@@ -162,8 +157,8 @@ class UpdateBlowerPowerUseCase:
         self._session_repo = session_repo
         self._machine = machine
 
-    async def execute(self, session_id: str, power_percentage: float) -> float:
-        session = await self._session_repo.find_by_id(session_id)
+    async def execute(self, session_id: str, power_percentage: float, user_id: UserId) -> float:
+        session = await self._session_repo.find_by_id(session_id, user_id)
         if not session:
             raise ValueError(f"Sesión {session_id} no encontrada")
         if session.status.value not in ("IN_PROGRESS", "PAUSED"):

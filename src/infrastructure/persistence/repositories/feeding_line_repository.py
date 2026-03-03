@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 
 from domain.aggregates.feeding_line.feeding_line import FeedingLine
 from domain.repositories import IFeedingLineRepository
-from domain.value_objects import LineId, LineName
+from domain.value_objects import LineId, LineName, UserId
 from infrastructure.persistence.models.feeding_line_model import FeedingLineModel
 
 
@@ -19,10 +19,13 @@ class FeedingLineRepository(IFeedingLineRepository):
         await self.session.merge(line_model)
         await self.session.flush()
 
-    async def find_by_id(self, line_id: LineId) -> Optional[FeedingLine]:
+    async def find_by_id(self, line_id: LineId, user_id: UserId) -> Optional[FeedingLine]:
         stmt = (
             select(FeedingLineModel)
-            .where(FeedingLineModel.id == line_id.value)
+            .where(
+                FeedingLineModel.id == line_id.value,
+                FeedingLineModel.user_id == user_id.value,
+            )
             .options(
                 selectinload(FeedingLineModel.blower),
                 selectinload(FeedingLineModel.cooler),
@@ -36,10 +39,13 @@ class FeedingLineRepository(IFeedingLineRepository):
         line_model = result.scalar_one_or_none()
         return line_model.to_domain() if line_model else None
 
-    async def find_by_name(self, name: LineName) -> Optional[FeedingLine]:
+    async def find_by_name(self, name: LineName, user_id: UserId) -> Optional[FeedingLine]:
         stmt = (
             select(FeedingLineModel)
-            .where(FeedingLineModel.name == str(name))
+            .where(
+                FeedingLineModel.name == str(name),
+                FeedingLineModel.user_id == user_id.value,
+            )
             .options(
                 selectinload(FeedingLineModel.blower),
                 selectinload(FeedingLineModel.cooler),
@@ -53,21 +59,30 @@ class FeedingLineRepository(IFeedingLineRepository):
         line_model = result.scalar_one_or_none()
         return line_model.to_domain() if line_model else None
 
-    async def get_all(self) -> List[FeedingLine]:
-        stmt = select(FeedingLineModel).options(
-            selectinload(FeedingLineModel.blower),
-            selectinload(FeedingLineModel.cooler),
-            selectinload(FeedingLineModel.dosers),
-            selectinload(FeedingLineModel.selector),
-            selectinload(FeedingLineModel.sensors),
+    async def get_all(self, user_id: UserId) -> List[FeedingLine]:
+        stmt = (
+            select(FeedingLineModel)
+            .where(FeedingLineModel.user_id == user_id.value)
+            .options(
+                selectinload(FeedingLineModel.blower),
+                selectinload(FeedingLineModel.cooler),
+                selectinload(FeedingLineModel.dosers),
+                selectinload(FeedingLineModel.selector),
+                selectinload(FeedingLineModel.sensors),
+            )
         )
 
         result = await self.session.execute(stmt)
         line_models = result.scalars().all()
         return [model.to_domain() for model in line_models]
 
-    async def delete(self, line_id: LineId) -> None:
-        line_model = await self.session.get(FeedingLineModel, line_id.value)
+    async def delete(self, line_id: LineId, user_id: UserId) -> None:
+        stmt = select(FeedingLineModel).where(
+            FeedingLineModel.id == line_id.value,
+            FeedingLineModel.user_id == user_id.value,
+        )
+        result = await self.session.execute(stmt)
+        line_model = result.scalar_one_or_none()
         if line_model:
             await self.session.delete(line_model)
             await self.session.flush()

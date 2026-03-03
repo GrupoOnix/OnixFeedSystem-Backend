@@ -8,7 +8,7 @@ actual (nombre, tipo, estado habilitado, umbrales).
 from application.dtos.sensor_dtos import SensorDetailDTO, SensorsListDTO
 from domain.exceptions import FeedingLineNotFoundException
 from domain.repositories import IFeedingLineRepository
-from domain.value_objects.identifiers import LineId
+from domain.value_objects.identifiers import LineId, UserId
 
 
 class GetLineSensorsUseCase:
@@ -23,12 +23,13 @@ class GetLineSensorsUseCase:
     def __init__(self, feeding_line_repo: IFeedingLineRepository):
         self._feeding_line_repo = feeding_line_repo
 
-    async def execute(self, line_id_str: str) -> SensorsListDTO:
+    async def execute(self, line_id_str: str, user_id: UserId) -> SensorsListDTO:
         """
         Obtiene los sensores configurados de una línea.
 
         Args:
             line_id_str: ID de la línea en formato string
+            user_id: ID del usuario autenticado
 
         Returns:
             SensorsListDTO: Lista de sensores con su configuración
@@ -38,11 +39,9 @@ class GetLineSensorsUseCase:
         """
         line_id = LineId.from_string(line_id_str)
 
-        line = await self._feeding_line_repo.find_by_id(line_id)
+        line = await self._feeding_line_repo.find_by_id(line_id, user_id)
         if not line:
-            raise FeedingLineNotFoundException(
-                f"No se encontró la línea de alimentación con ID: {line_id}"
-            )
+            raise FeedingLineNotFoundException(f"No se encontró la línea de alimentación con ID: {line_id}")
 
         sensors_dto = [
             SensorDetailDTO(

@@ -4,13 +4,14 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from sqlalchemy import Column, DateTime, Text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Column, DateTime, ForeignKey, Text
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlmodel import Field, SQLModel
 
 from domain.aggregates.alert import Alert
 from domain.enums import AlertCategory, AlertStatus, AlertType
 from domain.value_objects import AlertId
+from domain.value_objects.identifiers import UserId
 
 
 class AlertModel(SQLModel, table=True):
@@ -30,8 +31,10 @@ class AlertModel(SQLModel, table=True):
     resolved_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
     resolved_by: Optional[str] = Field(default=None, max_length=100)
     snoozed_until: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
-    metadata_json: Dict[str, Any] = Field(
-        default_factory=dict, sa_column=Column("metadata", JSONB, nullable=False)
+    metadata_json: Dict[str, Any] = Field(default_factory=dict, sa_column=Column("metadata", JSONB, nullable=False))
+    user_id: Optional[UUID] = Field(
+        default=None,
+        sa_column=Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True),
     )
 
     class Config:
@@ -54,6 +57,7 @@ class AlertModel(SQLModel, table=True):
             resolved_by=alert.resolved_by,
             snoozed_until=alert.snoozed_until,
             metadata_json=alert.metadata,
+            user_id=alert.user_id.value if hasattr(alert, "user_id") and alert.user_id else None,
         )
 
     def to_domain(self) -> Alert:
@@ -72,4 +76,5 @@ class AlertModel(SQLModel, table=True):
             resolved_by=self.resolved_by,
             snoozed_until=self.snoozed_until,
             metadata=self.metadata_json,
+            user_id=UserId(self.user_id) if self.user_id else None,
         )

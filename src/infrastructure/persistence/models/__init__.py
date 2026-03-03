@@ -21,6 +21,7 @@ from .sensor_model import SensorModel
 from .silo_model import SiloModel
 from .slot_assignment_model import SlotAssignmentModel
 from .system_config_model import SystemConfigModel
+from .user_model import UserModel
 
 __all__ = [
     "SiloModel",
@@ -43,4 +44,5 @@ __all__ = [
     "AlertModel",
     "ScheduledAlertModel",
     "SystemConfigModel",
+    "UserModel",
 ]

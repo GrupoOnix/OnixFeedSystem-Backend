@@ -10,25 +10,24 @@ from application.dtos.feeding_line_dtos import (
 )
 from domain.exceptions import FeedingLineNotFoundException
 from domain.repositories import IFeedingLineRepository
-from domain.value_objects import LineId
+from domain.value_objects import LineId, UserId
 from infrastructure.persistence.models import CageModel
 
 
 class GetFeedingLineUseCase:
     """Caso de uso para obtener una línea de alimentación específica."""
 
-    def __init__(
-        self, feeding_line_repository: IFeedingLineRepository, session: AsyncSession
-    ):
+    def __init__(self, feeding_line_repository: IFeedingLineRepository, session: AsyncSession):
         self._feeding_line_repository = feeding_line_repository
         self._session = session
 
-    async def execute(self, line_id: str) -> FeedingLineDTO:
+    async def execute(self, line_id: str, user_id: UserId) -> FeedingLineDTO:
         """
         Ejecuta el caso de uso para obtener una línea de alimentación.
 
         Args:
             line_id: ID de la línea a obtener
+            user_id: ID del usuario autenticado
 
         Returns:
             FeedingLineDTO con los detalles de la línea
@@ -36,13 +35,11 @@ class GetFeedingLineUseCase:
         Raises:
             FeedingLineNotFoundException: Si la línea no existe
         """
-        # Obtener línea
-        feeding_line = await self._feeding_line_repository.find_by_id(LineId(line_id))
+        # Obtener línea filtrada por usuario
+        feeding_line = await self._feeding_line_repository.find_by_id(LineId(line_id), user_id)
 
         if not feeding_line:
-            raise FeedingLineNotFoundException(
-                f"Línea de alimentación con ID {line_id} no encontrada"
-            )
+            raise FeedingLineNotFoundException(f"Línea de alimentación con ID {line_id} no encontrada")
 
         # Obtener conteo de jaulas para esta línea
         cage_count = await self._get_cage_count_by_line(line_id)
@@ -52,9 +49,7 @@ class GetFeedingLineUseCase:
 
     async def _get_cage_count_by_line(self, line_id: str) -> int:
         """Obtiene el conteo de jaulas para una línea específica."""
-        stmt = select(func.count(CageModel.id)).where(
-            CageModel.line_id == LineId(line_id).value
-        )
+        stmt = select(func.count(CageModel.id)).where(CageModel.line_id == LineId(line_id).value)
 
         result = await self._session.execute(stmt)
         return result.scalar_one()

@@ -14,7 +14,7 @@ from domain.enums import SensorType
 from domain.exceptions import FeedingLineNotFoundException
 from domain.interfaces import IFeedingMachine, ISensor
 from domain.repositories import IFeedingLineRepository
-from domain.value_objects.identifiers import LineId
+from domain.value_objects.identifiers import LineId, UserId
 
 # Umbrales por defecto cuando no están configurados en el sensor
 DEFAULT_THRESHOLDS: Dict[SensorType, Dict[str, float]] = {
@@ -44,12 +44,13 @@ class GetSensorReadingsUseCase:
         self._feeding_line_repo = feeding_line_repo
         self._feeding_machine = feeding_machine
 
-    async def execute(self, line_id_str: str) -> SensorReadings:
+    async def execute(self, line_id_str: str, user_id: UserId) -> SensorReadings:
         """
         Obtiene las lecturas actuales de todos los sensores habilitados de una línea.
 
         Args:
             line_id_str: ID de la línea en formato string
+            user_id: ID del usuario autenticado
 
         Returns:
             SensorReadings: Lecturas de sensores habilitados con timestamp
@@ -60,16 +61,12 @@ class GetSensorReadingsUseCase:
         # 1. Validar que la línea existe
         line_id = LineId.from_string(line_id_str)
 
-        line = await self._feeding_line_repo.find_by_id(line_id)
+        line = await self._feeding_line_repo.find_by_id(line_id, user_id)
         if not line:
-            raise FeedingLineNotFoundException(
-                f"No se encontró la línea de alimentación con ID: {line_id}"
-            )
+            raise FeedingLineNotFoundException(f"No se encontró la línea de alimentación con ID: {line_id}")
 
         # 2. Crear mapa de sensores por tipo para fácil acceso
-        sensor_map: Dict[SensorType, ISensor] = {
-            sensor.sensor_type: sensor for sensor in line.sensors
-        }
+        sensor_map: Dict[SensorType, ISensor] = {sensor.sensor_type: sensor for sensor in line.sensors}
 
         # 3. Obtener lecturas del PLC/simulador
         raw_readings = await self._feeding_machine.get_sensor_readings(line_id)
@@ -84,9 +81,7 @@ class GetSensorReadingsUseCase:
                 continue
 
             # Aplicar umbrales personalizados si existen
-            is_warning, is_critical = self._apply_thresholds(
-                reading.sensor_type, reading.value, sensor
-            )
+            is_warning, is_critical = self._apply_thresholds(reading.sensor_type, reading.value, sensor)
 
             # Crear nueva lectura con umbrales aplicados
             filtered_readings.append(

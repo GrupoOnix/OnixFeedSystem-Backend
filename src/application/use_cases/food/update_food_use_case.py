@@ -6,7 +6,7 @@ from domain.exceptions import (
     FoodNotFoundError,
 )
 from domain.repositories import IFoodRepository
-from domain.value_objects import FoodId, FoodName
+from domain.value_objects import FoodId, FoodName, UserId
 
 
 class UpdateFoodUseCase:
@@ -15,13 +15,14 @@ class UpdateFoodUseCase:
     def __init__(self, food_repository: IFoodRepository):
         self._food_repository = food_repository
 
-    async def execute(self, food_id_str: str, request: UpdateFoodRequest) -> FoodDetailResponse:
+    async def execute(self, food_id_str: str, request: UpdateFoodRequest, user_id: UserId) -> FoodDetailResponse:
         """
         Ejecuta el caso de uso para actualizar un alimento.
 
         Args:
             food_id_str: ID del alimento en formato string
             request: UpdateFoodRequest con los datos a actualizar
+            user_id: ID del usuario propietario
 
         Returns:
             FoodDetailResponse con los datos actualizados del alimento
@@ -34,7 +35,7 @@ class UpdateFoodUseCase:
         """
         # Buscar alimento
         food_id = FoodId.from_string(food_id_str)
-        food = await self._food_repository.find_by_id(food_id)
+        food = await self._food_repository.find_by_id(food_id, user_id)
 
         if not food:
             raise FoodNotFoundError(f"Alimento con ID {food_id_str} no encontrado")
@@ -42,19 +43,15 @@ class UpdateFoodUseCase:
         # Validar nombre si se está actualizando
         if request.name is not None:
             new_name = FoodName(request.name)
-            existing_by_name = await self._food_repository.find_by_name(new_name)
+            existing_by_name = await self._food_repository.find_by_name(new_name, user_id)
             if existing_by_name and str(existing_by_name.id) != food_id_str:
-                raise DuplicateFoodNameError(
-                    f"Ya existe un alimento con el nombre '{request.name}'"
-                )
+                raise DuplicateFoodNameError(f"Ya existe un alimento con el nombre '{request.name}'")
 
         # Validar código si se está actualizando
         if request.code is not None:
-            existing_by_code = await self._food_repository.find_by_code(request.code)
+            existing_by_code = await self._food_repository.find_by_code(request.code, user_id)
             if existing_by_code and str(existing_by_code.id) != food_id_str:
-                raise DuplicateFoodCodeError(
-                    f"Ya existe un alimento con el código '{request.code}'"
-                )
+                raise DuplicateFoodCodeError(f"Ya existe un alimento con el código '{request.code}'")
 
         # Actualizar información básica
         if request.name or request.provider or request.code:

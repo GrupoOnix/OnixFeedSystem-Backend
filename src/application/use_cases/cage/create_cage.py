@@ -8,6 +8,7 @@ from application.dtos.cage_dtos import (
 from domain.aggregates.cage import Cage
 from domain.repositories import ICageRepository
 from domain.value_objects.cage_configuration import CageConfiguration
+from domain.value_objects.identifiers import UserId
 from domain.value_objects.names import CageName
 
 
@@ -17,12 +18,13 @@ class CreateCageUseCase:
     def __init__(self, cage_repository: ICageRepository):
         self.cage_repository = cage_repository
 
-    async def execute(self, request: CreateCageRequest) -> CageResponse:
+    async def execute(self, request: CreateCageRequest, user_id: UserId) -> CageResponse:
         """
         Crea una nueva jaula.
 
         Args:
             request: Datos para crear la jaula
+            user_id: ID del usuario propietario
 
         Returns:
             CageResponse con los datos de la jaula creada
@@ -32,7 +34,7 @@ class CreateCageUseCase:
         """
         # Verificar que no exista una jaula con el mismo nombre
         cage_name = CageName(request.name)
-        existing = await self.cage_repository.find_by_name(cage_name)
+        existing = await self.cage_repository.find_by_name(cage_name, user_id)
         if existing:
             raise ValueError(f"Ya existe una jaula con el nombre '{request.name}'")
 
@@ -47,6 +49,7 @@ class CreateCageUseCase:
 
         # Crear jaula
         cage = Cage(name=cage_name, config=config)
+        cage._user_id = user_id
 
         # Persistir
         await self.cage_repository.save(cage)

@@ -2,7 +2,7 @@ from application.dtos.silo_dtos import CreateSiloRequest, SiloDTO
 from domain.aggregates import Silo
 from domain.exceptions import DuplicateSiloNameError
 from domain.repositories import ISiloRepository
-from domain.value_objects import SiloName, Weight
+from domain.value_objects import SiloName, UserId, Weight
 
 
 class CreateSiloUseCase:
@@ -11,12 +11,13 @@ class CreateSiloUseCase:
     def __init__(self, silo_repository: ISiloRepository):
         self._silo_repository = silo_repository
 
-    async def execute(self, request: CreateSiloRequest) -> SiloDTO:
+    async def execute(self, request: CreateSiloRequest, user_id: UserId) -> SiloDTO:
         """
         Ejecuta el caso de uso para crear un nuevo silo.
 
         Args:
             request: CreateSiloRequest con los datos del nuevo silo
+            user_id: ID del usuario propietario
 
         Returns:
             SiloDTO con los datos del silo creado
@@ -27,11 +28,9 @@ class CreateSiloUseCase:
         """
         # Validar que el nombre no exista
         silo_name = SiloName(request.name)
-        existing_silo = await self._silo_repository.find_by_name(silo_name)
+        existing_silo = await self._silo_repository.find_by_name(silo_name, user_id)
         if existing_silo:
-            raise DuplicateSiloNameError(
-                f"Ya existe un silo con el nombre '{request.name}'"
-            )
+            raise DuplicateSiloNameError(f"Ya existe un silo con el nombre '{request.name}'")
 
         # Crear value objects
         capacity = Weight.from_kg(request.capacity_kg)
@@ -39,6 +38,7 @@ class CreateSiloUseCase:
 
         # Crear el agregado (valida que stock_level <= capacity)
         silo = Silo(name=silo_name, capacity=capacity, stock_level=stock_level)
+        silo._user_id = user_id
 
         # Persistir
         await self._silo_repository.save(silo)

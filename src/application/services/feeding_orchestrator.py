@@ -10,7 +10,7 @@ from domain.entities.cage_feeding import CageFeeding, CageFeedingMode
 from domain.entities.feeding_event import FeedingEvent
 from domain.entities.feeding_session import FeedingSession
 from domain.interfaces import IMachine
-from domain.value_objects.identifiers import LineId, SiloId
+from domain.value_objects.identifiers import LineId, SiloId, UserId
 from domain.value_objects.measurements import Weight
 from infrastructure.persistence.repositories.cage_feeding_repository import CageFeedingRepository
 from infrastructure.persistence.repositories.feeding_event_repository import FeedingEventRepository
@@ -21,7 +21,6 @@ logger = logging.getLogger(__name__)
 
 
 class FeedingOrchestrator:
-
     def __init__(
         self,
         machine: IMachine,
@@ -53,6 +52,7 @@ class FeedingOrchestrator:
         blow_before_seconds: float = 0.0,
         blow_after_seconds: float = 0.0,
         selector_positioning_seconds: float = 5.0,
+        user_id: UserId | None = None,
     ) -> None:
         """
         Ejecuta una sesión de alimentación (manual o cíclica).
@@ -60,7 +60,11 @@ class FeedingOrchestrator:
         Args:
             slot_map: Mapa de cage_id → slot_number para cada jaula.
             transport_time_map: Mapa de cage_id → transport_time_seconds para cada jaula.
+            user_id: ID del usuario propietario de la sesión.
         """
+        if user_id is None:
+            raise ValueError("user_id is required for FeedingOrchestrator.run()")
+        _user_id: UserId = user_id
         logger.info(f"[Orchestrator] Session {session.id}: starting")
 
         # Determinar número de rondas: el máximo de programmed_visits entre todos los
@@ -107,11 +111,12 @@ class FeedingOrchestrator:
                         blow_before_seconds=blow_before_seconds,
                         blow_after_seconds=blow_after_seconds,
                         selector_positioning_seconds=selector_positioning_seconds,
+                        user_id=_user_id,
                     )
 
                 # Recargar sesión desde BD para sincronizar cambios externos
                 async with self._session_factory() as db:
-                    refreshed_session = await FeedingSessionRepository(db).find_by_id(session.id)
+                    refreshed_session = await FeedingSessionRepository(db).find_by_id(session.id, _user_id)
                     if refreshed_session:
                         session = refreshed_session
 
@@ -124,7 +129,7 @@ class FeedingOrchestrator:
 
         # Verificar una última vez antes de marcar como completada
         async with self._session_factory() as db:
-            refreshed_session = await FeedingSessionRepository(db).find_by_id(session.id)
+            refreshed_session = await FeedingSessionRepository(db).find_by_id(session.id, _user_id)
             if refreshed_session and refreshed_session.status.value in ("INTERRUPTED", "CANCELLED"):
                 logger.info(
                     f"[Orchestrator] Session {session.id}: externally stopped before completion "
@@ -136,9 +141,7 @@ class FeedingOrchestrator:
 
         session.complete()
         total_dispensed = sum(cf.dispensed_kg for cf in cage_feedings)
-        duration = (
-            datetime.now(timezone.utc) - session.actual_start
-        ).total_seconds() if session.actual_start else 0.0
+        duration = (datetime.now(timezone.utc) - session.actual_start).total_seconds() if session.actual_start else 0.0
         completed_event = FeedingEvent.session_completed(
             feeding_session_id=session.id,
             total_dispensed_kg=total_dispensed,
@@ -195,7 +198,9 @@ class FeedingOrchestrator:
         blow_before_seconds: float = 0.0,
         blow_after_seconds: float = 0.0,
         selector_positioning_seconds: float = 5.0,
+        user_id: UserId | None = None,
     ) -> None:
+        assert user_id is not None, "user_id must be provided"
         visit_start = datetime.now(timezone.utc)
 
         # Recargar desde DB para obtener la tasa actualizada (puede haber cambiado en caliente)
@@ -243,7 +248,7 @@ class FeedingOrchestrator:
 
             # Verificar si la sesión fue cancelada o interrumpida externamente
             async with self._session_factory() as db:
-                refreshed_session = await FeedingSessionRepository(db).find_by_id(session.id)
+                refreshed_session = await FeedingSessionRepository(db).find_by_id(session.id, user_id)  # type: ignore[arg-type]
                 if refreshed_session and refreshed_session.status.value in ("COMPLETED", "CANCELLED", "INTERRUPTED"):
                     logger.info(
                         f"[Orchestrator] Session {session.id}: externally stopped "
@@ -258,9 +263,7 @@ class FeedingOrchestrator:
             )
 
             if status.has_error:
-                logger.error(
-                    f"[Orchestrator] Session {session.id}: error code={status.error_code}"
-                )
+                logger.error(f"[Orchestrator] Session {session.id}: error code={status.error_code}")
                 session.interrupt()
                 interrupted_event = FeedingEvent.session_interrupted(
                     feeding_session_id=session.id,
@@ -277,9 +280,7 @@ class FeedingOrchestrator:
                 return
 
             if status.current_stage == VisitStage.COMPLETED:
-                duration_seconds = (
-                    datetime.now(timezone.utc) - visit_start
-                ).total_seconds()
+                duration_seconds = (datetime.now(timezone.utc) - visit_start).total_seconds()
 
                 cage_feeding.add_dispensed_amount(status.dispensed_kg)
                 cage_feeding.increment_completed_visits()
@@ -298,7 +299,7 @@ class FeedingOrchestrator:
 
                 async def _persist_visit_end(db: AsyncSession):
                     await CageFeedingRepository(db).save(cage_feeding)
-                    silo = await SiloRepository(db).find_by_id(silo_id)
+                    silo = await SiloRepository(db).find_by_id(silo_id, user_id)  # type: ignore[arg-type]
                     if silo:
                         silo.stock_level = silo.stock_level - Weight.from_kg(status.dispensed_kg)
                         await SiloRepository(db).save(silo)

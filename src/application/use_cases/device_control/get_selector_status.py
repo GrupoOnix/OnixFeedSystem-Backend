@@ -10,8 +10,8 @@ class GetSelectorStatusUseCase:
     def __init__(self, selector_repository: SelectorRepository):
         self._selector_repo = selector_repository
 
-    async def execute(self, selector_id: str) -> SelectorStatusResponse:
-        selector = await self._selector_repo.find_by_id(UUID(selector_id))
+    async def execute(self, selector_id: str, user_id: UUID | None = None) -> SelectorStatusResponse:
+        selector = await self._selector_repo.find_by_id(UUID(selector_id), user_id=user_id)
         if not selector:
             raise ValueError(f"Selector {selector_id} no encontrado")
 

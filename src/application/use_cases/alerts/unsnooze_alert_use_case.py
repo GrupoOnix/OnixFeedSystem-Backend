@@ -1,7 +1,7 @@
 """Caso de uso para reactivar una alerta silenciada."""
 
 from domain.repositories import IAlertRepository
-from domain.value_objects import AlertId
+from domain.value_objects import AlertId, UserId
 
 
 class UnsnoozeAlertUseCase:
@@ -10,17 +10,18 @@ class UnsnoozeAlertUseCase:
     def __init__(self, alert_repository: IAlertRepository):
         self._alert_repo = alert_repository
 
-    async def execute(self, alert_id: str) -> None:
+    async def execute(self, alert_id: str, user_id: UserId) -> None:
         """
         Remueve el silenciamiento de una alerta.
 
         Args:
             alert_id: ID de la alerta a reactivar.
+            user_id: ID del usuario propietario.
 
         Raises:
             ValueError: Si la alerta no existe.
         """
-        alert = await self._alert_repo.find_by_id(AlertId.from_string(alert_id))
+        alert = await self._alert_repo.find_by_id(AlertId.from_string(alert_id), user_id=user_id)
         if not alert:
             raise ValueError(f"Alerta {alert_id} no encontrada")
 

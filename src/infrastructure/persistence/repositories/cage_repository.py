@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.aggregates.cage import Cage
 from domain.repositories import ICageRepository
-from domain.value_objects.identifiers import CageId
+from domain.value_objects.identifiers import CageId, UserId
 from domain.value_objects.names import CageName
 from infrastructure.persistence.models.cage_model import CageModel
 
@@ -39,37 +39,65 @@ class CageRepository(ICageRepository):
             existing.transport_time_seconds = cage.config.transport_time_seconds
             existing.blower_power = cage.config.blower_power
             existing.daily_feeding_target_kg = cage.config.daily_feeding_target_kg
+
+            # Multi-usuario
+            existing.user_id = cage.user_id.value if cage.user_id else existing.user_id
         else:
             cage_model = CageModel.from_domain(cage)
             self.session.add(cage_model)
 
         await self.session.flush()
 
-    async def find_by_id(self, cage_id: CageId) -> Optional[Cage]:
-        """Busca una jaula por su ID."""
-        cage_model = await self.session.get(CageModel, cage_id.value)
-        return cage_model.to_domain() if cage_model else None
-
-    async def find_by_name(self, name: CageName) -> Optional[Cage]:
-        """Busca una jaula por su nombre."""
-        result = await self.session.execute(select(CageModel).where(CageModel.name == str(name)))
+    async def find_by_id(self, cage_id: CageId, user_id: UserId) -> Optional[Cage]:
+        """Busca una jaula por su ID, filtrado por usuario."""
+        result = await self.session.execute(
+            select(CageModel).where(
+                CageModel.id == cage_id.value,
+                CageModel.user_id == user_id.value,
+            )
+        )
         cage_model = result.scalar_one_or_none()
         return cage_model.to_domain() if cage_model else None
 
-    async def list(self) -> List[Cage]:
-        """Lista todas las jaulas."""
-        result = await self.session.execute(select(CageModel).order_by(CageModel.name))
+    async def find_by_name(self, name: CageName, user_id: UserId) -> Optional[Cage]:
+        """Busca una jaula por su nombre, filtrado por usuario."""
+        result = await self.session.execute(
+            select(CageModel).where(
+                CageModel.name == str(name),
+                CageModel.user_id == user_id.value,
+            )
+        )
+        cage_model = result.scalar_one_or_none()
+        return cage_model.to_domain() if cage_model else None
+
+    async def list(self, user_id: UserId) -> List[Cage]:
+        """Lista todas las jaulas de un usuario."""
+        result = await self.session.execute(
+            select(CageModel).where(CageModel.user_id == user_id.value).order_by(CageModel.name)
+        )
         cage_models = result.scalars().all()
         return [model.to_domain() for model in cage_models]
 
-    async def delete(self, cage_id: CageId) -> None:
-        """Elimina una jaula."""
-        cage_model = await self.session.get(CageModel, cage_id.value)
+    async def delete(self, cage_id: CageId, user_id: UserId) -> None:
+        """Elimina una jaula del usuario."""
+        result = await self.session.execute(
+            select(CageModel).where(
+                CageModel.id == cage_id.value,
+                CageModel.user_id == user_id.value,
+            )
+        )
+        cage_model = result.scalar_one_or_none()
         if cage_model:
             await self.session.delete(cage_model)
             await self.session.flush()
 
-    async def exists(self, cage_id: CageId) -> bool:
-        """Verifica si existe una jaula con el ID dado."""
-        cage_model = await self.session.get(CageModel, cage_id.value)
+    async def exists(self, cage_id: CageId, user_id: UserId) -> bool:
+        """Verifica si existe una jaula con el ID dado para el usuario."""
+        result = await self.session.execute(
+            select(CageModel).where(
+                CageModel.id == cage_id.value,
+                CageModel.user_id == user_id.value,
+            )
+        )
+        cage_model = result.scalar_one_or_none()
         return cage_model is not None

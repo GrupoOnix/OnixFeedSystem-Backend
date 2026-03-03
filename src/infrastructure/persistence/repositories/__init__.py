@@ -17,6 +17,7 @@ from .scheduled_alert_repository import ScheduledAlertRepository
 from .silo_repository import SiloRepository
 from .slot_assignment_repository import SlotAssignmentRepository
 from .system_config_repository import SystemConfigRepository
+from .user_repository import UserRepository
 
 __all__ = [
     "SiloRepository",
@@ -36,4 +37,5 @@ __all__ = [
     "MortalityLogRepository",
     "ConfigChangeLogRepository",
     "SystemConfigRepository",
+    "UserRepository",
 ]

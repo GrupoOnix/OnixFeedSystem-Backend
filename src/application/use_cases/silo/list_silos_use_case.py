@@ -1,5 +1,6 @@
 from application.dtos.silo_dtos import ListSilosRequest, ListSilosResponse, SiloDTO
 from domain.repositories import ISiloRepository
+from domain.value_objects import UserId
 
 
 class ListSilosUseCase:
@@ -8,26 +9,25 @@ class ListSilosUseCase:
     def __init__(self, silo_repository: ISiloRepository):
         self._silo_repository = silo_repository
 
-    async def execute(self, request: ListSilosRequest) -> ListSilosResponse:
+    async def execute(self, request: ListSilosRequest, user_id: UserId) -> ListSilosResponse:
         """
         Ejecuta el caso de uso para listar silos.
 
         Args:
             request: Request con filtros opcionales (is_assigned)
+            user_id: ID del usuario propietario
 
         Returns:
             ListSilosResponse con la lista de silos y sus líneas asociadas
         """
         # Obtener silos con información de línea
         silos_with_line = await self._silo_repository.find_all_with_line_info(
-            is_assigned=request.is_assigned
+            user_id=user_id,
+            is_assigned=request.is_assigned,
         )
 
         # Convertir a DTOs
-        silo_dtos = [
-            self._to_dto(silo, line_id, line_name)
-            for silo, line_id, line_name in silos_with_line
-        ]
+        silo_dtos = [self._to_dto(silo, line_id, line_name) for silo, line_id, line_name in silos_with_line]
 
         return ListSilosResponse(silos=silo_dtos)
 

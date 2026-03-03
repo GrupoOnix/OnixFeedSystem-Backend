@@ -16,6 +16,7 @@ from fastapi import APIRouter
 
 from . import (
     alerts_router,
+    auth_router,
     cage_group_router,
     cage_router,
     device_control_router,
@@ -33,6 +34,7 @@ from . import (
 api_router = APIRouter(prefix="/api")
 
 # Registrar routers por funcionalidad
+api_router.include_router(auth_router.router)
 api_router.include_router(system_layout.router)
 api_router.include_router(system_config_router.router)
 api_router.include_router(cage_router.router)

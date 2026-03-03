@@ -10,7 +10,7 @@ from application.dtos.cage_group_dtos import (
 from domain.aggregates.cage import Cage
 from domain.aggregates.cage_group import CageGroup
 from domain.repositories import ICageGroupRepository, ICageRepository
-from domain.value_objects.identifiers import CageId
+from domain.value_objects.identifiers import CageId, UserId
 
 
 class CreateCageGroupUseCase:
@@ -24,12 +24,13 @@ class CreateCageGroupUseCase:
         self.group_repository = group_repository
         self.cage_repository = cage_repository
 
-    async def execute(self, request: CreateCageGroupRequest) -> CageGroupResponse:
+    async def execute(self, request: CreateCageGroupRequest, user_id: UserId) -> CageGroupResponse:
         """
         Crea un nuevo grupo de jaulas.
 
         Args:
             request: Datos del grupo a crear
+            user_id: ID del usuario propietario
 
         Returns:
             CageGroupResponse con los datos del grupo creado
@@ -38,11 +39,11 @@ class CreateCageGroupUseCase:
             ValueError: Si el nombre ya existe o si alguna jaula no existe
         """
         # 1. Validar que el nombre no exista (case-insensitive)
-        if await self.group_repository.exists_by_name(request.name):
+        if await self.group_repository.exists_by_name(request.name, user_id):
             raise ValueError(f"Ya existe un grupo con el nombre '{request.name}'")
 
         # 2. Validar que todas las jaulas existan
-        await self._validate_cages_exist(request.cage_ids)
+        await self._validate_cages_exist(request.cage_ids, user_id)
 
         # 3. Crear el aggregate root
         cage_group = CageGroup.create(
@@ -51,40 +52,42 @@ class CreateCageGroupUseCase:
             description=request.description,
         )
 
-        # 4. Persistir
+        # 4. Asignar usuario
+        cage_group._user_id = user_id
+
+        # 5. Persistir
         await self.group_repository.save(cage_group)
 
-        # 5. Cargar jaulas para calcular métricas y retornar
-        cages = await self._load_cages(cage_group.cage_ids)
+        # 6. Cargar jaulas para calcular métricas y retornar
+        cages = await self._load_cages(cage_group.cage_ids, user_id)
         return self._to_response(cage_group, cages)
 
-    async def _validate_cages_exist(self, cage_ids: List[str]) -> None:
+    async def _validate_cages_exist(self, cage_ids: List[str], user_id: UserId) -> None:
         """
         Valida que todas las jaulas existan.
 
         Args:
             cage_ids: Lista de IDs de jaulas a validar
+            user_id: ID del usuario propietario
 
         Raises:
             ValueError: Si alguna jaula no existe
         """
         for cage_id_str in cage_ids:
             cage_id = CageId.from_string(cage_id_str)
-            if not await self.cage_repository.exists(cage_id):
+            if not await self.cage_repository.exists(cage_id, user_id):
                 raise ValueError(f"La jaula con ID '{cage_id_str}' no existe")
 
-    async def _load_cages(self, cage_ids: List[CageId]) -> List[Cage]:
+    async def _load_cages(self, cage_ids: List[CageId], user_id: UserId) -> List[Cage]:
         """Carga las jaulas desde el repositorio."""
         cages = []
         for cage_id in cage_ids:
-            cage = await self.cage_repository.find_by_id(cage_id)
+            cage = await self.cage_repository.find_by_id(cage_id, user_id)
             if cage:  # Ignorar jaulas que no existan (por si fueron eliminadas)
                 cages.append(cage)
         return cages
 
-    def _to_response(
-        self, cage_group: CageGroup, cages: List[Cage]
-    ) -> CageGroupResponse:
+    def _to_response(self, cage_group: CageGroup, cages: List[Cage]) -> CageGroupResponse:
         """Convierte la entidad a response DTO."""
         metrics = cage_group.calculate_metrics(cages)
 

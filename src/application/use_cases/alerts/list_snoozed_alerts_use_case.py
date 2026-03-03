@@ -2,6 +2,7 @@
 
 from application.dtos.alert_dtos import AlertDTO, ListAlertsResponse
 from domain.repositories import IAlertRepository
+from domain.value_objects import UserId
 
 
 class ListSnoozedAlertsUseCase:
@@ -10,18 +11,19 @@ class ListSnoozedAlertsUseCase:
     def __init__(self, alert_repository: IAlertRepository):
         self._alert_repo = alert_repository
 
-    async def execute(self, limit: int = 50, offset: int = 0) -> ListAlertsResponse:
+    async def execute(self, user_id: UserId, limit: int = 50, offset: int = 0) -> ListAlertsResponse:
         """
         Lista todas las alertas que están actualmente silenciadas.
 
         Args:
+            user_id: ID del usuario propietario.
             limit: Cantidad máxima de resultados (default: 50)
             offset: Desplazamiento para paginación (default: 0)
 
         Returns:
             ListAlertsResponse con alertas silenciadas y total
         """
-        alerts, total = await self._alert_repo.list_snoozed(limit=limit, offset=offset)
+        alerts, total = await self._alert_repo.list_snoozed(user_id=user_id, limit=limit, offset=offset)
 
         # Convertir a DTOs
         alert_dtos = [

@@ -6,7 +6,7 @@ from typing import Optional
 from domain.entities.population_event import PopulationEvent
 from domain.enums import CageStatus
 from domain.value_objects.cage_configuration import CageConfiguration
-from domain.value_objects.identifiers import CageId
+from domain.value_objects.identifiers import CageId, UserId
 from domain.value_objects.names import CageName
 
 
@@ -41,6 +41,9 @@ class Cage:
         # Configuración
         self._config = config or CageConfiguration.empty()
 
+        # Multi-usuario
+        self._user_id: Optional[UserId] = None
+
     # =========================================================================
     # PROPIEDADES DE IDENTIDAD
     # =========================================================================
@@ -60,6 +63,10 @@ class Cage:
     @property
     def created_at(self) -> datetime:
         return self._created_at
+
+    @property
+    def user_id(self) -> Optional[UserId]:
+        return self._user_id
 
     # =========================================================================
     # PROPIEDADES DE POBLACIÓN
@@ -138,9 +145,7 @@ class Cage:
         if avg_weight_grams <= 0:
             raise ValueError("El peso promedio debe ser mayor a 0")
         if self._fish_count > 0:
-            raise ValueError(
-                "La jaula ya tiene población. Use add_fish para agregar más."
-            )
+            raise ValueError("La jaula ya tiene población. Use add_fish para agregar más.")
 
         self._fish_count = fish_count
         self._avg_weight_grams = avg_weight_grams
@@ -198,8 +203,7 @@ class Cage:
             raise ValueError("La cantidad de peces muertos debe ser mayor a 0")
         if dead_count > self._fish_count:
             raise ValueError(
-                f"No se pueden registrar {dead_count} muertes. "
-                f"Solo hay {self._fish_count} peces en la jaula."
+                f"No se pueden registrar {dead_count} muertes. Solo hay {self._fish_count} peces en la jaula."
             )
 
         self._fish_count -= dead_count
@@ -249,10 +253,7 @@ class Cage:
         if count <= 0:
             raise ValueError("La cantidad de peces a cosechar debe ser mayor a 0")
         if count > self._fish_count:
-            raise ValueError(
-                f"No se pueden cosechar {count} peces. "
-                f"Solo hay {self._fish_count} peces en la jaula."
-            )
+            raise ValueError(f"No se pueden cosechar {count} peces. Solo hay {self._fish_count} peces en la jaula.")
 
         self._fish_count -= count
 

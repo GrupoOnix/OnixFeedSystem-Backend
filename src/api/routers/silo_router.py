@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 
 from api.dependencies import (
     CreateSiloUseCaseDep,
+    CurrentUser,
     DeleteSiloUseCaseDep,
     GetSiloUseCaseDep,
     ListSilosUseCaseDep,
@@ -31,9 +32,8 @@ router = APIRouter(prefix="/silos", tags=["Silos"])
 @router.get("", response_model=ListSilosResponse)
 async def list_silos(
     use_case: ListSilosUseCaseDep,
-    is_assigned: Optional[bool] = Query(
-        None, description="Filtrar por estado de asignación"
-    ),
+    current_user: CurrentUser,
+    is_assigned: Optional[bool] = Query(None, description="Filtrar por estado de asignación"),
 ) -> ListSilosResponse:
     """
     Lista todos los silos del sistema con filtros opcionales.
@@ -45,7 +45,7 @@ async def list_silos(
     """
     try:
         request = ListSilosRequest(is_assigned=is_assigned)
-        return await use_case.execute(request)
+        return await use_case.execute(request, user_id=current_user.id)
 
     except DomainException as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -58,14 +58,14 @@ async def list_silos(
 
 
 @router.get("/{silo_id}", response_model=SiloDTO)
-async def get_silo(silo_id: str, use_case: GetSiloUseCaseDep) -> SiloDTO:
+async def get_silo(silo_id: str, use_case: GetSiloUseCaseDep, current_user: CurrentUser) -> SiloDTO:
     """
     Obtiene los detalles de un silo específico.
 
     - **silo_id**: ID del silo
     """
     try:
-        return await use_case.execute(silo_id)
+        return await use_case.execute(silo_id, user_id=current_user.id)
 
     except SiloNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
@@ -85,7 +85,9 @@ async def get_silo(silo_id: str, use_case: GetSiloUseCaseDep) -> SiloDTO:
 
 @router.post("", response_model=SiloDTO, status_code=status.HTTP_201_CREATED)
 async def create_silo(
-    request: CreateSiloRequest, use_case: CreateSiloUseCaseDep
+    request: CreateSiloRequest,
+    use_case: CreateSiloUseCaseDep,
+    current_user: CurrentUser,
 ) -> SiloDTO:
     """
     Crea un nuevo silo.
@@ -99,15 +101,13 @@ async def create_silo(
     - El stock inicial no puede ser mayor que la capacidad
     """
     try:
-        return await use_case.execute(request)
+        return await use_case.execute(request, user_id=current_user.id)
 
     except DuplicateSiloNameError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Datos inválidos: {str(e)}"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Datos inválidos: {str(e)}")
 
     except DomainException as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -121,7 +121,10 @@ async def create_silo(
 
 @router.patch("/{silo_id}", response_model=SiloDTO)
 async def update_silo(
-    silo_id: str, request: UpdateSiloRequest, use_case: UpdateSiloUseCaseDep
+    silo_id: str,
+    request: UpdateSiloRequest,
+    use_case: UpdateSiloUseCaseDep,
+    current_user: CurrentUser,
 ) -> SiloDTO:
     """
     Actualiza un silo existente.
@@ -135,7 +138,7 @@ async def update_silo(
     - Si se cambia la capacidad, no puede ser menor al stock actual
     """
     try:
-        return await use_case.execute(silo_id, request)
+        return await use_case.execute(silo_id, request, user_id=current_user.id)
 
     except SiloNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
@@ -144,9 +147,7 @@ async def update_silo(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Datos inválidos: {str(e)}"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Datos inválidos: {str(e)}")
 
     except DomainException as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -159,7 +160,11 @@ async def update_silo(
 
 
 @router.delete("/{silo_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_silo(silo_id: str, use_case: DeleteSiloUseCaseDep) -> None:
+async def delete_silo(
+    silo_id: str,
+    use_case: DeleteSiloUseCaseDep,
+    current_user: CurrentUser,
+) -> None:
     """
     Elimina un silo.
 
@@ -169,7 +174,7 @@ async def delete_silo(silo_id: str, use_case: DeleteSiloUseCaseDep) -> None:
     - No se puede eliminar un silo que esté asignado a un dosificador
     """
     try:
-        await use_case.execute(silo_id)
+        await use_case.execute(silo_id, user_id=current_user.id)
 
     except SiloNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

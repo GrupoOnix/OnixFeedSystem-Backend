@@ -1,10 +1,11 @@
 from datetime import datetime, time
+from typing import Optional
 from zoneinfo import ZoneInfo
+
+from domain.value_objects.identifiers import UserId
 
 
 class SystemConfig:
-    _SINGLETON_ID: int = 1
-
     _DEFAULT_SELECTOR_POSITIONING_TIME: int = 10
 
     def __init__(
@@ -14,7 +15,6 @@ class SystemConfig:
         timezone_id: str,
         selector_positioning_time_seconds: int | None = None,
     ) -> None:
-        self._id = self._SINGLETON_ID
         self._feeding_start_time = feeding_start_time
         self._feeding_end_time = feeding_end_time
         self._timezone_id = timezone_id
@@ -24,9 +24,8 @@ class SystemConfig:
             else self._DEFAULT_SELECTOR_POSITIONING_TIME
         )
 
-    @property
-    def id(self) -> int:
-        return self._id
+        # Multi-usuario
+        self._user_id: Optional[UserId] = None
 
     @property
     def feeding_start_time(self) -> time:
@@ -43,6 +42,10 @@ class SystemConfig:
     @property
     def selector_positioning_time_seconds(self) -> int:
         return self._selector_positioning_time_seconds
+
+    @property
+    def user_id(self) -> Optional[UserId]:
+        return self._user_id
 
     def seconds_remaining_in_window(self, now_utc: datetime) -> float:
         """

@@ -2,7 +2,7 @@
 
 from domain.exceptions import FeedingLineNotFoundException
 from domain.repositories import IFeedingLineRepository
-from domain.value_objects import LineId
+from domain.value_objects import LineId, UserId
 
 
 class ResetSelectorPositionUseCase:
@@ -11,7 +11,7 @@ class ResetSelectorPositionUseCase:
     def __init__(self, feeding_line_repository: IFeedingLineRepository):
         self._feeding_line_repository = feeding_line_repository
 
-    async def execute(self, line_id: str) -> None:
+    async def execute(self, line_id: str, user_id: UserId) -> None:
         """
         Reinicia la posición del selector a None (posición neutral/home).
 
@@ -22,17 +22,16 @@ class ResetSelectorPositionUseCase:
 
         Args:
             line_id: ID de la línea de alimentación
+            user_id: ID del usuario autenticado
 
         Raises:
             FeedingLineNotFoundException: Si la línea no existe
         """
-        # Obtener línea
-        feeding_line = await self._feeding_line_repository.find_by_id(LineId(line_id))
+        # Obtener línea filtrada por usuario
+        feeding_line = await self._feeding_line_repository.find_by_id(LineId(line_id), user_id)
 
         if not feeding_line:
-            raise FeedingLineNotFoundException(
-                f"Línea de alimentación con ID {line_id} no encontrada"
-            )
+            raise FeedingLineNotFoundException(f"Línea de alimentación con ID {line_id} no encontrada")
 
         # Reiniciar posición del selector
         feeding_line.selector.reset_position()

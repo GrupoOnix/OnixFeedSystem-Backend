@@ -4,7 +4,7 @@ from application.dtos.silo_dtos import SiloDTO, UpdateSiloRequest
 from application.services.alert_trigger_service import AlertTriggerService
 from domain.exceptions import DuplicateSiloNameError, SiloNotFoundError
 from domain.repositories import ISiloRepository
-from domain.value_objects import FoodId, SiloId, SiloName, Weight
+from domain.value_objects import FoodId, SiloId, SiloName, UserId, Weight
 
 
 class UpdateSiloUseCase:
@@ -18,13 +18,14 @@ class UpdateSiloUseCase:
         self._silo_repository = silo_repository
         self._alert_trigger_service = alert_trigger_service
 
-    async def execute(self, silo_id: str, request: UpdateSiloRequest) -> SiloDTO:
+    async def execute(self, silo_id: str, request: UpdateSiloRequest, user_id: UserId) -> SiloDTO:
         """
         Ejecuta el caso de uso para actualizar un silo.
 
         Args:
             silo_id: ID del silo a actualizar
             request: UpdateSiloRequest con los campos a actualizar
+            user_id: ID del usuario propietario
 
         Returns:
             SiloDTO con los datos actualizados del silo
@@ -36,7 +37,7 @@ class UpdateSiloUseCase:
         """
         # Buscar el silo
         silo_id_vo = SiloId.from_string(silo_id)
-        silo = await self._silo_repository.find_by_id(silo_id_vo)
+        silo = await self._silo_repository.find_by_id(silo_id_vo, user_id)
 
         if not silo:
             raise SiloNotFoundError(f"Silo con ID {silo_id} no encontrado")
@@ -45,11 +46,9 @@ class UpdateSiloUseCase:
         if request.name is not None:
             new_name = SiloName(request.name)
             # Validar que no exista otro silo con ese nombre
-            existing_silo = await self._silo_repository.find_by_name(new_name)
+            existing_silo = await self._silo_repository.find_by_name(new_name, user_id)
             if existing_silo and existing_silo.id != silo.id:
-                raise DuplicateSiloNameError(
-                    f"Ya existe un silo con el nombre '{request.name}'"
-                )
+                raise DuplicateSiloNameError(f"Ya existe un silo con el nombre '{request.name}'")
             silo.name = new_name
 
         # Actualizar capacidad si se proporciona
@@ -78,10 +77,10 @@ class UpdateSiloUseCase:
         await self._silo_repository.save(silo)
 
         # Verificar nivel bajo de silo y disparar alerta si es necesario
-        await self._check_and_trigger_low_level_alert(silo)
+        await self._check_and_trigger_low_level_alert(silo, user_id)
 
         # Obtener información actualizada con línea asignada
-        result = await self._silo_repository.find_by_id_with_line_info(silo_id_vo)
+        result = await self._silo_repository.find_by_id_with_line_info(silo_id_vo, user_id)
 
         if result:
             _, line_id, line_name = result
@@ -91,7 +90,7 @@ class UpdateSiloUseCase:
         # Retornar DTO
         return self._to_dto(silo, line_id, line_name)
 
-    async def _check_and_trigger_low_level_alert(self, silo) -> None:
+    async def _check_and_trigger_low_level_alert(self, silo, user_id: UserId) -> None:
         """
         Verifica el nivel del silo y dispara una alerta si está por debajo de los umbrales.
         Usa los umbrales configurados del silo.
@@ -121,6 +120,7 @@ class UpdateSiloUseCase:
                 current_level=current_level_kg,
                 max_capacity=capacity_kg,
                 percentage=percentage,
+                user_id=user_id,
                 critical_threshold=silo.critical_threshold_percentage,
             )
 

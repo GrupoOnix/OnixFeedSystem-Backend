@@ -2,7 +2,7 @@ from application.dtos.food_dtos import FoodDetailResponse, FoodDTO
 from domain.aggregates.food import Food
 from domain.exceptions import FoodNotFoundError
 from domain.repositories import IFoodRepository
-from domain.value_objects import FoodId
+from domain.value_objects import FoodId, UserId
 
 
 class GetFoodUseCase:
@@ -11,12 +11,13 @@ class GetFoodUseCase:
     def __init__(self, food_repository: IFoodRepository):
         self._food_repository = food_repository
 
-    async def execute(self, food_id_str: str) -> FoodDetailResponse:
+    async def execute(self, food_id_str: str, user_id: UserId) -> FoodDetailResponse:
         """
         Ejecuta el caso de uso para obtener un alimento.
 
         Args:
             food_id_str: ID del alimento en formato string
+            user_id: ID del usuario propietario
 
         Returns:
             FoodDetailResponse con los datos del alimento
@@ -25,7 +26,7 @@ class GetFoodUseCase:
             FoodNotFoundError: Si el alimento no existe
         """
         food_id = FoodId.from_string(food_id_str)
-        food = await self._food_repository.find_by_id(food_id)
+        food = await self._food_repository.find_by_id(food_id, user_id)
 
         if not food:
             raise FoodNotFoundError(f"Alimento con ID {food_id_str} no encontrado")

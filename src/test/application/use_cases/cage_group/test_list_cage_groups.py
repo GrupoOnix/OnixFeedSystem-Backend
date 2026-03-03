@@ -10,6 +10,13 @@ from domain.aggregates.cage import Cage
 from domain.aggregates.cage_group import CageGroup
 from domain.repositories import ICageGroupRepository, ICageRepository
 from domain.value_objects import CageGroupName, CageId, CageName
+from domain.value_objects.identifiers import UserId
+
+
+@pytest.fixture
+def test_user_id():
+    """Fixture que proporciona un UserId de prueba."""
+    return UserId.from_string("00000000-0000-0000-0000-000000000001")
 
 
 @pytest.fixture
@@ -40,7 +47,7 @@ class TestListCageGroups:
     """Tests para el listado de grupos de jaulas."""
 
     async def test_list_all_groups_without_filters(
-        self, use_case, mock_group_repo, mock_cage_repo
+        self, use_case, mock_group_repo, mock_cage_repo, test_user_id
     ):
         """Debe listar todos los grupos sin filtros."""
         # Arrange
@@ -61,7 +68,7 @@ class TestListCageGroups:
         mock_cage_repo.find_by_id = AsyncMock(side_effect=[cage1, cage2])
 
         # Act
-        result = await use_case.execute()
+        result = await use_case.execute(test_user_id)
 
         # Assert
         assert result.total == 2
@@ -70,12 +77,12 @@ class TestListCageGroups:
         assert result.groups[1].name == "Sector Sur"
 
         mock_group_repo.list.assert_called_once_with(
-            search=None, limit=50, offset=0
+            user_id=test_user_id, search=None, limit=50, offset=0
         )
-        mock_group_repo.count.assert_called_once_with(search=None)
+        mock_group_repo.count.assert_called_once_with(user_id=test_user_id, search=None)
 
     async def test_list_groups_with_search_term(
-        self, use_case, mock_group_repo, mock_cage_repo
+        self, use_case, mock_group_repo, mock_cage_repo, test_user_id
     ):
         """Debe filtrar grupos por término de búsqueda."""
         # Arrange
@@ -90,7 +97,7 @@ class TestListCageGroups:
         mock_cage_repo.find_by_id = AsyncMock(return_value=cage)
 
         # Act
-        result = await use_case.execute(search="premium")
+        result = await use_case.execute(test_user_id, search="premium")
 
         # Assert
         assert result.total == 1
@@ -98,12 +105,12 @@ class TestListCageGroups:
         assert "Premium" in result.groups[0].name
 
         mock_group_repo.list.assert_called_once_with(
-            search="premium", limit=50, offset=0
+            user_id=test_user_id, search="premium", limit=50, offset=0
         )
-        mock_group_repo.count.assert_called_once_with(search="premium")
+        mock_group_repo.count.assert_called_once_with(user_id=test_user_id, search="premium")
 
     async def test_list_groups_with_pagination(
-        self, use_case, mock_group_repo, mock_cage_repo
+        self, use_case, mock_group_repo, mock_cage_repo, test_user_id
     ):
         """Debe paginar resultados correctamente."""
         # Arrange
@@ -118,18 +125,18 @@ class TestListCageGroups:
         mock_cage_repo.find_by_id = AsyncMock(return_value=cage)
 
         # Act
-        result = await use_case.execute(limit=10, offset=20)
+        result = await use_case.execute(test_user_id, limit=10, offset=20)
 
         # Assert
         assert result.total == 100
         assert len(result.groups) == 1
 
         mock_group_repo.list.assert_called_once_with(
-            search=None, limit=10, offset=20
+            user_id=test_user_id, search=None, limit=10, offset=20
         )
 
     async def test_list_empty_when_no_groups_exist(
-        self, use_case, mock_group_repo, mock_cage_repo
+        self, use_case, mock_group_repo, mock_cage_repo, test_user_id
     ):
         """Debe retornar lista vacía cuando no hay grupos."""
         # Arrange
@@ -137,14 +144,14 @@ class TestListCageGroups:
         mock_group_repo.count = AsyncMock(return_value=0)
 
         # Act
-        result = await use_case.execute()
+        result = await use_case.execute(test_user_id)
 
         # Assert
         assert result.total == 0
         assert len(result.groups) == 0
 
     async def test_list_groups_with_metrics(
-        self, use_case, mock_group_repo, mock_cage_repo
+        self, use_case, mock_group_repo, mock_cage_repo, test_user_id
     ):
         """Debe calcular métricas para cada grupo."""
         # Arrange
@@ -166,7 +173,7 @@ class TestListCageGroups:
         mock_cage_repo.find_by_id = AsyncMock(side_effect=[cage1, cage2])
 
         # Act
-        result = await use_case.execute()
+        result = await use_case.execute(test_user_id)
 
         # Assert
         assert len(result.groups) == 1
@@ -177,7 +184,7 @@ class TestListCageGroups:
         assert metrics.avg_weight > 0  # Promedio ponderado
 
     async def test_list_groups_handles_missing_cages_gracefully(
-        self, use_case, mock_group_repo, mock_cage_repo
+        self, use_case, mock_group_repo, mock_cage_repo, test_user_id
     ):
         """Debe manejar jaulas faltantes sin fallar."""
         # Arrange
@@ -197,14 +204,14 @@ class TestListCageGroups:
         mock_cage_repo.find_by_id = AsyncMock(side_effect=[cage1, None])
 
         # Act
-        result = await use_case.execute()
+        result = await use_case.execute(test_user_id)
 
         # Assert: Solo debe calcular métricas con jaulas existentes
         assert len(result.groups) == 1
         assert result.groups[0].metrics is not None
 
     async def test_list_uses_default_pagination_values(
-        self, use_case, mock_group_repo, mock_cage_repo
+        self, use_case, mock_group_repo, mock_cage_repo, test_user_id
     ):
         """Debe usar valores por defecto de paginación."""
         # Arrange
@@ -212,15 +219,15 @@ class TestListCageGroups:
         mock_group_repo.count = AsyncMock(return_value=0)
 
         # Act
-        result = await use_case.execute()
+        result = await use_case.execute(test_user_id)
 
         # Assert: Verificar valores por defecto (limit=50, offset=0)
         mock_group_repo.list.assert_called_once_with(
-            search=None, limit=50, offset=0
+            user_id=test_user_id, search=None, limit=50, offset=0
         )
 
     async def test_list_groups_with_multiple_cages(
-        self, use_case, mock_group_repo, mock_cage_repo
+        self, use_case, mock_group_repo, mock_cage_repo, test_user_id
     ):
         """Debe listar grupos con múltiples jaulas correctamente."""
         # Arrange
@@ -237,7 +244,7 @@ class TestListCageGroups:
         mock_cage_repo.find_by_id = AsyncMock(side_effect=cages)
 
         # Act
-        result = await use_case.execute()
+        result = await use_case.execute(test_user_id)
 
         # Assert
         assert len(result.groups) == 1
@@ -245,7 +252,7 @@ class TestListCageGroups:
         assert mock_cage_repo.find_by_id.call_count == 5
 
     async def test_list_respects_custom_limit(
-        self, use_case, mock_group_repo, mock_cage_repo
+        self, use_case, mock_group_repo, mock_cage_repo, test_user_id
     ):
         """Debe respetar límite personalizado."""
         # Arrange
@@ -253,9 +260,9 @@ class TestListCageGroups:
         mock_group_repo.count = AsyncMock(return_value=0)
 
         # Act
-        result = await use_case.execute(limit=100, offset=0)
+        result = await use_case.execute(test_user_id, limit=100, offset=0)
 
         # Assert
         mock_group_repo.list.assert_called_once_with(
-            search=None, limit=100, offset=0
+            user_id=test_user_id, search=None, limit=100, offset=0
         )

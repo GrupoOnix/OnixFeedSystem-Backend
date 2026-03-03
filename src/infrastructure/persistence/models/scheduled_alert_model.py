@@ -4,13 +4,14 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from sqlalchemy import Column, DateTime, Text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Column, DateTime, ForeignKey, Text
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlmodel import Field, SQLModel
 
 from domain.aggregates.scheduled_alert import ScheduledAlert
 from domain.enums import AlertCategory, AlertType, ScheduledAlertFrequency
 from domain.value_objects import ScheduledAlertId
+from domain.value_objects.identifiers import UserId
 
 
 class ScheduledAlertModel(SQLModel, table=True):
@@ -30,11 +31,15 @@ class ScheduledAlertModel(SQLModel, table=True):
     device_id: Optional[str] = Field(default=None, max_length=100)
     device_name: Optional[str] = Field(default=None, max_length=200)
     custom_days_interval: Optional[int] = Field(default=None)
-    metadata_json: Dict[str, Any] = Field(
-        default_factory=dict, sa_column=Column("metadata", JSONB, nullable=False)
-    )
+    metadata_json: Dict[str, Any] = Field(default_factory=dict, sa_column=Column("metadata", JSONB, nullable=False))
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
-    last_triggered_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
+    last_triggered_at: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
+    user_id: Optional[UUID] = Field(
+        default=None,
+        sa_column=Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True),
+    )
 
     class Config:
         arbitrary_types_allowed = True
@@ -58,6 +63,9 @@ class ScheduledAlertModel(SQLModel, table=True):
             metadata_json=scheduled_alert.metadata,
             created_at=scheduled_alert.created_at,
             last_triggered_at=scheduled_alert.last_triggered_at,
+            user_id=scheduled_alert.user_id.value
+            if hasattr(scheduled_alert, "user_id") and scheduled_alert.user_id
+            else None,
         )
 
     def to_domain(self) -> ScheduledAlert:
@@ -78,4 +86,5 @@ class ScheduledAlertModel(SQLModel, table=True):
             custom_days_interval=self.custom_days_interval,
             metadata=self.metadata_json,
             last_triggered_at=self.last_triggered_at,
+            user_id=UserId(self.user_id) if self.user_id else None,
         )

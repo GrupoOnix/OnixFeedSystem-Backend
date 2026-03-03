@@ -1,7 +1,7 @@
 """Use case para eliminar un grupo de jaulas."""
 
 from domain.repositories import ICageGroupRepository
-from domain.value_objects.identifiers import CageGroupId
+from domain.value_objects.identifiers import CageGroupId, UserId
 
 
 class DeleteCageGroupUseCase:
@@ -10,12 +10,13 @@ class DeleteCageGroupUseCase:
     def __init__(self, group_repository: ICageGroupRepository):
         self.group_repository = group_repository
 
-    async def execute(self, group_id: str) -> None:
+    async def execute(self, group_id: str, user_id: UserId) -> None:
         """
         Elimina un grupo de jaulas.
 
         Args:
             group_id: ID del grupo a eliminar
+            user_id: ID del usuario propietario
 
         Raises:
             ValueError: Si el grupo no existe
@@ -26,10 +27,10 @@ class DeleteCageGroupUseCase:
         """
         # 1. Buscar el grupo
         group_id_obj = CageGroupId.from_string(group_id)
-        group = await self.group_repository.find_by_id(group_id_obj)
+        group = await self.group_repository.find_by_id(group_id_obj, user_id)
 
         if not group:
             raise ValueError(f"No existe un grupo con ID '{group_id}'")
 
         # 2. Eliminar
-        await self.group_repository.delete(group_id_obj)
+        await self.group_repository.delete(group_id_obj, user_id)

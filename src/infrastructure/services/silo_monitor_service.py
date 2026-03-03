@@ -10,6 +10,7 @@ import logging
 from application.services.alert_trigger_service import AlertTriggerService
 from domain.aggregates.silo import Silo
 from domain.repositories import IAlertRepository, ISiloRepository
+from domain.value_objects.identifiers import UserId
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ class SiloMonitorService:
 
     Diseñado para ejecutarse periódicamente (cada 5 minutos)
     como un background task de FastAPI.
-    
+
     Usa los umbrales configurados de cada silo individual.
     """
 
@@ -32,19 +33,22 @@ class SiloMonitorService:
         self._silo_repo = silo_repository
         self._alert_trigger_service = AlertTriggerService(alert_repository)
 
-    async def check_all_silos(self) -> int:
+    async def check_all_silos(self, user_id: UserId) -> int:
         """
         Verifica todos los silos y genera alertas para niveles bajos.
+
+        Args:
+            user_id: ID del usuario propietario de los silos.
 
         Returns:
             Cantidad de alertas generadas en esta ejecución.
         """
-        all_silos = await self._silo_repo.get_all()
+        all_silos = await self._silo_repo.get_all(user_id)
         alerts_generated = 0
 
         for silo in all_silos:
             try:
-                if await self._check_and_alert_silo(silo):
+                if await self._check_and_alert_silo(silo, user_id):
                     alerts_generated += 1
             except Exception as e:
                 logger.error(
@@ -57,7 +61,7 @@ class SiloMonitorService:
 
         return alerts_generated
 
-    async def _check_and_alert_silo(self, silo: Silo) -> bool:
+    async def _check_and_alert_silo(self, silo: Silo, user_id: UserId) -> bool:
         """
         Verifica un silo individual y genera/actualiza alerta si es necesario.
         Usa los umbrales configurados del silo.
@@ -87,11 +91,10 @@ class SiloMonitorService:
                 current_level=current_level_kg,
                 max_capacity=capacity_kg,
                 percentage=percentage,
+                user_id=user_id,
                 critical_threshold=silo.critical_threshold_percentage,
             )
-            logger.info(
-                f"Alerta de nivel bajo procesada: {silo.name} ({percentage:.1f}%)"
-            )
+            logger.info(f"Alerta de nivel bajo procesada: {silo.name} ({percentage:.1f}%)")
             return True
 
         return False
@@ -99,7 +102,7 @@ class SiloMonitorService:
     def reset_alert_tracking(self) -> None:
         """
         Método mantenido por compatibilidad pero ya no es necesario.
-        
+
         El tracking de alertas ahora se maneja automáticamente
         buscando alertas existentes en la base de datos.
         """

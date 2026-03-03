@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from domain.aggregates.feeding_line.doser import Doser
 from infrastructure.persistence.models.doser_model import DoserModel
+from infrastructure.persistence.models.feeding_line_model import FeedingLineModel
 
 
 @dataclass
@@ -27,22 +28,25 @@ class DoserRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def find_by_id(self, doser_id: UUID) -> Optional[Doser]:
-        """Busca un doser por su ID."""
+    async def find_by_id(self, doser_id: UUID, user_id: Optional[UUID] = None) -> Optional[Doser]:
+        """Busca un doser por su ID, opcionalmente filtrado por user_id."""
         stmt = select(DoserModel).where(DoserModel.id == doser_id)
+        if user_id is not None:
+            stmt = stmt.join(FeedingLineModel).where(FeedingLineModel.user_id == user_id)
         result = await self.session.execute(stmt)
         doser_model = result.scalar_one_or_none()
         return doser_model.to_domain() if doser_model else None
 
     async def find_by_id_with_context(
-        self, doser_id: UUID
+        self, doser_id: UUID, user_id: Optional[UUID] = None
     ) -> Optional[DoserWithContext]:
-        """Busca un doser por su ID y devuelve también información de la línea."""
-        stmt = (
-            select(DoserModel)
-            .options(selectinload(DoserModel.feeding_line))
-            .where(DoserModel.id == doser_id)
-        )
+        """Busca un doser por su ID y devuelve también información de la línea.
+
+        Si se proporciona user_id, verifica que el doser pertenezca a una línea del usuario.
+        """
+        stmt = select(DoserModel).options(selectinload(DoserModel.feeding_line)).where(DoserModel.id == doser_id)
+        if user_id is not None:
+            stmt = stmt.join(FeedingLineModel).where(FeedingLineModel.user_id == user_id)
         result = await self.session.execute(stmt)
         doser_model = result.scalar_one_or_none()
 

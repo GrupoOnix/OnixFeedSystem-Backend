@@ -11,6 +11,13 @@ from domain.aggregates.cage_group import CageGroup
 from domain.repositories import ICageGroupRepository, ICageRepository
 from domain.value_objects import CageGroupId, CageGroupName, CageId, CageName
 from domain.value_objects.cage_configuration import CageConfiguration
+from domain.value_objects.identifiers import UserId
+
+
+@pytest.fixture
+def test_user_id():
+    """Fixture que proporciona un UserId de prueba."""
+    return UserId.from_string("00000000-0000-0000-0000-000000000001")
 
 
 @pytest.fixture
@@ -41,7 +48,7 @@ class TestGetCageGroup:
     """Tests para la obtención de un grupo de jaulas por ID."""
 
     async def test_get_existing_group_successfully(
-        self, use_case, mock_group_repo, mock_cage_repo
+        self, use_case, mock_group_repo, mock_cage_repo, test_user_id
     ):
         """Debe obtener un grupo existente con sus datos completos."""
         # Arrange
@@ -64,7 +71,7 @@ class TestGetCageGroup:
         mock_cage_repo.find_by_id = AsyncMock(side_effect=[cage1, cage2])
 
         # Act
-        result = await use_case.execute(group_id)
+        result = await use_case.execute(group_id, test_user_id)
 
         # Assert
         assert result.id == group_id
@@ -74,11 +81,11 @@ class TestGetCageGroup:
         assert result.metrics is not None
         assert result.metrics.total_population == 2500
 
-        mock_group_repo.find_by_id.assert_called_once_with(CageGroupId.from_string(group_id))
+        mock_group_repo.find_by_id.assert_called_once_with(CageGroupId.from_string(group_id), test_user_id)
         assert mock_cage_repo.find_by_id.call_count == 2
 
     async def test_get_group_fails_when_not_found(
-        self, use_case, mock_group_repo, mock_cage_repo
+        self, use_case, mock_group_repo, mock_cage_repo, test_user_id
     ):
         """Debe fallar con error cuando el grupo no existe."""
         # Arrange
@@ -87,10 +94,10 @@ class TestGetCageGroup:
 
         # Act & Assert
         with pytest.raises(ValueError, match=f"No existe un grupo con ID '{group_id}'"):
-            await use_case.execute(group_id)
+            await use_case.execute(group_id, test_user_id)
 
     async def test_get_group_with_metrics(
-        self, use_case, mock_group_repo, mock_cage_repo
+        self, use_case, mock_group_repo, mock_cage_repo, test_user_id
     ):
         """Debe calcular métricas correctamente."""
         # Arrange
@@ -109,7 +116,7 @@ class TestGetCageGroup:
         mock_cage_repo.find_by_id = AsyncMock(return_value=cage)
 
         # Act
-        result = await use_case.execute(group_id)
+        result = await use_case.execute(group_id, test_user_id)
 
         # Assert
         assert result.metrics.total_population == 2000
@@ -118,7 +125,7 @@ class TestGetCageGroup:
         assert result.metrics.total_volume == 1000.0
 
     async def test_get_group_handles_missing_cages(
-        self, use_case, mock_group_repo, mock_cage_repo
+        self, use_case, mock_group_repo, mock_cage_repo, test_user_id
     ):
         """Debe manejar jaulas faltantes sin fallar."""
         # Arrange
@@ -140,13 +147,13 @@ class TestGetCageGroup:
         mock_cage_repo.find_by_id = AsyncMock(side_effect=[cage1, None])
 
         # Act
-        result = await use_case.execute(group_id)
+        result = await use_case.execute(group_id, test_user_id)
 
         # Assert: Debe calcular métricas solo con jaulas existentes
         assert result.metrics.total_population == 1000
 
     async def test_get_group_with_no_description(
-        self, use_case, mock_group_repo, mock_cage_repo
+        self, use_case, mock_group_repo, mock_cage_repo, test_user_id
     ):
         """Debe manejar grupos sin descripción."""
         # Arrange
@@ -163,13 +170,13 @@ class TestGetCageGroup:
         mock_cage_repo.find_by_id = AsyncMock(return_value=cage)
 
         # Act
-        result = await use_case.execute(group_id)
+        result = await use_case.execute(group_id, test_user_id)
 
         # Assert
         assert result.description is None
 
     async def test_get_group_with_multiple_cages(
-        self, use_case, mock_group_repo, mock_cage_repo
+        self, use_case, mock_group_repo, mock_cage_repo, test_user_id
     ):
         """Debe obtener grupo con múltiples jaulas."""
         # Arrange
@@ -190,7 +197,7 @@ class TestGetCageGroup:
         mock_cage_repo.find_by_id = AsyncMock(side_effect=cages)
 
         # Act
-        result = await use_case.execute(group_id)
+        result = await use_case.execute(group_id, test_user_id)
 
         # Assert
         assert len(result.cage_ids) == 10
@@ -198,7 +205,7 @@ class TestGetCageGroup:
         assert mock_cage_repo.find_by_id.call_count == 10
 
     async def test_get_group_with_invalid_uuid_format(
-        self, use_case, mock_group_repo, mock_cage_repo
+        self, use_case, mock_group_repo, mock_cage_repo, test_user_id
     ):
         """Debe fallar con UUID inválido."""
         # Arrange
@@ -206,10 +213,10 @@ class TestGetCageGroup:
 
         # Act & Assert: El ValueError debe venir de CageGroupId
         with pytest.raises(ValueError):
-            await use_case.execute(invalid_id)
+            await use_case.execute(invalid_id, test_user_id)
 
     async def test_get_group_includes_timestamps(
-        self, use_case, mock_group_repo, mock_cage_repo
+        self, use_case, mock_group_repo, mock_cage_repo, test_user_id
     ):
         """Debe incluir timestamps de creación y actualización."""
         # Arrange
@@ -225,14 +232,14 @@ class TestGetCageGroup:
         mock_cage_repo.find_by_id = AsyncMock(return_value=cage)
 
         # Act
-        result = await use_case.execute(group_id)
+        result = await use_case.execute(group_id, test_user_id)
 
         # Assert
         assert result.created_at is not None
         assert result.updated_at is not None
 
     async def test_get_group_with_zero_population_cages(
-        self, use_case, mock_group_repo, mock_cage_repo
+        self, use_case, mock_group_repo, mock_cage_repo, test_user_id
     ):
         """Debe manejar jaulas sin población."""
         # Arrange
@@ -249,7 +256,7 @@ class TestGetCageGroup:
         mock_cage_repo.find_by_id = AsyncMock(return_value=cage)
 
         # Act
-        result = await use_case.execute(group_id)
+        result = await use_case.execute(group_id, test_user_id)
 
         # Assert
         assert result.metrics.total_population == 0

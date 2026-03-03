@@ -7,7 +7,7 @@ from application.dtos.cage_dtos import (
 )
 from domain.aggregates.cage import Cage
 from domain.repositories import ICageRepository, ICageFeedingRepository
-from domain.value_objects.identifiers import CageId
+from domain.value_objects.identifiers import CageId, UserId
 from domain.value_objects.names import CageName
 
 
@@ -22,13 +22,14 @@ class UpdateCageUseCase:
         self.cage_repository = cage_repository
         self.cage_feeding_repository = cage_feeding_repository
 
-    async def execute(self, cage_id: str, request: UpdateCageRequest) -> CageResponse:
+    async def execute(self, cage_id: str, request: UpdateCageRequest, user_id: UserId) -> CageResponse:
         """
         Actualiza nombre y/o status de una jaula.
 
         Args:
             cage_id: ID de la jaula
             request: Datos a actualizar
+            user_id: ID del usuario propietario
 
         Returns:
             CageResponse con los datos actualizados
@@ -37,7 +38,7 @@ class UpdateCageUseCase:
             ValueError: Si la jaula no existe o el nombre ya está en uso
         """
         cage_id_vo = CageId.from_string(cage_id)
-        cage = await self.cage_repository.find_by_id(cage_id_vo)
+        cage = await self.cage_repository.find_by_id(cage_id_vo, user_id)
 
         if not cage:
             raise ValueError(f"No existe una jaula con ID '{cage_id}'")
@@ -47,7 +48,7 @@ class UpdateCageUseCase:
             new_name = CageName(request.name)
 
             # Verificar que no exista otra jaula con el mismo nombre
-            existing = await self.cage_repository.find_by_name(new_name)
+            existing = await self.cage_repository.find_by_name(new_name, user_id)
             if existing and existing.id != cage.id:
                 raise ValueError(f"Ya existe otra jaula con el nombre '{request.name}'")
 

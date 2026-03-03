@@ -9,7 +9,7 @@ from application.dtos.cage_group_dtos import (
 from domain.aggregates.cage import Cage
 from domain.aggregates.cage_group import CageGroup
 from domain.repositories import ICageGroupRepository, ICageRepository
-from domain.value_objects.identifiers import CageGroupId, CageId
+from domain.value_objects.identifiers import CageGroupId, CageId, UserId
 
 
 class GetCageGroupUseCase:
@@ -23,12 +23,13 @@ class GetCageGroupUseCase:
         self.group_repository = group_repository
         self.cage_repository = cage_repository
 
-    async def execute(self, group_id: str) -> CageGroupResponse:
+    async def execute(self, group_id: str, user_id: UserId) -> CageGroupResponse:
         """
         Obtiene un grupo de jaulas por su ID.
 
         Args:
             group_id: ID del grupo
+            user_id: ID del usuario propietario
 
         Returns:
             CageGroupResponse con los datos del grupo
@@ -37,30 +38,26 @@ class GetCageGroupUseCase:
             ValueError: Si el grupo no existe
         """
         # 1. Buscar el grupo
-        group = await self.group_repository.find_by_id(
-            CageGroupId.from_string(group_id)
-        )
+        group = await self.group_repository.find_by_id(CageGroupId.from_string(group_id), user_id)
 
         if not group:
             raise ValueError(f"No existe un grupo con ID '{group_id}'")
 
         # 2. Cargar jaulas y calcular métricas
-        cages = await self._load_cages(group.cage_ids)
+        cages = await self._load_cages(group.cage_ids, user_id)
 
         return self._to_response(group, cages)
 
-    async def _load_cages(self, cage_ids: List[CageId]) -> List[Cage]:
+    async def _load_cages(self, cage_ids: List[CageId], user_id: UserId) -> List[Cage]:
         """Carga las jaulas desde el repositorio."""
         cages = []
         for cage_id in cage_ids:
-            cage = await self.cage_repository.find_by_id(cage_id)
+            cage = await self.cage_repository.find_by_id(cage_id, user_id)
             if cage:  # Ignorar jaulas que no existan
                 cages.append(cage)
         return cages
 
-    def _to_response(
-        self, cage_group: CageGroup, cages: List[Cage]
-    ) -> CageGroupResponse:
+    def _to_response(self, cage_group: CageGroup, cages: List[Cage]) -> CageGroupResponse:
         """Convierte la entidad a response DTO."""
         metrics = cage_group.calculate_metrics(cages)
 

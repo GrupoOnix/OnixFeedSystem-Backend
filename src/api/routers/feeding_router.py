@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from zoneinfo import ZoneInfo
 
 from api.dependencies import (
+    CurrentUser,
     get_cancel_feeding_use_case,
     get_cage_feeding_repo,
     get_cage_repo,
@@ -80,16 +81,17 @@ router = APIRouter(prefix="/feeding", tags=["Feeding"])
 @router.post("/manual/start", status_code=status.HTTP_201_CREATED)
 async def start_manual_feeding(
     request: ManualFeedingRequest,
-    use_case: Annotated[StartManualFeedingUseCase, Depends(get_start_manual_feeding_use_case)]
+    use_case: Annotated[StartManualFeedingUseCase, Depends(get_start_manual_feeding_use_case)],
+    current_user: CurrentUser,
 ) -> ManualFeedingResponse:
     try:
-        return await use_case.execute(request)
+        return await use_case.execute(request, user_id=current_user.id)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error inesperado al iniciar alimentación manual: {str(e)}"
+            detail=f"Error inesperado al iniciar alimentación manual: {str(e)}",
         )
 
 
@@ -97,9 +99,10 @@ async def start_manual_feeding(
 async def start_cyclic_feeding(
     request: CyclicFeedingRequest,
     use_case: Annotated[StartCyclicFeedingUseCase, Depends(get_start_cyclic_feeding_use_case)],
+    current_user: CurrentUser,
 ) -> CyclicFeedingResponse:
     try:
-        return await use_case.execute(request)
+        return await use_case.execute(request, user_id=current_user.id)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
@@ -114,9 +117,10 @@ async def update_feeding_rate(
     session_id: str,
     request: UpdateRateRequest,
     use_case: Annotated[UpdateFeedingRateUseCase, Depends(get_update_feeding_rate_use_case)],
+    current_user: CurrentUser,
 ) -> UpdateRateResponse:
     try:
-        new_rate = await use_case.execute(session_id, request.rate_kg_per_min)
+        new_rate = await use_case.execute(session_id, request.rate_kg_per_min, user_id=current_user.id)
         return UpdateRateResponse(
             message="Tasa de alimentación actualizada",
             new_rate_kg_per_min=new_rate,
@@ -132,9 +136,10 @@ async def pause_feeding(
     session_id: str,
     request: PauseFeedingRequest,
     use_case: Annotated[PauseFeedingUseCase, Depends(get_pause_feeding_use_case)],
+    current_user: CurrentUser,
 ) -> FeedingActionResponse:
     try:
-        await use_case.execute(session_id, request.operator_id, request.reason)
+        await use_case.execute(session_id, request.operator_id, request.reason, user_id=current_user.id)
         return FeedingActionResponse(message="Alimentación pausada")
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -147,9 +152,10 @@ async def resume_feeding(
     session_id: str,
     request: ResumeFeedingRequest,
     use_case: Annotated[ResumeFeedingUseCase, Depends(get_resume_feeding_use_case)],
+    current_user: CurrentUser,
 ) -> FeedingActionResponse:
     try:
-        await use_case.execute(session_id, request.operator_id)
+        await use_case.execute(session_id, request.operator_id, user_id=current_user.id)
         return FeedingActionResponse(message="Alimentación reanudada")
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -162,9 +168,10 @@ async def cancel_feeding(
     session_id: str,
     request: CancelFeedingRequest,
     use_case: Annotated[CancelFeedingUseCase, Depends(get_cancel_feeding_use_case)],
+    current_user: CurrentUser,
 ) -> FeedingActionResponse:
     try:
-        await use_case.execute(session_id, request.operator_id, request.reason)
+        await use_case.execute(session_id, request.operator_id, request.reason, user_id=current_user.id)
         return FeedingActionResponse(message="Alimentación cancelada")
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -177,9 +184,10 @@ async def update_blower_power(
     session_id: str,
     request: UpdateBlowerRequest,
     use_case: Annotated[UpdateBlowerPowerUseCase, Depends(get_update_blower_power_use_case)],
+    current_user: CurrentUser,
 ) -> UpdateBlowerResponse:
     try:
-        power = await use_case.execute(session_id, request.power_percentage)
+        power = await use_case.execute(session_id, request.power_percentage, user_id=current_user.id)
         return UpdateBlowerResponse(
             message="Potencia del blower actualizada",
             power_percentage=power,
@@ -197,20 +205,18 @@ async def get_cyclic_feeding_status(
     cage_feeding_repo: Annotated[CageFeedingRepository, Depends(get_cage_feeding_repo)],
     cage_repo: Annotated[CageRepository, Depends(get_cage_repo)],
     machine: Annotated[SimulatedMachine, Depends(get_simulated_machine)],
+    current_user: CurrentUser,
 ) -> CyclicSessionStatusResponse:
     try:
-        session = await session_repo.find_by_id(session_id)
+        session = await session_repo.find_by_id(session_id, current_user.id)
         if not session:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Sesión {session_id} no encontrada")
 
-        status_data = await build_cyclic_status(session, cage_feeding_repo, cage_repo, machine)
+        status_data = await build_cyclic_status(session, cage_feeding_repo, cage_repo, machine, current_user.id)
 
         from api.models.feeding_models import CageSummaryItem, ActiveCageInfo
 
-        cages_summary = [
-            CageSummaryItem(**cage_data)
-            for cage_data in status_data["cages_summary"]
-        ]
+        cages_summary = [CageSummaryItem(**cage_data) for cage_data in status_data["cages_summary"]]
 
         active_cage = ActiveCageInfo(**status_data["active_cage"]) if status_data["active_cage"] else None
 
@@ -239,12 +245,15 @@ async def list_sessions_history(
     session_repo: Annotated[FeedingSessionRepository, Depends(get_feeding_session_repo)],
     config_repo: Annotated[SystemConfigRepository, Depends(get_system_config_repo)],
     line_repo: Annotated[FeedingLineRepository, Depends(get_line_repo)],
-    date_param: Optional[str] = Query(default=None, alias="date", description="Fecha YYYY-MM-DD (default: hoy en timezone del sistema)"),
+    current_user: CurrentUser,
+    date_param: Optional[str] = Query(
+        default=None, alias="date", description="Fecha YYYY-MM-DD (default: hoy en timezone del sistema)"
+    ),
     line_id: Optional[str] = Query(default=None),
     status_filter: Optional[str] = Query(default=None, alias="status"),
 ) -> List[SessionHistoryItem]:
     try:
-        system_config = await config_repo.get()
+        system_config = await config_repo.get(current_user.id)
         tz = ZoneInfo(system_config.timezone_id)
 
         if date_param:
@@ -255,7 +264,7 @@ async def list_sessions_history(
         day_start = datetime.combine(target_date, time.min, tzinfo=tz).astimezone(timezone.utc)
         day_end = datetime.combine(target_date, time.max, tzinfo=tz).astimezone(timezone.utc)
 
-        sessions = await session_repo.list_by_date_range(day_start, day_end)
+        sessions = await session_repo.list_by_date_range(day_start, day_end, current_user.id)
 
         if line_id:
             sessions = [s for s in sessions if s.line_id == line_id]
@@ -267,25 +276,27 @@ async def list_sessions_history(
         result = []
         for s in sessions:
             if s.line_id not in line_name_cache:
-                feeding_line = await line_repo.find_by_id(LineId.from_string(s.line_id))
+                feeding_line = await line_repo.find_by_id(LineId.from_string(s.line_id), current_user.id)
                 line_name_cache[s.line_id] = feeding_line.name.value if feeding_line else s.line_id
 
             duration = None
             if s.actual_start and s.actual_end:
                 duration = (s.actual_end - s.actual_start).total_seconds()
-            result.append(SessionHistoryItem(
-                session_id=s.id,
-                type=s.type.value,
-                status=s.status.value,
-                line_id=s.line_id,
-                line_name=line_name_cache[s.line_id],
-                operator_id=s.operator_id,
-                started_at=s.actual_start,
-                ended_at=s.actual_end,
-                duration_seconds=duration,
-                total_programmed_kg=s.total_programmed_kg,
-                total_dispensed_kg=s.total_dispensed_kg,
-            ))
+            result.append(
+                SessionHistoryItem(
+                    session_id=s.id,
+                    type=s.type.value,
+                    status=s.status.value,
+                    line_id=s.line_id,
+                    line_name=line_name_cache[s.line_id],
+                    operator_id=s.operator_id,
+                    started_at=s.actual_start,
+                    ended_at=s.actual_end,
+                    duration_seconds=duration,
+                    total_programmed_kg=s.total_programmed_kg,
+                    total_dispensed_kg=s.total_dispensed_kg,
+                )
+            )
         return result
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
@@ -298,13 +309,14 @@ async def get_session_history_detail(
     event_repo: Annotated[FeedingEventRepository, Depends(get_feeding_event_repo)],
     line_repo: Annotated[FeedingLineRepository, Depends(get_line_repo)],
     cage_repo: Annotated[CageRepository, Depends(get_cage_repo)],
+    current_user: CurrentUser,
 ) -> SessionHistoryDetail:
     try:
-        session = await session_repo.find_by_id(session_id)
+        session = await session_repo.find_by_id(session_id, current_user.id)
         if not session:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Sesión {session_id} no encontrada")
 
-        feeding_line = await line_repo.find_by_id(LineId.from_string(session.line_id))
+        feeding_line = await line_repo.find_by_id(LineId.from_string(session.line_id), current_user.id)
         line_name = feeding_line.name.value if feeding_line else session.line_id
 
         all_events = await event_repo.find_by_session(session_id)
@@ -343,20 +355,22 @@ async def get_session_history_detail(
         cages = []
         for cf in session.cage_feedings:
             if cf.cage_id not in cage_name_cache:
-                cage = await cage_repo.find_by_id(CageId.from_string(cf.cage_id))
+                cage = await cage_repo.find_by_id(CageId.from_string(cf.cage_id), current_user.id)
                 cage_name_cache[cf.cage_id] = cage.name.value if cage else cf.cage_id
             durations = cage_visit_durations.get(cf.cage_id, [])
             avg_duration = sum(durations) / len(durations) if durations else None
-            cages.append(CageHistorySummary(
-                cage_id=cf.cage_id,
-                cage_name=cage_name_cache[cf.cage_id],
-                mode=cf.mode.value,
-                programmed_kg=cf.programmed_kg,
-                total_dispensed_kg=cf.dispensed_kg,
-                programmed_visits=cf.programmed_visits,
-                completed_visits=cf.completed_visits,
-                avg_visit_duration_seconds=avg_duration,
-            ))
+            cages.append(
+                CageHistorySummary(
+                    cage_id=cf.cage_id,
+                    cage_name=cage_name_cache[cf.cage_id],
+                    mode=cf.mode.value,
+                    programmed_kg=cf.programmed_kg,
+                    total_dispensed_kg=cf.dispensed_kg,
+                    programmed_visits=cf.programmed_visits,
+                    completed_visits=cf.completed_visits,
+                    avg_visit_duration_seconds=avg_duration,
+                )
+            )
 
         rate_changed_events = [e for e in all_events_asc if e.event_type == FeedingEventType.RATE_CHANGED]
 
@@ -406,9 +420,10 @@ async def get_cage_visit_history(
     cage_id: str,
     event_repo: Annotated[FeedingEventRepository, Depends(get_feeding_event_repo)],
     cage_repo: Annotated[CageRepository, Depends(get_cage_repo)],
+    current_user: CurrentUser,
 ) -> CageVisitHistory:
     try:
-        cage = await cage_repo.find_by_id(CageId.from_string(cage_id))
+        cage = await cage_repo.find_by_id(CageId.from_string(cage_id), current_user.id)
         cage_name = cage.name.value if cage else cage_id
 
         visit_events = await event_repo.find_by_type(session_id, FeedingEventType.VISIT_COMPLETED)
@@ -420,13 +435,15 @@ async def get_cage_visit_history(
         visits = []
         for e in cage_events:
             dispensed_grams = e.data.get("dispensed_grams", 0.0)
-            visits.append(VisitHistoryItem(
-                visit_number=e.data.get("visit_number", 0),
-                dispensed_kg=dispensed_grams / 1000,
-                dispensed_grams=dispensed_grams,
-                duration_seconds=e.data.get("duration_seconds", 0.0),
-                completed_at=e.timestamp,
-            ))
+            visits.append(
+                VisitHistoryItem(
+                    visit_number=e.data.get("visit_number", 0),
+                    dispensed_kg=dispensed_grams / 1000,
+                    dispensed_grams=dispensed_grams,
+                    duration_seconds=e.data.get("duration_seconds", 0.0),
+                    completed_at=e.timestamp,
+                )
+            )
 
         total_dispensed = sum(v.dispensed_kg for v in visits)
         avg_duration = sum(v.duration_seconds for v in visits) / len(visits) if visits else None
@@ -448,9 +465,10 @@ async def get_cage_visit_history(
 @router.get("/sessions/active")
 async def list_active_sessions(
     session_repo: Annotated[FeedingSessionRepository, Depends(get_feeding_session_repo)],
+    current_user: CurrentUser,
 ) -> List[ActiveSessionItem]:
     try:
-        sessions = await session_repo.find_active_sessions(hours_back=24)
+        sessions = await session_repo.find_active_sessions(current_user.id, hours_back=24)
         return [
             ActiveSessionItem(
                 session_id=s.id,
@@ -471,10 +489,11 @@ async def get_batch_session_status(
     cage_feeding_repo: Annotated[CageFeedingRepository, Depends(get_cage_feeding_repo)],
     cage_repo: Annotated[CageRepository, Depends(get_cage_repo)],
     machine: Annotated[SimulatedMachine, Depends(get_simulated_machine)],
+    current_user: CurrentUser,
     session_ids: str = Query(..., description="Comma-separated session UUIDs"),
 ) -> BatchStatusResponse:
     try:
-        session_id_list = [sid.strip() for sid in session_ids.split(',') if sid.strip()]
+        session_id_list = [sid.strip() for sid in session_ids.split(",") if sid.strip()]
         if not session_id_list:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="session_ids no puede estar vacío")
         if len(session_id_list) > 50:
@@ -485,39 +504,40 @@ async def get_batch_session_status(
         results = []
         for session_id in session_id_list:
             try:
-                session = await session_repo.find_by_id(session_id)
+                session = await session_repo.find_by_id(session_id, current_user.id)
                 if not session:
                     continue
 
                 if session.type.value == "MANUAL":
-                    status_data = await build_manual_status(session, cage_repo, machine)
+                    status_data = await build_manual_status(session, cage_repo, machine, current_user.id)
                     results.append(BatchStatusSessionManual(**status_data))
                 elif session.type.value == "CYCLIC":
-                    status_data = await build_cyclic_status(session, cage_feeding_repo, cage_repo, machine)
+                    status_data = await build_cyclic_status(
+                        session, cage_feeding_repo, cage_repo, machine, current_user.id
+                    )
                     cages_summary = [CageSummaryItem(**cage_data) for cage_data in status_data["cages_summary"]]
                     active_cage = ActiveCageInfo(**status_data["active_cage"]) if status_data["active_cage"] else None
-                    results.append(BatchStatusSessionCyclic(
-                        session_id=status_data["session_id"],
-                        line_id=status_data["line_id"],
-                        type=status_data["type"],
-                        status=status_data["status"],
-                        started_at=status_data["started_at"],
-                        total_programmed_kg=status_data["total_programmed_kg"],
-                        total_dispensed_kg=status_data["total_dispensed_kg"],
-                        overall_completion_percentage=status_data["overall_completion_percentage"],
-                        current_round=status_data["current_round"],
-                        total_rounds=status_data["total_rounds"],
-                        active_cage=active_cage,
-                        cages_summary=cages_summary,
-                        server_timestamp=status_data["server_timestamp"],
-                    ))
+                    results.append(
+                        BatchStatusSessionCyclic(
+                            session_id=status_data["session_id"],
+                            line_id=status_data["line_id"],
+                            type=status_data["type"],
+                            status=status_data["status"],
+                            started_at=status_data["started_at"],
+                            total_programmed_kg=status_data["total_programmed_kg"],
+                            total_dispensed_kg=status_data["total_dispensed_kg"],
+                            overall_completion_percentage=status_data["overall_completion_percentage"],
+                            current_round=status_data["current_round"],
+                            total_rounds=status_data["total_rounds"],
+                            active_cage=active_cage,
+                            cages_summary=cages_summary,
+                            server_timestamp=status_data["server_timestamp"],
+                        )
+                    )
             except Exception:
                 continue
 
-        return BatchStatusResponse(
-            sessions=results,
-            server_timestamp=datetime.now(timezone.utc)
-        )
+        return BatchStatusResponse(sessions=results, server_timestamp=datetime.now(timezone.utc))
     except HTTPException:
         raise
     except Exception as e:
@@ -530,13 +550,14 @@ async def get_feeding_status(
     session_repo: Annotated[FeedingSessionRepository, Depends(get_feeding_session_repo)],
     cage_repo: Annotated[CageRepository, Depends(get_cage_repo)],
     machine: Annotated[SimulatedMachine, Depends(get_simulated_machine)],
+    current_user: CurrentUser,
 ) -> FeedingSessionStatusResponse:
     try:
-        session = await session_repo.find_by_id(session_id)
+        session = await session_repo.find_by_id(session_id, current_user.id)
         if not session:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Sesión {session_id} no encontrada")
 
-        status_data = await build_manual_status(session, cage_repo, machine)
+        status_data = await build_manual_status(session, cage_repo, machine, current_user.id)
 
         return FeedingSessionStatusResponse(
             session_id=status_data["session_id"],

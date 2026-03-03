@@ -24,6 +24,7 @@ from api.models.cage_models import (
 from api.dependencies import (
     AdjustPopulationUseCaseDep,
     CreateCageUseCaseDep,
+    CurrentUser,
     DeleteCageUseCaseDep,
     GetCageFeedingHistoryUseCaseDep,
     GetCageUseCaseDep,
@@ -62,6 +63,7 @@ router = APIRouter(prefix="/cages", tags=["Cages"])
 async def create_cage(
     request: CreateCageRequestModel,
     use_case: CreateCageUseCaseDep,
+    current_user: CurrentUser,
 ) -> CageResponseModel:
     """
     Crea una nueva jaula.
@@ -82,7 +84,7 @@ async def create_cage(
             transport_time_seconds=request.transport_time_seconds,
             blower_power=request.blower_power,
         )
-        result = await use_case.execute(dto)
+        result = await use_case.execute(dto, user_id=current_user.id)
         return CageResponseModel.from_dto(result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -91,17 +93,19 @@ async def create_cage(
 @router.get("", response_model=ListCagesResponseModel)
 async def list_cages(
     use_case: ListCagesUseCaseDep,
+    current_user: CurrentUser,
 ) -> ListCagesResponseModel:
     """Lista todas las jaulas."""
     try:
-        result = await use_case.execute()
+        result = await use_case.execute(user_id=current_user.id)
         return ListCagesResponseModel.from_dto(result)
     except Exception as e:
         import traceback
-        print("="*80)
+
+        print("=" * 80)
         print("ERROR EN LIST_CAGES:")
         print(traceback.format_exc())
-        print("="*80)
+        print("=" * 80)
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 
@@ -109,10 +113,11 @@ async def list_cages(
 async def get_cage(
     cage_id: str,
     use_case: GetCageUseCaseDep,
+    current_user: CurrentUser,
 ) -> CageResponseModel:
     """Obtiene una jaula por su ID."""
     try:
-        result = await use_case.execute(cage_id)
+        result = await use_case.execute(cage_id, user_id=current_user.id)
         return CageResponseModel.from_dto(result)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -123,6 +128,7 @@ async def update_cage(
     cage_id: str,
     request: UpdateCageRequestModel,
     use_case: UpdateCageUseCaseDep,
+    current_user: CurrentUser,
 ) -> CageResponseModel:
     """
     Actualiza nombre y/o estado de una jaula.
@@ -135,7 +141,7 @@ async def update_cage(
             name=request.name,
             status=request.status,
         )
-        result = await use_case.execute(cage_id, dto)
+        result = await use_case.execute(cage_id, dto, user_id=current_user.id)
         return CageResponseModel.from_dto(result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -145,10 +151,11 @@ async def update_cage(
 async def delete_cage(
     cage_id: str,
     use_case: DeleteCageUseCaseDep,
+    current_user: CurrentUser,
 ) -> None:
     """Elimina una jaula."""
     try:
-        await use_case.execute(cage_id)
+        await use_case.execute(cage_id, user_id=current_user.id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -163,6 +170,7 @@ async def update_cage_config(
     cage_id: str,
     request: UpdateCageConfigRequestModel,
     use_case: UpdateCageConfigUseCaseDep,
+    current_user: CurrentUser,
 ) -> CageResponseModel:
     """
     Actualiza la configuración de una jaula.
@@ -185,7 +193,7 @@ async def update_cage_config(
             blower_power=request.blower_power,
             daily_feeding_target_kg=request.daily_feeding_target_kg,
         )
-        result = await use_case.execute(cage_id, dto)
+        result = await use_case.execute(cage_id, dto, user_id=current_user.id)
         return CageResponseModel.from_dto(result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -201,6 +209,7 @@ async def set_population(
     cage_id: str,
     request: SetPopulationRequestModel,
     use_case: SetPopulationUseCaseDep,
+    current_user: CurrentUser,
 ) -> CageResponseModel:
     """
     Establece la población inicial de una jaula (siembra).
@@ -217,7 +226,7 @@ async def set_population(
             event_date=request.event_date,
             note=request.note,
         )
-        result = await use_case.execute(cage_id, dto)
+        result = await use_case.execute(cage_id, dto, user_id=current_user.id)
         return CageResponseModel.from_dto(result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -228,6 +237,7 @@ async def register_mortality(
     cage_id: str,
     request: RegisterMortalityRequestModel,
     use_case: RegisterMortalityUseCaseDep,
+    current_user: CurrentUser,
 ) -> CageResponseModel:
     """
     Registra mortalidad y resta los peces del total.
@@ -242,7 +252,7 @@ async def register_mortality(
             event_date=request.event_date,
             note=request.note,
         )
-        result = await use_case.execute(cage_id, dto)
+        result = await use_case.execute(cage_id, dto, user_id=current_user.id)
         return CageResponseModel.from_dto(result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -253,6 +263,7 @@ async def update_biometry(
     cage_id: str,
     request: UpdateBiometryRequestModel,
     use_case: UpdateBiometryUseCaseDep,
+    current_user: CurrentUser,
 ) -> CageResponseModel:
     """
     Actualiza el peso promedio de los peces (biometría).
@@ -267,7 +278,7 @@ async def update_biometry(
             event_date=request.event_date,
             note=request.note,
         )
-        result = await use_case.execute(cage_id, dto)
+        result = await use_case.execute(cage_id, dto, user_id=current_user.id)
         return CageResponseModel.from_dto(result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -278,6 +289,7 @@ async def harvest(
     cage_id: str,
     request: HarvestRequestModel,
     use_case: HarvestUseCaseDep,
+    current_user: CurrentUser,
 ) -> CageResponseModel:
     """
     Registra una cosecha (extracción de peces).
@@ -292,7 +304,7 @@ async def harvest(
             event_date=request.event_date,
             note=request.note,
         )
-        result = await use_case.execute(cage_id, dto)
+        result = await use_case.execute(cage_id, dto, user_id=current_user.id)
         return CageResponseModel.from_dto(result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -303,6 +315,7 @@ async def adjust_population(
     cage_id: str,
     request: AdjustPopulationRequestModel,
     use_case: AdjustPopulationUseCaseDep,
+    current_user: CurrentUser,
 ) -> CageResponseModel:
     """
     Ajusta manualmente la población (corrección de inventario).
@@ -319,7 +332,7 @@ async def adjust_population(
             event_date=request.event_date,
             note=request.note,
         )
-        result = await use_case.execute(cage_id, dto)
+        result = await use_case.execute(cage_id, dto, user_id=current_user.id)
         return CageResponseModel.from_dto(result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -424,6 +437,7 @@ async def get_config_changes_history(
 async def get_cage_feeding_history(
     cage_id: str,
     use_case: GetCageFeedingHistoryUseCaseDep,
+    current_user: CurrentUser,
     limit: int = Query(10, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ) -> CageFeedingHistoryResponseModel:
@@ -437,7 +451,7 @@ async def get_cage_feeding_history(
     Ordenado por fecha de inicio de sesión descendente.
     """
     try:
-        result = await use_case.execute(cage_id=cage_id, limit=limit, offset=offset)
+        result = await use_case.execute(cage_id=cage_id, user_id=current_user.id, limit=limit, offset=offset)
         return CageFeedingHistoryResponseModel.from_dto(result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

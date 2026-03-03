@@ -10,8 +10,8 @@ class GetDoserStatusUseCase:
     def __init__(self, doser_repository: DoserRepository):
         self._doser_repo = doser_repository
 
-    async def execute(self, doser_id: str) -> DoserStatusResponse:
-        doser = await self._doser_repo.find_by_id(UUID(doser_id))
+    async def execute(self, doser_id: str, user_id: UUID | None = None) -> DoserStatusResponse:
+        doser = await self._doser_repo.find_by_id(UUID(doser_id), user_id=user_id)
         if not doser:
             raise ValueError(f"Doser {doser_id} no encontrado")
 

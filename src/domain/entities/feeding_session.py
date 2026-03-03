@@ -3,9 +3,12 @@ from datetime import datetime, timezone
 from typing import List, Optional
 from enum import Enum
 
+from domain.value_objects.identifiers import UserId
+
 
 class FeedingType(Enum):
     """Tipos de sesión de alimentación."""
+
     MANUAL = "MANUAL"
     CYCLIC = "CYCLIC"
     SCHEDULED = "SCHEDULED"
@@ -13,6 +16,7 @@ class FeedingType(Enum):
 
 class SessionStatus(Enum):
     """Estados de una sesión de alimentación."""
+
     PENDING = "PENDING"
     IN_PROGRESS = "IN_PROGRESS"
     PAUSED = "PAUSED"
@@ -53,6 +57,9 @@ class FeedingSession:
         self._cage_feedings: List = []
         self._events: List = []
 
+        # Multi-usuario
+        self._user_id: Optional[UserId] = None
+
     @property
     def id(self):
         return self._id
@@ -68,6 +75,10 @@ class FeedingSession:
     @property
     def operator_id(self):
         return self._operator_id
+
+    @property
+    def user_id(self) -> Optional[UserId]:
+        return self._user_id
 
     @property
     def allow_overtime(self):

@@ -24,22 +24,23 @@ class SetBlowerPowerUseCase:
         self._blower_repo = blower_repository
         self._machine = machine_service
 
-    async def execute(self, blower_id: str, power_percentage: float) -> None:
+    async def execute(self, blower_id: str, power_percentage: float, user_id: UUID | None = None) -> None:
         """
         Establece la potencia de un blower específico.
 
         Args:
             blower_id: ID del blower
             power_percentage: Potencia a establecer (0-100%)
+            user_id: ID del usuario autenticado para validar ownership
 
         Raises:
-            ValueError: Si el blower no existe o la potencia está fuera de rango
+            ValueError: Si el blower no existe, no pertenece al usuario, o la potencia está fuera de rango
         """
         # Convertir ID a UUID
         blower_uuid = UUID(blower_id)
 
         # Buscar blower con contexto
-        result = await self._blower_repo.find_by_id_with_context(blower_uuid)
+        result = await self._blower_repo.find_by_id_with_context(blower_uuid, user_id=user_id)
         if not result:
             raise ValueError(f"Blower {blower_id} no encontrado")
 

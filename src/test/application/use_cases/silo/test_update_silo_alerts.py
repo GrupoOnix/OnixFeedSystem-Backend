@@ -11,6 +11,13 @@ from application.use_cases.silo.update_silo_use_case import UpdateSiloUseCase
 from domain.aggregates.silo import Silo
 from domain.repositories import ISiloRepository
 from domain.value_objects import SiloName, Weight
+from domain.value_objects.identifiers import UserId
+
+
+@pytest.fixture
+def test_user_id():
+    """Fixture que proporciona un UserId de prueba."""
+    return UserId.from_string("00000000-0000-0000-0000-000000000001")
 
 
 @pytest.fixture
@@ -42,7 +49,7 @@ class TestUpdateSiloAlerts:
     """Tests para alertas de nivel bajo en silos."""
 
     async def test_alert_not_triggered_when_level_above_threshold(
-        self, use_case, mock_silo_repo, mock_alert_trigger_service
+        self, use_case, mock_silo_repo, mock_alert_trigger_service, test_user_id
     ):
         """No debe disparar alerta cuando el nivel está sobre el umbral (>20%)."""
         # Arrange: Crear silo con 50% de capacidad
@@ -63,13 +70,13 @@ class TestUpdateSiloAlerts:
         request = UpdateSiloRequest(stock_level_kg=500)
 
         # Act: Actualizar silo
-        await use_case.execute(silo_id, request)
+        await use_case.execute(silo_id, request, test_user_id)
 
         # Assert: No debe disparar alerta
         mock_alert_trigger_service.silo_low_level.assert_not_called()
 
     async def test_alert_triggered_when_level_at_warning_threshold(
-        self, use_case, mock_silo_repo, mock_alert_trigger_service
+        self, use_case, mock_silo_repo, mock_alert_trigger_service, test_user_id
     ):
         """Debe disparar alerta WARNING cuando el nivel está al 20%."""
         # Arrange: Crear silo con 20% de capacidad
@@ -90,7 +97,7 @@ class TestUpdateSiloAlerts:
         request = UpdateSiloRequest(stock_level_kg=150)  # Bajar a 15%
 
         # Act: Actualizar silo
-        await use_case.execute(silo_id, request)
+        await use_case.execute(silo_id, request, test_user_id)
 
         # Assert: Debe disparar alerta
         mock_alert_trigger_service.silo_low_level.assert_called_once()
@@ -102,7 +109,7 @@ class TestUpdateSiloAlerts:
         assert call_args["percentage"] == 15.0
 
     async def test_alert_triggered_when_level_at_critical_threshold(
-        self, use_case, mock_silo_repo, mock_alert_trigger_service
+        self, use_case, mock_silo_repo, mock_alert_trigger_service, test_user_id
     ):
         """Debe disparar alerta CRITICAL cuando el nivel está al 10%."""
         # Arrange: Crear silo con 100 kg de capacidad
@@ -123,7 +130,7 @@ class TestUpdateSiloAlerts:
         request = UpdateSiloRequest(stock_level_kg=50)  # Bajar a 5%
 
         # Act: Actualizar silo
-        await use_case.execute(silo_id, request)
+        await use_case.execute(silo_id, request, test_user_id)
 
         # Assert: Debe disparar alerta
         mock_alert_trigger_service.silo_low_level.assert_called_once()
@@ -131,7 +138,7 @@ class TestUpdateSiloAlerts:
         assert call_args["percentage"] == 5.0
 
     async def test_no_alert_when_service_not_provided(
-        self, mock_silo_repo
+        self, mock_silo_repo, test_user_id
     ):
         """No debe fallar si no se proporciona AlertTriggerService."""
         # Arrange: Crear caso de uso sin servicio de alertas
@@ -157,10 +164,10 @@ class TestUpdateSiloAlerts:
         request = UpdateSiloRequest(stock_level_kg=50)  # 5%
 
         # Act & Assert: No debe fallar
-        await use_case_no_alerts.execute(silo_id, request)
+        await use_case_no_alerts.execute(silo_id, request, test_user_id)
 
     async def test_alert_with_zero_capacity(
-        self, use_case, mock_silo_repo, mock_alert_trigger_service
+        self, use_case, mock_silo_repo, mock_alert_trigger_service, test_user_id
     ):
         """No debe disparar alerta ni fallar con capacidad cero."""
         # Arrange: Crear silo con capacidad cero (edge case)
@@ -181,7 +188,7 @@ class TestUpdateSiloAlerts:
         request = UpdateSiloRequest(stock_level_kg=0)
 
         # Act: Actualizar silo
-        await use_case.execute(silo_id, request)
+        await use_case.execute(silo_id, request, test_user_id)
 
         # Assert: No debe disparar alerta
         mock_alert_trigger_service.silo_low_level.assert_not_called()

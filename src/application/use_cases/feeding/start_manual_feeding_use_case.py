@@ -19,12 +19,11 @@ from domain.repositories import (
 from domain.services.feeding_time_calculator import calculate_visit_duration
 from domain.services.operating_schedule_service import OperatingScheduleService
 from domain.value_objects import CageId, LineId
-from domain.value_objects.identifiers import DoserId
+from domain.value_objects.identifiers import DoserId, UserId
 from domain.value_objects.measurements import Weight
 
 
 class StartManualFeedingUseCase:
-
     def __init__(
         self,
         session_repository: IFeedingSessionRepository,
@@ -47,13 +46,13 @@ class StartManualFeedingUseCase:
         self.orchestrator = orchestrator
         self.system_config_repo = system_config_repository
 
-    async def execute(self, request: ManualFeedingRequest) -> ManualFeedingResponse:
+    async def execute(self, request: ManualFeedingRequest, user_id: UserId) -> ManualFeedingResponse:
         # Paso 1: VALIDACIÓN — retorna entidades ya cargadas para reutilizar
-        line, cage, assignment = await self._validate_request(request)
+        line, cage, assignment = await self._validate_request(request, user_id)
         selected_doser = line.get_doser_by_id(DoserId.from_string(request.doser_id))
         assert selected_doser is not None
 
-        config = await self.system_config_repo.get()
+        config = await self.system_config_repo.get(user_id)
 
         estimated_seconds = calculate_visit_duration(
             quantity_kg=request.quantity_kg,
@@ -74,6 +73,7 @@ class StartManualFeedingUseCase:
             total_programmed_kg=request.quantity_kg,
             allow_overtime=request.allow_overtime,
         )
+        session._user_id = user_id
         session.start()
 
         cage_feeding = CageFeeding(
@@ -90,8 +90,7 @@ class StartManualFeedingUseCase:
         cage_feeding.start()
 
         session_started_event = FeedingEvent.session_started(
-            feeding_session_id=session.id,
-            operator_id=request.operator_id
+            feeding_session_id=session.id, operator_id=request.operator_id
         )
 
         # Paso 3: PERSISTIR
@@ -112,6 +111,7 @@ class StartManualFeedingUseCase:
                 blow_before_seconds=float(line.blower.blow_before_feeding_time.value),
                 blow_after_seconds=float(line.blower.blow_after_feeding_time.value),
                 selector_positioning_seconds=float(config.selector_positioning_time_seconds),
+                user_id=user_id,
             )
         )
 
@@ -119,70 +119,61 @@ class StartManualFeedingUseCase:
             session_id=session.id,
             cage_feeding_id=cage_feeding.id,
             estimated_duration_seconds=estimated_seconds,
-            message="Alimentación manual iniciada exitosamente"
+            message="Alimentación manual iniciada exitosamente",
         )
 
-    async def _validate_request(self, request: ManualFeedingRequest):
-        #Línea existe?
-        line = await self.line_repo.find_by_id(LineId.from_string(request.line_id))
+    async def _validate_request(self, request: ManualFeedingRequest, user_id: UserId):
+        # Línea existe?
+        line = await self.line_repo.find_by_id(LineId.from_string(request.line_id), user_id)
         if not line:
             raise ValueError(f"Línea con ID {request.line_id} no encontrada")
 
-        #Línea tiene sesión activa?
-        active_session = await self.session_repo.find_active_by_line(request.line_id)
+        # Línea tiene sesión activa?
+        active_session = await self.session_repo.find_active_by_line(request.line_id, user_id)
         if active_session:
-            raise ValueError(
-                f"La línea {request.line_id} ya tiene una sesión activa "
-                f"(session_id: {active_session.id})"
-            )
+            raise ValueError(f"La línea {request.line_id} ya tiene una sesión activa (session_id: {active_session.id})")
 
-        #Jaula existe?
-        cage = await self.cage_repo.find_by_id(CageId.from_string(request.cage_id))
+        # Jaula existe?
+        cage = await self.cage_repo.find_by_id(CageId.from_string(request.cage_id), user_id)
         if not cage:
             raise ValueError(f"Jaula con ID {request.cage_id} no encontrada")
 
-        #Jaula en mantenimiento?
+        # Jaula en mantenimiento?
         if cage.status == CageStatus.MAINTENANCE:
-            raise ValueError(
-                f"La jaula {cage.name.value} está en mantenimiento y no puede ser alimentada"
-            )
+            raise ValueError(f"La jaula {cage.name.value} está en mantenimiento y no puede ser alimentada")
 
-        #Jaula pertenece a esta línea?
-        assignment = await self.slot_assignment_repo.find_by_cage(CageId.from_string(request.cage_id))
+        # Jaula pertenece a esta línea?
+        assignment = await self.slot_assignment_repo.find_by_cage(CageId.from_string(request.cage_id), user_id)
         if not assignment:
             raise ValueError(f"La jaula {cage.name.value} no está asignada a ninguna línea")
         if str(assignment.line_id) != request.line_id:
-            raise ValueError(
-                f"La jaula {cage.name.value} está asignada a otra línea, no a {request.line_id}"
-            )
+            raise ValueError(f"La jaula {cage.name.value} está asignada a otra línea, no a {request.line_id}")
 
-        #Jaula tiene tiempo de transporte configurado?
+        # Jaula tiene tiempo de transporte configurado?
         if cage.config.transport_time_seconds is None:
             raise ValueError(
                 f"La jaula {cage.name.value} no tiene tiempo de transporte configurado. "
                 "Debe configurarlo antes de iniciar una alimentación."
             )
 
-        #Línea tiene dosers configurados?
+        # Línea tiene dosers configurados?
         if not line.dosers:
             raise ValueError("La línea no tiene dosers configurados")
 
-        #El doser solicitado existe en esta línea?
+        # El doser solicitado existe en esta línea?
         selected_doser = line.get_doser_by_id(DoserId.from_string(request.doser_id))
         if not selected_doser:
-            raise ValueError(
-                f"El doser {request.doser_id} no existe en la línea {request.line_id}"
-            )
+            raise ValueError(f"El doser {request.doser_id} no existe en la línea {request.line_id}")
 
-        #Tasa solicitada no excede capacidad del doser seleccionado?
+        # Tasa solicitada no excede capacidad del doser seleccionado?
         if request.rate_kg_per_min > selected_doser.max_rate_kg_per_min:
             raise ValueError(
                 f"La tasa solicitada ({request.rate_kg_per_min} kg/min) excede "
                 f"la capacidad máxima del doser ({selected_doser.max_rate_kg_per_min} kg/min)"
             )
 
-        #Silo del doser seleccionado tiene stock suficiente?
-        silo = await self.silo_repo.find_by_id(selected_doser.assigned_silo_id)
+        # Silo del doser seleccionado tiene stock suficiente?
+        silo = await self.silo_repo.find_by_id(selected_doser.assigned_silo_id, user_id)
         if not silo:
             raise ValueError(f"El doser {request.doser_id} no tiene un silo asignado")
         required = Weight.from_kg(request.quantity_kg)
@@ -193,5 +184,3 @@ class StartManualFeedingUseCase:
             )
 
         return line, cage, assignment
-
-

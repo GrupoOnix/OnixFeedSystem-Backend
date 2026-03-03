@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from domain.aggregates.alert import Alert
 from domain.enums import AlertCategory
 from domain.repositories import IAlertRepository, IScheduledAlertRepository
+from domain.value_objects.identifiers import UserId
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +32,12 @@ class AlertSchedulerService:
         self._scheduled_alert_repo = scheduled_alert_repo
         self._alert_repo = alert_repo
 
-    async def check_and_trigger_alerts(self) -> int:
+    async def check_and_trigger_alerts(self, user_id: UserId) -> int:
         """
         Verifica alertas programadas y crea alertas cuando corresponde.
+
+        Args:
+            user_id: ID del usuario propietario de las alertas.
 
         Returns:
             Cantidad de alertas disparadas.
@@ -42,7 +46,7 @@ class AlertSchedulerService:
         triggered_count = 0
 
         # Obtener solo alertas activas
-        scheduled_alerts = await self._scheduled_alert_repo.get_active()
+        scheduled_alerts = await self._scheduled_alert_repo.get_active(user_id)
 
         for sa in scheduled_alerts:
             try:
@@ -60,6 +64,7 @@ class AlertSchedulerService:
                             **(sa.metadata or {}),
                         },
                     )
+                    alert._user_id = user_id
                     await self._alert_repo.save(alert)
 
                     # Marcar como disparada (actualiza next_trigger_date)
@@ -67,10 +72,7 @@ class AlertSchedulerService:
                     await self._scheduled_alert_repo.save(sa)
 
                     triggered_count += 1
-                    logger.info(
-                        f"Alerta programada disparada: {sa.title} "
-                        f"(scheduled_alert_id={sa.id})"
-                    )
+                    logger.info(f"Alerta programada disparada: {sa.title} (scheduled_alert_id={sa.id})")
 
             except Exception as e:
                 logger.error(

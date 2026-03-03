@@ -10,6 +10,7 @@ from domain.aggregates.cage_group import CageGroup
 from domain.aggregates.food import Food
 from domain.aggregates.scheduled_alert import ScheduledAlert
 from domain.aggregates.silo import Silo
+from domain.aggregates.user import User
 from domain.entities.cage_feeding import CageFeeding
 from domain.entities.feeding_event import FeedingEvent, FeedingEventType
 from domain.entities.feeding_session import FeedingSession as FeedingSessionEntity
@@ -35,6 +36,7 @@ from .value_objects import (
     SessionId,
     SiloId,
     SiloName,
+    UserId,
 )
 
 
@@ -43,16 +45,16 @@ class IFeedingLineRepository(ABC):
     async def save(self, feeding_line: FeedingLine) -> None: ...
 
     @abstractmethod
-    async def find_by_id(self, line_id: LineId) -> Optional[FeedingLine]: ...
+    async def find_by_id(self, line_id: LineId, user_id: UserId) -> Optional[FeedingLine]: ...
 
     @abstractmethod
-    async def find_by_name(self, name: LineName) -> Optional[FeedingLine]: ...
+    async def find_by_name(self, name: LineName, user_id: UserId) -> Optional[FeedingLine]: ...
 
     @abstractmethod
-    async def get_all(self) -> list[FeedingLine]: ...
+    async def get_all(self, user_id: UserId) -> list[FeedingLine]: ...
 
     @abstractmethod
-    async def delete(self, line_id: LineId) -> None: ...
+    async def delete(self, line_id: LineId, user_id: UserId) -> None: ...
 
 
 class ICageRepository(ABC):
@@ -64,28 +66,28 @@ class ICageRepository(ABC):
         ...
 
     @abstractmethod
-    async def find_by_id(self, cage_id: CageId) -> Optional[Cage]:
-        """Busca una jaula por su ID."""
+    async def find_by_id(self, cage_id: CageId, user_id: UserId) -> Optional[Cage]:
+        """Busca una jaula por su ID, filtrado por usuario."""
         ...
 
     @abstractmethod
-    async def find_by_name(self, name: CageName) -> Optional[Cage]:
-        """Busca una jaula por su nombre."""
+    async def find_by_name(self, name: CageName, user_id: UserId) -> Optional[Cage]:
+        """Busca una jaula por su nombre, filtrado por usuario."""
         ...
 
     @abstractmethod
-    async def list(self) -> List[Cage]:
-        """Lista todas las jaulas."""
+    async def list(self, user_id: UserId) -> List[Cage]:
+        """Lista todas las jaulas de un usuario."""
         ...
 
     @abstractmethod
-    async def delete(self, cage_id: CageId) -> None:
-        """Elimina una jaula."""
+    async def delete(self, cage_id: CageId, user_id: UserId) -> None:
+        """Elimina una jaula del usuario."""
         ...
 
     @abstractmethod
-    async def exists(self, cage_id: CageId) -> bool:
-        """Verifica si existe una jaula con el ID dado."""
+    async def exists(self, cage_id: CageId, user_id: UserId) -> bool:
+        """Verifica si existe una jaula con el ID dado para el usuario."""
         ...
 
 
@@ -98,18 +100,19 @@ class ICageGroupRepository(ABC):
         ...
 
     @abstractmethod
-    async def find_by_id(self, group_id: CageGroupId) -> Optional[CageGroup]:
-        """Busca un grupo por su ID."""
+    async def find_by_id(self, group_id: CageGroupId, user_id: UserId) -> Optional[CageGroup]:
+        """Busca un grupo por su ID, filtrado por usuario."""
         ...
 
     @abstractmethod
-    async def find_by_name(self, name: CageGroupName) -> Optional[CageGroup]:
-        """Busca un grupo por su nombre."""
+    async def find_by_name(self, name: CageGroupName, user_id: UserId) -> Optional[CageGroup]:
+        """Busca un grupo por su nombre, filtrado por usuario."""
         ...
 
     @abstractmethod
     async def list(
         self,
+        user_id: UserId,
         search: Optional[str] = None,
         limit: int = 50,
         offset: int = 0,
@@ -118,6 +121,7 @@ class ICageGroupRepository(ABC):
         Lista grupos de jaulas con filtros opcionales.
 
         Args:
+            user_id: ID del usuario propietario
             search: Búsqueda en nombre, descripción o cage_ids
             limit: Cantidad máxima de resultados
             offset: Desplazamiento para paginación
@@ -128,11 +132,12 @@ class ICageGroupRepository(ABC):
         ...
 
     @abstractmethod
-    async def count(self, search: Optional[str] = None) -> int:
+    async def count(self, user_id: UserId, search: Optional[str] = None) -> int:
         """
         Cuenta total de grupos con filtros opcionales.
 
         Args:
+            user_id: ID del usuario propietario
             search: Búsqueda en nombre, descripción o cage_ids
 
         Returns:
@@ -141,17 +146,18 @@ class ICageGroupRepository(ABC):
         ...
 
     @abstractmethod
-    async def delete(self, group_id: CageGroupId) -> None:
-        """Elimina un grupo de jaulas."""
+    async def delete(self, group_id: CageGroupId, user_id: UserId) -> None:
+        """Elimina un grupo de jaulas del usuario."""
         ...
 
     @abstractmethod
-    async def exists_by_name(self, name: str, exclude_id: Optional[CageGroupId] = None) -> bool:
+    async def exists_by_name(self, name: str, user_id: UserId, exclude_id: Optional[CageGroupId] = None) -> bool:
         """
         Verifica si existe un grupo con el nombre dado.
 
         Args:
             name: Nombre a buscar (case-insensitive)
+            user_id: ID del usuario propietario
             exclude_id: ID de grupo a excluir (útil para updates)
 
         Returns:
@@ -209,33 +215,35 @@ class ISlotAssignmentRepository(ABC):
         ...
 
     @abstractmethod
-    async def find_by_line_and_slot(self, line_id: LineId, slot_number: int) -> Optional[SlotAssignment]:
-        """Busca una asignación por línea y número de slot."""
+    async def find_by_line_and_slot(
+        self, line_id: LineId, slot_number: int, user_id: UserId
+    ) -> Optional[SlotAssignment]:
+        """Busca una asignación por línea y número de slot, filtrado por usuario."""
         ...
 
     @abstractmethod
-    async def find_by_cage(self, cage_id: CageId) -> Optional[SlotAssignment]:
-        """Busca la asignación de una jaula (una jaula solo puede estar en un slot)."""
+    async def find_by_cage(self, cage_id: CageId, user_id: UserId) -> Optional[SlotAssignment]:
+        """Busca la asignación de una jaula (una jaula solo puede estar en un slot), filtrado por usuario."""
         ...
 
     @abstractmethod
-    async def find_by_line(self, line_id: LineId) -> List[SlotAssignment]:
-        """Obtiene todas las asignaciones de una línea."""
+    async def find_by_line(self, line_id: LineId, user_id: UserId) -> List[SlotAssignment]:
+        """Obtiene todas las asignaciones de una línea, filtrado por usuario."""
         ...
 
     @abstractmethod
-    async def delete(self, assignment_id) -> None:
-        """Elimina una asignación."""
+    async def delete(self, assignment_id, user_id: UserId) -> None:
+        """Elimina una asignación del usuario."""
         ...
 
     @abstractmethod
-    async def delete_by_line(self, line_id: LineId) -> None:
-        """Elimina todas las asignaciones de una línea."""
+    async def delete_by_line(self, line_id: LineId, user_id: UserId) -> None:
+        """Elimina todas las asignaciones de una línea del usuario."""
         ...
 
     @abstractmethod
-    async def delete_by_cage(self, cage_id: CageId) -> None:
-        """Elimina la asignación de una jaula."""
+    async def delete_by_cage(self, cage_id: CageId, user_id: UserId) -> None:
+        """Elimina la asignación de una jaula del usuario."""
         ...
 
 
@@ -244,16 +252,16 @@ class ISiloRepository(ABC):
     async def save(self, silo: Silo) -> None: ...
 
     @abstractmethod
-    async def find_by_id(self, silo_id: SiloId) -> Optional[Silo]: ...
+    async def find_by_id(self, silo_id: SiloId, user_id: UserId) -> Optional[Silo]: ...
 
     @abstractmethod
-    async def find_by_name(self, name: SiloName) -> Optional[Silo]: ...
+    async def find_by_name(self, name: SiloName, user_id: UserId) -> Optional[Silo]: ...
 
     @abstractmethod
-    async def get_all(self) -> List[Silo]: ...
+    async def get_all(self, user_id: UserId) -> List[Silo]: ...
 
     @abstractmethod
-    async def delete(self, silo_id: SiloId) -> None: ...
+    async def delete(self, silo_id: SiloId, user_id: UserId) -> None: ...
 
 
 class IFeedingSessionRepository(ABC):
@@ -261,16 +269,18 @@ class IFeedingSessionRepository(ABC):
     async def save(self, session: FeedingSessionEntity) -> None: ...
 
     @abstractmethod
-    async def find_by_id(self, session_id: str) -> Optional[FeedingSessionEntity]: ...
+    async def find_by_id(self, session_id: str, user_id: UserId) -> Optional[FeedingSessionEntity]: ...
 
     @abstractmethod
-    async def find_active_by_line(self, line_id: str) -> Optional[FeedingSessionEntity]: ...
+    async def find_active_by_line(self, line_id: str, user_id: UserId) -> Optional[FeedingSessionEntity]: ...
 
     @abstractmethod
-    async def find_today_by_line(self, line_id: str) -> Optional[FeedingSessionEntity]: ...
+    async def find_today_by_line(self, line_id: str, user_id: UserId) -> Optional[FeedingSessionEntity]: ...
 
     @abstractmethod
-    async def list_by_date_range(self, start: datetime, end: datetime) -> List[FeedingSessionEntity]: ...
+    async def list_by_date_range(
+        self, start: datetime, end: datetime, user_id: UserId
+    ) -> List[FeedingSessionEntity]: ...
 
 
 class ICageFeedingRepository(ABC):
@@ -382,33 +392,33 @@ class IFoodRepository(ABC):
         ...
 
     @abstractmethod
-    async def find_by_id(self, food_id: FoodId) -> Optional[Food]:
-        """Busca un alimento por su ID."""
+    async def find_by_id(self, food_id: FoodId, user_id: UserId) -> Optional[Food]:
+        """Busca un alimento por su ID, filtrado por usuario."""
         ...
 
     @abstractmethod
-    async def find_by_name(self, name: FoodName) -> Optional[Food]:
-        """Busca un alimento por su nombre."""
+    async def find_by_name(self, name: FoodName, user_id: UserId) -> Optional[Food]:
+        """Busca un alimento por su nombre, filtrado por usuario."""
         ...
 
     @abstractmethod
-    async def find_by_code(self, code: str) -> Optional[Food]:
-        """Busca un alimento por su código de producto."""
+    async def find_by_code(self, code: str, user_id: UserId) -> Optional[Food]:
+        """Busca un alimento por su código de producto, filtrado por usuario."""
         ...
 
     @abstractmethod
-    async def get_all(self) -> List[Food]:
-        """Obtiene todos los alimentos."""
+    async def get_all(self, user_id: UserId) -> List[Food]:
+        """Obtiene todos los alimentos de un usuario."""
         ...
 
     @abstractmethod
-    async def get_active(self) -> List[Food]:
-        """Obtiene solo los alimentos activos."""
+    async def get_active(self, user_id: UserId) -> List[Food]:
+        """Obtiene solo los alimentos activos de un usuario."""
         ...
 
     @abstractmethod
-    async def delete(self, food_id: FoodId) -> None:
-        """Elimina un alimento."""
+    async def delete(self, food_id: FoodId, user_id: UserId) -> None:
+        """Elimina un alimento del usuario."""
         ...
 
 
@@ -426,13 +436,14 @@ class IAlertRepository(ABC):
         ...
 
     @abstractmethod
-    async def find_by_id(self, alert_id: AlertId) -> Optional[Alert]:
-        """Busca una alerta por su ID."""
+    async def find_by_id(self, alert_id: AlertId, user_id: UserId) -> Optional[Alert]:
+        """Busca una alerta por su ID, filtrado por usuario."""
         ...
 
     @abstractmethod
     async def list(
         self,
+        user_id: UserId,
         status: Optional[List[AlertStatus]] = None,
         type: Optional[List[AlertType]] = None,
         category: Optional[List[AlertCategory]] = None,
@@ -441,9 +452,10 @@ class IAlertRepository(ABC):
         offset: int = 0,
     ) -> List[Alert]:
         """
-        Lista alertas con filtros opcionales.
+        Lista alertas con filtros opcionales, filtrado por usuario.
 
         Args:
+            user_id: ID del usuario propietario
             status: Filtrar por estados (ej: [UNREAD, READ])
             type: Filtrar por tipos (ej: [CRITICAL, WARNING])
             category: Filtrar por categorías (ej: [DEVICE, INVENTORY])
@@ -454,14 +466,14 @@ class IAlertRepository(ABC):
         ...
 
     @abstractmethod
-    async def count_unread(self) -> int:
-        """Cuenta la cantidad de alertas no leídas."""
+    async def count_unread(self, user_id: UserId) -> int:
+        """Cuenta la cantidad de alertas no leídas del usuario."""
         ...
 
     @abstractmethod
-    async def mark_all_as_read(self) -> int:
+    async def mark_all_as_read(self, user_id: UserId) -> int:
         """
-        Marca todas las alertas UNREAD como READ.
+        Marca todas las alertas UNREAD como READ del usuario.
 
         Returns:
             Cantidad de alertas actualizadas.
@@ -469,14 +481,15 @@ class IAlertRepository(ABC):
         ...
 
     @abstractmethod
-    async def find_active_by_silo(self, silo_id: str) -> Optional[Alert]:
+    async def find_active_by_silo(self, silo_id: str, user_id: UserId) -> Optional[Alert]:
         """
-        Busca una alerta activa (UNREAD o READ) para un silo específico.
+        Busca una alerta activa (UNREAD o READ) para un silo específico del usuario.
 
         Útil para evitar duplicar alertas de nivel bajo.
 
         Args:
             silo_id: ID del silo (en formato string)
+            user_id: ID del usuario propietario
 
         Returns:
             La alerta activa más reciente o None si no existe.
@@ -484,14 +497,15 @@ class IAlertRepository(ABC):
         ...
 
     @abstractmethod
-    async def find_any_by_silo(self, silo_id: str) -> Optional[Alert]:
+    async def find_any_by_silo(self, silo_id: str, user_id: UserId) -> Optional[Alert]:
         """
-        Busca cualquier alerta para un silo (incluyendo silenciadas).
+        Busca cualquier alerta para un silo del usuario (incluyendo silenciadas).
 
         Útil para verificar si ya existe una alerta antes de crear una nueva.
 
         Args:
             silo_id: ID del silo (en formato string)
+            user_id: ID del usuario propietario
 
         Returns:
             La alerta más reciente (incluso si está silenciada) o None.
@@ -499,11 +513,12 @@ class IAlertRepository(ABC):
         ...
 
     @abstractmethod
-    async def list_snoozed(self, limit: int = 50, offset: int = 0) -> Tuple[List[Alert], int]:
+    async def list_snoozed(self, user_id: UserId, limit: int = 50, offset: int = 0) -> Tuple[List[Alert], int]:
         """
-        Lista alertas actualmente silenciadas.
+        Lista alertas actualmente silenciadas del usuario.
 
         Args:
+            user_id: ID del usuario propietario
             limit: Cantidad máxima de resultados
             offset: Desplazamiento para paginación
 
@@ -513,22 +528,24 @@ class IAlertRepository(ABC):
         ...
 
     @abstractmethod
-    async def count_snoozed(self) -> int:
-        """Cuenta la cantidad de alertas actualmente silenciadas."""
+    async def count_snoozed(self, user_id: UserId) -> int:
+        """Cuenta la cantidad de alertas actualmente silenciadas del usuario."""
         ...
 
     @abstractmethod
     async def count_by_type(
         self,
         type: AlertType,
+        user_id: UserId,
         exclude_resolved: bool = True,
         exclude_snoozed: bool = True,
     ) -> int:
         """
-        Cuenta alertas por tipo.
+        Cuenta alertas por tipo del usuario.
 
         Args:
             type: Tipo de alerta a contar
+            user_id: ID del usuario propietario
             exclude_resolved: Excluir alertas resueltas
             exclude_snoozed: Excluir alertas silenciadas
 
@@ -547,23 +564,23 @@ class IScheduledAlertRepository(ABC):
         ...
 
     @abstractmethod
-    async def find_by_id(self, alert_id: ScheduledAlertId) -> Optional[ScheduledAlert]:
-        """Busca una alerta programada por su ID."""
+    async def find_by_id(self, alert_id: ScheduledAlertId, user_id: UserId) -> Optional[ScheduledAlert]:
+        """Busca una alerta programada por su ID, filtrado por usuario."""
         ...
 
     @abstractmethod
-    async def get_all(self) -> List[ScheduledAlert]:
-        """Obtiene todas las alertas programadas."""
+    async def get_all(self, user_id: UserId) -> List[ScheduledAlert]:
+        """Obtiene todas las alertas programadas del usuario."""
         ...
 
     @abstractmethod
-    async def get_active(self) -> List[ScheduledAlert]:
-        """Obtiene solo las alertas programadas activas."""
+    async def get_active(self, user_id: UserId) -> List[ScheduledAlert]:
+        """Obtiene solo las alertas programadas activas del usuario."""
         ...
 
     @abstractmethod
-    async def delete(self, alert_id: ScheduledAlertId) -> None:
-        """Elimina una alerta programada."""
+    async def delete(self, alert_id: ScheduledAlertId, user_id: UserId) -> None:
+        """Elimina una alerta programada del usuario."""
         ...
 
 
@@ -578,7 +595,31 @@ class IFeedbackRepository(ABC):
 
 class ISystemConfigRepository(ABC):
     @abstractmethod
-    async def get(self) -> SystemConfig: ...
+    async def get(self, user_id: UserId) -> SystemConfig: ...
 
     @abstractmethod
     async def save(self, config: SystemConfig) -> None: ...
+
+
+class IUserRepository(ABC):
+    """Repositorio para el aggregate User."""
+
+    @abstractmethod
+    async def save(self, user: User) -> None:
+        """Guarda un nuevo usuario."""
+        ...
+
+    @abstractmethod
+    async def find_by_id(self, user_id: UserId) -> Optional[User]:
+        """Busca un usuario por su ID."""
+        ...
+
+    @abstractmethod
+    async def find_by_username(self, username: str) -> Optional[User]:
+        """Busca un usuario por su username."""
+        ...
+
+    @abstractmethod
+    async def get_all_user_ids(self) -> List[UserId]:
+        """Obtiene los IDs de todos los usuarios registrados."""
+        ...

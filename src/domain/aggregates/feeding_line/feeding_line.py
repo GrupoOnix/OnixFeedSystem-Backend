@@ -4,6 +4,7 @@ from typing import Any, List, Optional, Tuple, cast
 from ...exceptions import DuplicateSensorTypeException, InsufficientComponentsException
 from ...interfaces import IBlower, ICooler, IDoser, ISelector, ISensor
 from ...value_objects import LineId, LineName, SensorId
+from ...value_objects.identifiers import UserId
 
 
 class FeedingLine:
@@ -16,6 +17,9 @@ class FeedingLine:
         self._sensors: Tuple[ISensor, ...] = ()
         self._cooler: Optional[ICooler] = None
         self._created_at = datetime.now(timezone.utc)
+
+        # Multi-usuario
+        self._user_id: Optional[UserId] = None
 
     @classmethod
     def create(
@@ -58,6 +62,10 @@ class FeedingLine:
     @property
     def name(self) -> LineName:
         return self._name
+
+    @property
+    def user_id(self) -> Optional[UserId]:
+        return self._user_id
 
     @name.setter
     def name(self, name: LineName) -> None:

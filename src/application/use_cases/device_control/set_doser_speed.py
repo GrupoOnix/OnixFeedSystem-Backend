@@ -24,20 +24,21 @@ class SetDoserSpeedUseCase:
         self._doser_repo = doser_repository
         self._machine = machine_service
 
-    async def execute(self, doser_id: str, speed_percentage: int) -> None:
+    async def execute(self, doser_id: str, speed_percentage: int, user_id: UUID | None = None) -> None:
         """
         Establece la velocidad del motor de un doser específico.
 
         Args:
             doser_id: ID del doser
             speed_percentage: Velocidad del motor (1-100%)
+            user_id: ID del usuario autenticado para validar ownership
 
         Raises:
-            ValueError: Si el doser no existe
+            ValueError: Si el doser no existe o no pertenece al usuario
         """
         doser_uuid = UUID(doser_id)
 
-        result = await self._doser_repo.find_by_id_with_context(doser_uuid)
+        result = await self._doser_repo.find_by_id_with_context(doser_uuid, user_id=user_id)
         if not result:
             raise ValueError(f"Doser {doser_id} no encontrado")
 

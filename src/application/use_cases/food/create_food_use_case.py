@@ -2,7 +2,7 @@ from application.dtos.food_dtos import CreateFoodRequest, FoodDetailResponse, Fo
 from domain.aggregates.food import Food
 from domain.exceptions import DuplicateFoodCodeError, DuplicateFoodNameError
 from domain.repositories import IFoodRepository
-from domain.value_objects import FoodName
+from domain.value_objects import FoodName, UserId
 
 
 class CreateFoodUseCase:
@@ -11,12 +11,13 @@ class CreateFoodUseCase:
     def __init__(self, food_repository: IFoodRepository):
         self._food_repository = food_repository
 
-    async def execute(self, request: CreateFoodRequest) -> FoodDetailResponse:
+    async def execute(self, request: CreateFoodRequest, user_id: UserId) -> FoodDetailResponse:
         """
         Ejecuta el caso de uso para crear un nuevo alimento.
 
         Args:
             request: CreateFoodRequest con los datos del nuevo alimento
+            user_id: ID del usuario propietario
 
         Returns:
             FoodDetailResponse con los datos del alimento creado
@@ -28,18 +29,14 @@ class CreateFoodUseCase:
         """
         # Validar que el nombre no exista
         food_name = FoodName(request.name)
-        existing_by_name = await self._food_repository.find_by_name(food_name)
+        existing_by_name = await self._food_repository.find_by_name(food_name, user_id)
         if existing_by_name:
-            raise DuplicateFoodNameError(
-                f"Ya existe un alimento con el nombre '{request.name}'"
-            )
+            raise DuplicateFoodNameError(f"Ya existe un alimento con el nombre '{request.name}'")
 
         # Validar que el código no exista
-        existing_by_code = await self._food_repository.find_by_code(request.code)
+        existing_by_code = await self._food_repository.find_by_code(request.code, user_id)
         if existing_by_code:
-            raise DuplicateFoodCodeError(
-                f"Ya existe un alimento con el código '{request.code}'"
-            )
+            raise DuplicateFoodCodeError(f"Ya existe un alimento con el código '{request.code}'")
 
         # Crear el agregado
         food = Food(
@@ -50,6 +47,7 @@ class CreateFoodUseCase:
             size_mm=request.size_mm,
             active=request.active,
         )
+        food._user_id = user_id
 
         # Persistir
         await self._food_repository.save(food)

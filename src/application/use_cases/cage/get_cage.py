@@ -3,7 +3,7 @@
 from application.dtos.cage_dtos import CageConfigResponse, CageResponse
 from domain.aggregates.cage import Cage
 from domain.repositories import ICageRepository, ICageFeedingRepository
-from domain.value_objects.identifiers import CageId
+from domain.value_objects.identifiers import CageId, UserId
 
 
 class GetCageUseCase:
@@ -17,12 +17,13 @@ class GetCageUseCase:
         self.cage_repository = cage_repository
         self.cage_feeding_repository = cage_feeding_repository
 
-    async def execute(self, cage_id: str) -> CageResponse:
+    async def execute(self, cage_id: str, user_id: UserId) -> CageResponse:
         """
         Obtiene una jaula por su ID.
 
         Args:
             cage_id: ID de la jaula
+            user_id: ID del usuario propietario
 
         Returns:
             CageResponse con los datos de la jaula
@@ -31,7 +32,7 @@ class GetCageUseCase:
             ValueError: Si la jaula no existe
         """
         cage_id_vo = CageId.from_string(cage_id)
-        cage = await self.cage_repository.find_by_id(cage_id_vo)
+        cage = await self.cage_repository.find_by_id(cage_id_vo, user_id)
 
         if not cage:
             raise ValueError(f"No existe una jaula con ID '{cage_id}'")

@@ -1,13 +1,15 @@
 """Modelo de base de datos para asignaciones de slots."""
 
 from datetime import datetime
+from typing import Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, DateTime
+from sqlalchemy import Column, DateTime, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlmodel import Field, SQLModel
 
 from domain.entities.slot_assignment import SlotAssignment
-from domain.value_objects.identifiers import CageId, LineId
+from domain.value_objects.identifiers import CageId, LineId, UserId
 
 
 class SlotAssignmentModel(SQLModel, table=True):
@@ -30,6 +32,10 @@ class SlotAssignmentModel(SQLModel, table=True):
     )
     slot_number: int = Field(nullable=False)
     assigned_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
+    user_id: Optional[UUID] = Field(
+        default=None,
+        sa_column=Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True),
+    )
 
     @staticmethod
     def from_domain(assignment: SlotAssignment) -> "SlotAssignmentModel":
@@ -40,6 +46,7 @@ class SlotAssignmentModel(SQLModel, table=True):
             cage_id=assignment.cage_id.value,
             slot_number=assignment.slot_number,
             assigned_at=assignment.assigned_at,
+            user_id=assignment.user_id.value if hasattr(assignment, "user_id") and assignment.user_id else None,
         )
 
     def to_domain(self) -> SlotAssignment:
@@ -50,4 +57,5 @@ class SlotAssignmentModel(SQLModel, table=True):
             cage_id=CageId(self.cage_id),
             slot_number=self.slot_number,
             assigned_at=self.assigned_at,
+            user_id=UserId(self.user_id) if self.user_id else None,
         )

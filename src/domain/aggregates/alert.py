@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional
 
 from domain.enums import AlertCategory, AlertStatus, AlertType
 from domain.value_objects import AlertId
+from domain.value_objects.identifiers import UserId
 
 
 class Alert:
@@ -42,6 +43,9 @@ class Alert:
         self._resolved_by: Optional[str] = None
         self._snoozed_until: Optional[datetime] = None
         self._metadata: Dict[str, Any] = metadata.copy() if metadata else {}
+
+        # Multi-usuario
+        self._user_id: Optional[UserId] = None
 
     # =========================================================================
     # Properties
@@ -105,6 +109,10 @@ class Alert:
     @property
     def metadata(self) -> Dict[str, Any]:
         return self._metadata.copy()
+
+    @property
+    def user_id(self) -> Optional[UserId]:
+        return self._user_id
 
     # =========================================================================
     # Métodos de negocio
@@ -243,6 +251,7 @@ class Alert:
         resolved_by: Optional[str] = None,
         snoozed_until: Optional[datetime] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        user_id: Optional[UserId] = None,
     ) -> "Alert":
         """
         Reconstruye una alerta desde la base de datos.
@@ -262,4 +271,5 @@ class Alert:
         alert._resolved_by = resolved_by
         alert._snoozed_until = snoozed_until
         alert._metadata = metadata or {}
+        alert._user_id = user_id
         return alert

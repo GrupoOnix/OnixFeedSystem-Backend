@@ -2,7 +2,12 @@ from typing import Annotated, Union
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from api.dependencies import CheckScheduleUseCaseDep, get_get_system_config_use_case, get_update_system_config_use_case
+from api.dependencies import (
+    CheckScheduleUseCaseDep,
+    CurrentUser,
+    get_get_system_config_use_case,
+    get_update_system_config_use_case,
+)
 from api.models.feeding_models import CyclicFeedingRequest, ManualFeedingRequest
 from api.models.system_config_models import ScheduleCheckResponse, SystemConfigResponse, UpdateSystemConfigRequest
 from application.use_cases.system_config import GetSystemConfigUseCase, UpdateSystemConfigUseCase
@@ -13,9 +18,10 @@ router = APIRouter(prefix="/system/config", tags=["System Config"])
 @router.get("", response_model=SystemConfigResponse)
 async def get_system_config(
     use_case: Annotated[GetSystemConfigUseCase, Depends(get_get_system_config_use_case)],
+    current_user: CurrentUser,
 ) -> SystemConfigResponse:
     try:
-        return await use_case.execute()
+        return await use_case.execute(user_id=current_user.id)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
@@ -24,9 +30,10 @@ async def get_system_config(
 async def update_system_config(
     request: UpdateSystemConfigRequest,
     use_case: Annotated[UpdateSystemConfigUseCase, Depends(get_update_system_config_use_case)],
+    current_user: CurrentUser,
 ) -> SystemConfigResponse:
     try:
-        return await use_case.execute(request)
+        return await use_case.execute(request, user_id=current_user.id)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
@@ -37,9 +44,10 @@ async def update_system_config(
 async def check_schedule(
     request: Union[ManualFeedingRequest, CyclicFeedingRequest],
     use_case: CheckScheduleUseCaseDep,
+    current_user: CurrentUser,
 ) -> ScheduleCheckResponse:
     try:
-        return await use_case.execute(request)
+        return await use_case.execute(request, user_id=current_user.id)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:

@@ -10,7 +10,7 @@ from application.dtos.cage_group_dtos import (
 from domain.aggregates.cage import Cage
 from domain.aggregates.cage_group import CageGroup
 from domain.repositories import ICageGroupRepository, ICageRepository
-from domain.value_objects.identifiers import CageGroupId, CageId
+from domain.value_objects.identifiers import CageGroupId, CageId, UserId
 from domain.value_objects.names import CageGroupName
 
 
@@ -25,15 +25,14 @@ class UpdateCageGroupUseCase:
         self.group_repository = group_repository
         self.cage_repository = cage_repository
 
-    async def execute(
-        self, group_id: str, request: UpdateCageGroupRequest
-    ) -> CageGroupResponse:
+    async def execute(self, group_id: str, request: UpdateCageGroupRequest, user_id: UserId) -> CageGroupResponse:
         """
         Actualiza un grupo de jaulas.
 
         Args:
             group_id: ID del grupo a actualizar
             request: Datos a actualizar (nombre, descripción y/o cage_ids)
+            user_id: ID del usuario propietario
 
         Returns:
             CageGroupResponse con los datos actualizados
@@ -43,7 +42,7 @@ class UpdateCageGroupUseCase:
         """
         # 1. Buscar el grupo
         group_id_obj = CageGroupId.from_string(group_id)
-        group = await self.group_repository.find_by_id(group_id_obj)
+        group = await self.group_repository.find_by_id(group_id_obj, user_id)
 
         if not group:
             raise ValueError(f"No existe un grupo con ID '{group_id}'")
@@ -51,9 +50,7 @@ class UpdateCageGroupUseCase:
         # 2. Actualizar nombre si se proporciona
         if request.name is not None:
             # Validar que el nuevo nombre no exista (excepto el actual)
-            if await self.group_repository.exists_by_name(
-                request.name, exclude_id=group_id_obj
-            ):
+            if await self.group_repository.exists_by_name(request.name, user_id, exclude_id=group_id_obj):
                 raise ValueError(f"Ya existe un grupo con el nombre '{request.name}'")
 
             group.update_name(CageGroupName(request.name))
@@ -61,7 +58,7 @@ class UpdateCageGroupUseCase:
         # 3. Actualizar cage_ids si se proporciona
         if request.cage_ids is not None:
             # Validar que todas las jaulas existan
-            await self._validate_cages_exist(request.cage_ids)
+            await self._validate_cages_exist(request.cage_ids, user_id)
 
             # Convertir a CageId objects
             cage_id_objects = [CageId.from_string(id_str) for id_str in request.cage_ids]
@@ -75,36 +72,35 @@ class UpdateCageGroupUseCase:
         await self.group_repository.save(group)
 
         # 6. Cargar jaulas y retornar
-        cages = await self._load_cages(group.cage_ids)
+        cages = await self._load_cages(group.cage_ids, user_id)
         return self._to_response(group, cages)
 
-    async def _validate_cages_exist(self, cage_ids: List[str]) -> None:
+    async def _validate_cages_exist(self, cage_ids: List[str], user_id: UserId) -> None:
         """
         Valida que todas las jaulas existan.
 
         Args:
             cage_ids: Lista de IDs de jaulas a validar
+            user_id: ID del usuario propietario
 
         Raises:
             ValueError: Si alguna jaula no existe
         """
         for cage_id_str in cage_ids:
             cage_id = CageId.from_string(cage_id_str)
-            if not await self.cage_repository.exists(cage_id):
+            if not await self.cage_repository.exists(cage_id, user_id):
                 raise ValueError(f"La jaula con ID '{cage_id_str}' no existe")
 
-    async def _load_cages(self, cage_ids: List[CageId]) -> List[Cage]:
+    async def _load_cages(self, cage_ids: List[CageId], user_id: UserId) -> List[Cage]:
         """Carga las jaulas desde el repositorio."""
         cages = []
         for cage_id in cage_ids:
-            cage = await self.cage_repository.find_by_id(cage_id)
+            cage = await self.cage_repository.find_by_id(cage_id, user_id)
             if cage:  # Ignorar jaulas que no existan
                 cages.append(cage)
         return cages
 
-    def _to_response(
-        self, cage_group: CageGroup, cages: List[Cage]
-    ) -> CageGroupResponse:
+    def _to_response(self, cage_group: CageGroup, cages: List[Cage]) -> CageGroupResponse:
         """Convierte la entidad a response DTO."""
         metrics = cage_group.calculate_metrics(cages)
 

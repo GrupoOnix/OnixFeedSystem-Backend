@@ -19,18 +19,19 @@ class TurnCoolerOnUseCase:
         self._cooler_repo = cooler_repository
         self._machine = machine_service
 
-    async def execute(self, cooler_id: str) -> None:
+    async def execute(self, cooler_id: str, user_id: UUID | None = None) -> None:
         """
         Enciende el cooler a su cooling_power_percentage configurada.
 
         Args:
             cooler_id: ID del cooler
+            user_id: ID del usuario autenticado para validar ownership
 
         Raises:
-            ValueError: Si el cooler no existe
+            ValueError: Si el cooler no existe o no pertenece al usuario
         """
         cooler_uuid = UUID(cooler_id)
-        result = await self._cooler_repo.find_by_id_with_context(cooler_uuid)
+        result = await self._cooler_repo.find_by_id_with_context(cooler_uuid, user_id=user_id)
 
         if not result:
             raise ValueError(f"Cooler {cooler_id} no encontrado")
@@ -67,18 +68,19 @@ class TurnCoolerOffUseCase:
         self._cooler_repo = cooler_repository
         self._machine = machine_service
 
-    async def execute(self, cooler_id: str) -> None:
+    async def execute(self, cooler_id: str, user_id: UUID | None = None) -> None:
         """
         Apaga el cooler (potencia a 0%).
 
         Args:
             cooler_id: ID del cooler
+            user_id: ID del usuario autenticado para validar ownership
 
         Raises:
-            ValueError: Si el cooler no existe
+            ValueError: Si el cooler no existe o no pertenece al usuario
         """
         cooler_uuid = UUID(cooler_id)
-        result = await self._cooler_repo.find_by_id_with_context(cooler_uuid)
+        result = await self._cooler_repo.find_by_id_with_context(cooler_uuid, user_id=user_id)
 
         if not result:
             raise ValueError(f"Cooler {cooler_id} no encontrado")

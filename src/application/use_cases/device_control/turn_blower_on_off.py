@@ -19,18 +19,19 @@ class TurnBlowerOnUseCase:
         self._blower_repo = blower_repository
         self._machine = machine_service
 
-    async def execute(self, blower_id: str) -> None:
+    async def execute(self, blower_id: str, user_id: UUID | None = None) -> None:
         """
         Enciende el blower a su potencia non_feeding_power.
 
         Args:
             blower_id: ID del blower
+            user_id: ID del usuario autenticado para validar ownership
 
         Raises:
-            ValueError: Si el blower no existe
+            ValueError: Si el blower no existe o no pertenece al usuario
         """
         blower_uuid = UUID(blower_id)
-        result = await self._blower_repo.find_by_id_with_context(blower_uuid)
+        result = await self._blower_repo.find_by_id_with_context(blower_uuid, user_id=user_id)
 
         if not result:
             raise ValueError(f"Blower {blower_id} no encontrado")
@@ -67,18 +68,19 @@ class TurnBlowerOffUseCase:
         self._blower_repo = blower_repository
         self._machine = machine_service
 
-    async def execute(self, blower_id: str) -> None:
+    async def execute(self, blower_id: str, user_id: UUID | None = None) -> None:
         """
         Apaga el blower (potencia a 0%).
 
         Args:
             blower_id: ID del blower
+            user_id: ID del usuario autenticado para validar ownership
 
         Raises:
-            ValueError: Si el blower no existe
+            ValueError: Si el blower no existe o no pertenece al usuario
         """
         blower_uuid = UUID(blower_id)
-        result = await self._blower_repo.find_by_id_with_context(blower_uuid)
+        result = await self._blower_repo.find_by_id_with_context(blower_uuid, user_id=user_id)
 
         if not result:
             raise ValueError(f"Blower {blower_id} no encontrado")

@@ -2,19 +2,20 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID as PyUUID
 
-from sqlalchemy import BigInteger, Column, DateTime, ForeignKey
+from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlmodel import Field, SQLModel
 
 from domain.aggregates.silo import Silo
-from domain.value_objects import FoodId, SiloId, SiloName, Weight
+from domain.value_objects import FoodId, SiloId, SiloName, UserId, Weight
 
 
 class SiloModel(SQLModel, table=True):
     __tablename__ = "silos"
+    __table_args__ = (UniqueConstraint("name", "user_id", name="uq_silos_name_user"),)
 
     id: PyUUID = Field(primary_key=True)
-    name: str = Field(unique=True, max_length=100)
+    name: str = Field(max_length=100)
     capacity_mg: int = Field(sa_column=Column(BigInteger(), nullable=False))
     stock_level_mg: int = Field(sa_column=Column(BigInteger(), nullable=False))
     food_id: Optional[PyUUID] = Field(
@@ -22,6 +23,10 @@ class SiloModel(SQLModel, table=True):
         sa_column=Column(UUID(as_uuid=True), ForeignKey("foods.id", ondelete="SET NULL")),
     )
     is_assigned: bool
+    user_id: Optional[PyUUID] = Field(
+        default=None,
+        sa_column=Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True),
+    )
     warning_threshold_percentage: float = Field(default=20.0)
     critical_threshold_percentage: float = Field(default=10.0)
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
@@ -36,6 +41,7 @@ class SiloModel(SQLModel, table=True):
             stock_level_mg=silo.stock_level.as_miligrams,
             food_id=silo.food_id.value if silo.food_id else None,
             is_assigned=silo.is_assigned,
+            user_id=silo.user_id.value if silo.user_id else None,
             warning_threshold_percentage=silo.warning_threshold_percentage,
             critical_threshold_percentage=silo.critical_threshold_percentage,
             created_at=silo._created_at,
@@ -54,4 +60,6 @@ class SiloModel(SQLModel, table=True):
         silo._warning_threshold_percentage = self.warning_threshold_percentage
         silo._critical_threshold_percentage = self.critical_threshold_percentage
         silo._created_at = self.created_at
+        if self.user_id:
+            silo._user_id = UserId(self.user_id)
         return silo

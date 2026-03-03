@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, status
 
-from api.dependencies import CreateFeedbackUseCaseDep
+from api.dependencies import CreateFeedbackUseCaseDep, CurrentUser
 from api.models.feedback_models import CreateFeedbackRequestModel
 from application.dtos.feedback_dtos import CreateFeedbackRequest
 
@@ -13,6 +13,7 @@ router = APIRouter(prefix="/feedback", tags=["Feedback"])
 async def create_feedback(
     request: CreateFeedbackRequestModel,
     use_case: CreateFeedbackUseCaseDep,
+    current_user: CurrentUser,
 ) -> dict:
     """
     Envía un nuevo feedback al sistema.
@@ -29,7 +30,7 @@ async def create_feedback(
             name=request.name,
             email=request.email,
         )
-        await use_case.execute(dto)
+        await use_case.execute(dto, user_id=current_user.id)
         return {"message": "Feedback recibido correctamente"}
 
     except ValueError as e:

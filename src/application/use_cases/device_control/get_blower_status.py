@@ -10,8 +10,8 @@ class GetBlowerStatusUseCase:
     def __init__(self, blower_repository: BlowerRepository):
         self._blower_repo = blower_repository
 
-    async def execute(self, blower_id: str) -> BlowerStatusResponse:
-        blower = await self._blower_repo.find_by_id(UUID(blower_id))
+    async def execute(self, blower_id: str, user_id: UUID | None = None) -> BlowerStatusResponse:
+        blower = await self._blower_repo.find_by_id(UUID(blower_id), user_id=user_id)
         if not blower:
             raise ValueError(f"Blower {blower_id} no encontrado")
 

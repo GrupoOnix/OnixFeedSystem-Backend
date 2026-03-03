@@ -10,9 +10,14 @@ from application.dtos.cage_dtos import (
     UpdateBiometryRequest,
 )
 from domain.aggregates.cage import Cage
-from domain.repositories import IBiometryLogRepository, ICageRepository, IMortalityLogRepository, IPopulationEventRepository
+from domain.repositories import (
+    IBiometryLogRepository,
+    ICageRepository,
+    IMortalityLogRepository,
+    IPopulationEventRepository,
+)
 from domain.value_objects.biometry_log_entry import BiometryLogEntry
-from domain.value_objects.identifiers import CageId
+from domain.value_objects.identifiers import CageId, UserId
 from domain.value_objects.mortality_log_entry import MortalityLogEntry
 
 
@@ -27,13 +32,14 @@ class SetPopulationUseCase:
         self.cage_repository = cage_repository
         self.event_repository = event_repository
 
-    async def execute(self, cage_id: str, request: SetPopulationRequest) -> CageResponse:
+    async def execute(self, cage_id: str, request: SetPopulationRequest, user_id: UserId) -> CageResponse:
         """
         Establece la población inicial de una jaula.
 
         Args:
             cage_id: ID de la jaula
             request: Datos de población
+            user_id: ID del usuario propietario
 
         Returns:
             CageResponse con los datos actualizados
@@ -41,7 +47,7 @@ class SetPopulationUseCase:
         Raises:
             ValueError: Si la jaula no existe o ya tiene población
         """
-        cage = await self.cage_repository.find_by_id(CageId.from_string(cage_id))
+        cage = await self.cage_repository.find_by_id(CageId.from_string(cage_id), user_id)
         if not cage:
             raise ValueError(f"No existe una jaula con ID '{cage_id}'")
 
@@ -73,13 +79,14 @@ class RegisterMortalityUseCase:
         self.event_repository = event_repository
         self.mortality_log_repository = mortality_log_repository
 
-    async def execute(self, cage_id: str, request: RegisterMortalityRequest) -> CageResponse:
+    async def execute(self, cage_id: str, request: RegisterMortalityRequest, user_id: UserId) -> CageResponse:
         """
         Registra mortalidad y resta los peces del total.
 
         Args:
             cage_id: ID de la jaula
             request: Datos de mortalidad
+            user_id: ID del usuario propietario
 
         Returns:
             CageResponse con los datos actualizados
@@ -87,7 +94,7 @@ class RegisterMortalityUseCase:
         Raises:
             ValueError: Si la jaula no existe o no hay suficientes peces
         """
-        cage = await self.cage_repository.find_by_id(CageId.from_string(cage_id))
+        cage = await self.cage_repository.find_by_id(CageId.from_string(cage_id), user_id)
         if not cage:
             raise ValueError(f"No existe una jaula con ID '{cage_id}'")
 
@@ -127,13 +134,14 @@ class UpdateBiometryUseCase:
         self.event_repository = event_repository
         self.biometry_log_repository = biometry_log_repository
 
-    async def execute(self, cage_id: str, request: UpdateBiometryRequest) -> CageResponse:
+    async def execute(self, cage_id: str, request: UpdateBiometryRequest, user_id: UserId) -> CageResponse:
         """
         Actualiza el peso promedio de los peces.
 
         Args:
             cage_id: ID de la jaula
             request: Datos de biometría
+            user_id: ID del usuario propietario
 
         Returns:
             CageResponse con los datos actualizados
@@ -141,7 +149,7 @@ class UpdateBiometryUseCase:
         Raises:
             ValueError: Si la jaula no existe
         """
-        cage = await self.cage_repository.find_by_id(CageId.from_string(cage_id))
+        cage = await self.cage_repository.find_by_id(CageId.from_string(cage_id), user_id)
         if not cage:
             raise ValueError(f"No existe una jaula con ID '{cage_id}'")
 
@@ -186,13 +194,14 @@ class HarvestUseCase:
         self.cage_repository = cage_repository
         self.event_repository = event_repository
 
-    async def execute(self, cage_id: str, request: HarvestRequest) -> CageResponse:
+    async def execute(self, cage_id: str, request: HarvestRequest, user_id: UserId) -> CageResponse:
         """
         Registra una cosecha (extracción de peces).
 
         Args:
             cage_id: ID de la jaula
             request: Datos de cosecha
+            user_id: ID del usuario propietario
 
         Returns:
             CageResponse con los datos actualizados
@@ -200,7 +209,7 @@ class HarvestUseCase:
         Raises:
             ValueError: Si la jaula no existe o no hay suficientes peces
         """
-        cage = await self.cage_repository.find_by_id(CageId.from_string(cage_id))
+        cage = await self.cage_repository.find_by_id(CageId.from_string(cage_id), user_id)
         if not cage:
             raise ValueError(f"No existe una jaula con ID '{cage_id}'")
 
@@ -229,13 +238,14 @@ class AdjustPopulationUseCase:
         self.cage_repository = cage_repository
         self.event_repository = event_repository
 
-    async def execute(self, cage_id: str, request: AdjustPopulationRequest) -> CageResponse:
+    async def execute(self, cage_id: str, request: AdjustPopulationRequest, user_id: UserId) -> CageResponse:
         """
         Ajusta manualmente la población (corrección de inventario).
 
         Args:
             cage_id: ID de la jaula
             request: Datos del ajuste
+            user_id: ID del usuario propietario
 
         Returns:
             CageResponse con los datos actualizados
@@ -243,7 +253,7 @@ class AdjustPopulationUseCase:
         Raises:
             ValueError: Si la jaula no existe
         """
-        cage = await self.cage_repository.find_by_id(CageId.from_string(cage_id))
+        cage = await self.cage_repository.find_by_id(CageId.from_string(cage_id), user_id)
         if not cage:
             raise ValueError(f"No existe una jaula con ID '{cage_id}'")
 

@@ -116,6 +116,8 @@ from application.use_cases.food import (
 from application.use_cases.feedback.create_feedback_use_case import (
     CreateFeedbackUseCase,
 )
+from application.use_cases.auth.login_use_case import LoginUseCase
+from application.use_cases.auth.register_user_use_case import RegisterUserUseCase
 from application.use_cases.sensors import (
     GetLineSensorsUseCase,
     GetSensorReadingsUseCase,
@@ -162,6 +164,7 @@ from infrastructure.persistence.repositories.slot_assignment_repository import (
     SlotAssignmentRepository,
 )
 from infrastructure.persistence.repositories.system_config_repository import SystemConfigRepository
+from infrastructure.persistence.repositories.user_repository import UserRepository
 from infrastructure.services.plc_simulator import PLCSimulator
 from infrastructure.services.simulated_machine import SimulatedMachine
 from application.use_cases.system_config import CheckScheduleUseCase, GetSystemConfigUseCase, UpdateSystemConfigUseCase
@@ -1434,3 +1437,84 @@ async def get_create_feedback_use_case(
 # ============================================================================
 
 CreateFeedbackUseCaseDep = Annotated[CreateFeedbackUseCase, Depends(get_create_feedback_use_case)]
+
+
+# ============================================================================
+# Dependencias de Autenticación
+# ============================================================================
+
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+from application.services.auth_service import AuthService
+from domain.aggregates.user import User
+from domain.value_objects import UserId
+
+security = HTTPBearer()
+
+
+async def get_user_repo(
+    session: AsyncSession = Depends(get_session),
+) -> UserRepository:
+    """Crea instancia del repositorio de usuarios."""
+    return UserRepository(session)
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    session: AsyncSession = Depends(get_session),
+) -> User:
+    """
+    Dependency de autenticación.
+    Decodifica el JWT y retorna el usuario autenticado.
+    """
+    from fastapi import HTTPException, status
+
+    token = credentials.credentials
+    payload = AuthService.decode_token(token)
+
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido o expirado",
+        )
+
+    user_repo = UserRepository(session)
+    user = await user_repo.find_by_id(UserId.from_string(payload["sub"]))
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Usuario no encontrado",
+        )
+
+    return user
+
+
+CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+# ============================================================================
+# Dependencias de Casos de Uso - Auth
+# ============================================================================
+
+
+async def get_login_use_case(
+    user_repo: UserRepository = Depends(get_user_repo),
+) -> LoginUseCase:
+    """Crea instancia del caso de uso de login."""
+    return LoginUseCase(user_repository=user_repo)
+
+
+async def get_register_user_use_case(
+    user_repo: UserRepository = Depends(get_user_repo),
+) -> RegisterUserUseCase:
+    """Crea instancia del caso de uso de registro de usuario."""
+    return RegisterUserUseCase(user_repository=user_repo)
+
+
+# ============================================================================
+# Type Aliases para Endpoints - Auth
+# ============================================================================
+
+LoginUseCaseDep = Annotated[LoginUseCase, Depends(get_login_use_case)]
+RegisterUserUseCaseDep = Annotated[RegisterUserUseCase, Depends(get_register_user_use_case)]

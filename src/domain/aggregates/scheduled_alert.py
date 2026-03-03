@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional
 
 from domain.enums import AlertCategory, AlertType, ScheduledAlertFrequency
 from domain.value_objects import ScheduledAlertId
+from domain.value_objects.identifiers import UserId
 
 
 class ScheduledAlert:
@@ -48,14 +49,12 @@ class ScheduledAlert:
         self._created_at: datetime = datetime.now(timezone.utc)
         self._last_triggered_at: Optional[datetime] = None
 
+        # Multi-usuario
+        self._user_id: Optional[UserId] = None
+
         # Validación
-        if (
-            frequency == ScheduledAlertFrequency.CUSTOM_DAYS
-            and not custom_days_interval
-        ):
-            raise ValueError(
-                "custom_days_interval es requerido cuando frequency es CUSTOM_DAYS"
-            )
+        if frequency == ScheduledAlertFrequency.CUSTOM_DAYS and not custom_days_interval:
+            raise ValueError("custom_days_interval es requerido cuando frequency es CUSTOM_DAYS")
 
     # =========================================================================
     # Properties
@@ -121,6 +120,10 @@ class ScheduledAlert:
     def last_triggered_at(self) -> Optional[datetime]:
         return self._last_triggered_at
 
+    @property
+    def user_id(self) -> Optional[UserId]:
+        return self._user_id
+
     # =========================================================================
     # Métodos de negocio
     # =========================================================================
@@ -135,9 +138,7 @@ class ScheduledAlert:
             return False
 
         # Calcular fecha efectiva de disparo
-        trigger_date = self._next_trigger_date - timedelta(
-            days=self._days_before_warning
-        )
+        trigger_date = self._next_trigger_date - timedelta(days=self._days_before_warning)
 
         if now >= trigger_date:
             # Verificar que no se haya disparado ya para esta fecha
@@ -256,13 +257,8 @@ class ScheduledAlert:
             self._metadata = metadata
 
         # Revalidar después de actualizar
-        if (
-            self._frequency == ScheduledAlertFrequency.CUSTOM_DAYS
-            and not self._custom_days_interval
-        ):
-            raise ValueError(
-                "custom_days_interval es requerido cuando frequency es CUSTOM_DAYS"
-            )
+        if self._frequency == ScheduledAlertFrequency.CUSTOM_DAYS and not self._custom_days_interval:
+            raise ValueError("custom_days_interval es requerido cuando frequency es CUSTOM_DAYS")
 
     # =========================================================================
     # Métodos de reconstrucción (para el repositorio)
@@ -286,6 +282,7 @@ class ScheduledAlert:
         custom_days_interval: Optional[int] = None,
         metadata: Optional[Dict[str, Any]] = None,
         last_triggered_at: Optional[datetime] = None,
+        user_id: Optional[UserId] = None,
     ) -> "ScheduledAlert":
         """
         Reconstruye una alerta programada desde la base de datos.
@@ -307,4 +304,5 @@ class ScheduledAlert:
         alert._metadata = metadata or {}
         alert._created_at = created_at
         alert._last_triggered_at = last_triggered_at
+        alert._user_id = user_id
         return alert

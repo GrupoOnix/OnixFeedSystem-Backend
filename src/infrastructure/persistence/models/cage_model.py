@@ -4,13 +4,14 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import Column, DateTime
+from sqlalchemy import Column, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlmodel import Field, SQLModel
 
 from domain.aggregates.cage import Cage
 from domain.enums import CageStatus
 from domain.value_objects.cage_configuration import CageConfiguration
-from domain.value_objects.identifiers import CageId
+from domain.value_objects.identifiers import CageId, UserId
 from domain.value_objects.names import CageName
 
 
@@ -18,10 +19,15 @@ class CageModel(SQLModel, table=True):
     """Modelo SQLModel para jaulas."""
 
     __tablename__ = "cages"
+    __table_args__ = (UniqueConstraint("name", "user_id", name="uq_cages_name_user"),)
 
     id: UUID = Field(primary_key=True)
-    name: str = Field(unique=True, max_length=100)
+    name: str = Field(max_length=100)
     status: str
+    user_id: Optional[UUID] = Field(
+        default=None,
+        sa_column=Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True),
+    )
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
 
     # Población
@@ -43,6 +49,7 @@ class CageModel(SQLModel, table=True):
             id=cage.id.value,
             name=str(cage.name),
             status=cage.status.value,
+            user_id=cage.user_id.value if cage.user_id else None,
             created_at=cage.created_at,
             # Población
             fish_count=cage.fish_count,
@@ -78,5 +85,7 @@ class CageModel(SQLModel, table=True):
         cage._set_created_at(self.created_at)
         cage._set_fish_count(self.fish_count)
         cage._set_avg_weight_grams(self.avg_weight_grams)
+        if self.user_id:
+            cage._user_id = UserId(self.user_id)
 
         return cage

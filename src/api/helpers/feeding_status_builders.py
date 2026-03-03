@@ -4,6 +4,7 @@ from typing import Dict, Any, Optional
 from domain.entities.cage_feeding import CageFeedingMode
 from domain.entities.feeding_session import FeedingSession
 from domain.value_objects import CageId, LineId
+from domain.value_objects.identifiers import UserId
 from infrastructure.persistence.repositories.cage_feeding_repository import CageFeedingRepository
 from infrastructure.persistence.repositories.cage_repository import CageRepository
 from infrastructure.services.simulated_machine import SimulatedMachine
@@ -12,7 +13,8 @@ from infrastructure.services.simulated_machine import SimulatedMachine
 async def build_manual_status(
     session: FeedingSession,
     cage_repo: CageRepository,
-    machine: SimulatedMachine
+    machine: SimulatedMachine,
+    user_id: UserId,
 ) -> Dict[str, Any]:
     cf_list = session.cage_feedings
     current_cf = next((cf for cf in cf_list if cf.status.value == "IN_PROGRESS"), None)
@@ -21,7 +23,7 @@ async def build_manual_status(
     if not current_cf:
         raise ValueError("No hay cage feeding en esta sesión")
 
-    cage = await cage_repo.find_by_id(CageId.from_string(current_cf.cage_id))
+    cage = await cage_repo.find_by_id(CageId.from_string(current_cf.cage_id), user_id)
     cage_name = cage.name.value if cage else current_cf.cage_id
 
     machine_status = await machine.get_status(LineId.from_string(session.line_id))
@@ -54,7 +56,8 @@ async def build_cyclic_status(
     session: FeedingSession,
     cage_feeding_repo: CageFeedingRepository,
     cage_repo: CageRepository,
-    machine: SimulatedMachine
+    machine: SimulatedMachine,
+    user_id: UserId,
 ) -> Dict[str, Any]:
     cf_list = await cage_feeding_repo.find_by_session(session.id)
     if not cf_list:
@@ -73,27 +76,33 @@ async def build_cyclic_status(
     else:
         current_round = 0
 
-    active_cf = next(
-        (cf for cf in cf_list
-         if cf.mode != CageFeedingMode.FASTING
-         and cf.completed_visits < current_round),
-        None,
-    ) if session.status.value == "IN_PROGRESS" else None
+    active_cf = (
+        next(
+            (cf for cf in cf_list if cf.mode != CageFeedingMode.FASTING and cf.completed_visits < current_round),
+            None,
+        )
+        if session.status.value == "IN_PROGRESS"
+        else None
+    )
 
     total_dispensed_kg = sum(cf.dispensed_kg for cf in cf_list)
     if active_cf:
         total_dispensed_kg += machine_status.dispensed_kg
-    overall_completion_percentage = (total_dispensed_kg / session.total_programmed_kg * 100) if session.total_programmed_kg > 0 else 0.0
+    overall_completion_percentage = (
+        (total_dispensed_kg / session.total_programmed_kg * 100) if session.total_programmed_kg > 0 else 0.0
+    )
 
     active_cage_info = None
     if active_cf:
-        cage = await cage_repo.find_by_id(CageId.from_string(active_cf.cage_id))
+        cage = await cage_repo.find_by_id(CageId.from_string(active_cf.cage_id), user_id)
         cage_name = cage.name.value if cage else active_cf.cage_id
 
         current_visit_number = active_cf.completed_visits + 1
         current_visit_dispensed_kg = machine_status.dispensed_kg
         current_visit_programmed_kg = active_cf.programmed_kg
-        current_visit_completion_percentage = (current_visit_dispensed_kg / current_visit_programmed_kg * 100) if current_visit_programmed_kg > 0 else 0.0
+        current_visit_completion_percentage = (
+            (current_visit_dispensed_kg / current_visit_programmed_kg * 100) if current_visit_programmed_kg > 0 else 0.0
+        )
 
         active_cage_info = {
             "cage_id": active_cf.cage_id,
@@ -113,26 +122,30 @@ async def build_cyclic_status(
     cages_summary = []
     for cf in cf_list:
         if cf.cage_id not in cage_name_cache:
-            cage = await cage_repo.find_by_id(CageId.from_string(cf.cage_id))
+            cage = await cage_repo.find_by_id(CageId.from_string(cf.cage_id), user_id)
             cage_name_cache[cf.cage_id] = cage.name.value if cage else cf.cage_id
 
         programmed_kg_per_visit = cf.programmed_kg
         total_programmed_kg_for_cage = programmed_kg_per_visit * cf.programmed_visits
-        overall_completion_percentage_cage = (cf.dispensed_kg / total_programmed_kg_for_cage * 100) if total_programmed_kg_for_cage > 0 else 0.0
+        overall_completion_percentage_cage = (
+            (cf.dispensed_kg / total_programmed_kg_for_cage * 100) if total_programmed_kg_for_cage > 0 else 0.0
+        )
 
-        cages_summary.append({
-            "cage_id": cf.cage_id,
-            "cage_name": cage_name_cache[cf.cage_id],
-            "mode": cf.mode.value,
-            "status": cf.status.value,
-            "execution_order": cf.execution_order,
-            "programmed_kg_per_visit": programmed_kg_per_visit,
-            "total_programmed_kg": total_programmed_kg_for_cage,
-            "total_dispensed_kg": round(cf.dispensed_kg, 3),
-            "programmed_visits": cf.programmed_visits,
-            "completed_visits": cf.completed_visits,
-            "overall_completion_percentage": round(overall_completion_percentage_cage, 2),
-        })
+        cages_summary.append(
+            {
+                "cage_id": cf.cage_id,
+                "cage_name": cage_name_cache[cf.cage_id],
+                "mode": cf.mode.value,
+                "status": cf.status.value,
+                "execution_order": cf.execution_order,
+                "programmed_kg_per_visit": programmed_kg_per_visit,
+                "total_programmed_kg": total_programmed_kg_for_cage,
+                "total_dispensed_kg": round(cf.dispensed_kg, 3),
+                "programmed_visits": cf.programmed_visits,
+                "completed_visits": cf.completed_visits,
+                "overall_completion_percentage": round(overall_completion_percentage_cage, 2),
+            }
+        )
 
     return {
         "session_id": session.id,

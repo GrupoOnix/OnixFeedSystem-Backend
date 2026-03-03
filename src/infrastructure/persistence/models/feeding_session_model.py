@@ -5,10 +5,12 @@ from typing import List, Optional, TYPE_CHECKING
 from uuid import UUID
 
 from datetime import timezone
-from sqlalchemy import Column, DateTime
+from sqlalchemy import Column, DateTime, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlmodel import Field, SQLModel, Relationship
 
 from domain.entities.feeding_session import FeedingSession, FeedingType, SessionStatus
+from domain.value_objects.identifiers import UserId
 
 if TYPE_CHECKING:
     from .cage_feeding_model import CageFeedingModel
@@ -32,6 +34,12 @@ class FeedingSessionModel(SQLModel, table=True):
         ondelete="CASCADE",
     )
     operator_id: str = Field(nullable=False, index=True)
+
+    # Usuario propietario
+    user_id: Optional[UUID] = Field(
+        default=None,
+        sa_column=Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True),
+    )
 
     # Tipo y Estado
     type: str = Field(max_length=20, nullable=False, index=True)
@@ -71,6 +79,7 @@ class FeedingSessionModel(SQLModel, table=True):
             id=session.id,
             line_id=UUID(session.line_id),
             operator_id=session.operator_id,
+            user_id=session.user_id.value if hasattr(session, "user_id") and session.user_id else None,
             type=session.type.value,
             status=session.status.value,
             allow_overtime=session.allow_overtime,
@@ -95,6 +104,7 @@ class FeedingSessionModel(SQLModel, table=True):
         session._scheduled_start = self.scheduled_start
         session._actual_start = self.actual_start
         session._actual_end = self.actual_end
+        session._user_id = UserId(self.user_id) if self.user_id else None
 
         # Convertir relaciones si ya están cargadas por selectinload
         session._cage_feedings = [cf.to_domain() for cf in self.cage_feedings] if self.cage_feedings else []

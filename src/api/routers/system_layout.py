@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 
-from api.dependencies import GetUseCaseDep, SyncUseCaseDep
+from api.dependencies import CurrentUser, GetUseCaseDep, SyncUseCaseDep
 from api.mappers import ResponseMapper
 from api.models.system_layout import SystemLayoutModel
 from domain.exceptions import DomainException, DuplicateLineNameException
@@ -10,13 +10,11 @@ router = APIRouter(prefix="/system-layout", tags=["System Layout"])
 
 @router.post("", response_model=SystemLayoutModel)
 async def save_system_layout(
-    request: SystemLayoutModel, use_case: SyncUseCaseDep
+    request: SystemLayoutModel, use_case: SyncUseCaseDep, current_user: CurrentUser
 ) -> SystemLayoutModel:
     try:
-        silos, cages, lines, slot_assignments_by_line = await use_case.execute(request)
-        return ResponseMapper.to_system_layout_model(
-            silos, cages, lines, slot_assignments_by_line
-        )
+        silos, cages, lines, slot_assignments_by_line = await use_case.execute(request, user_id=current_user.id)
+        return ResponseMapper.to_system_layout_model(silos, cages, lines, slot_assignments_by_line)
 
     except (DuplicateLineNameException, ValueError, DomainException) as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -29,8 +27,6 @@ async def save_system_layout(
 
 
 @router.get("/export", response_model=SystemLayoutModel)
-async def export_system(use_case: GetUseCaseDep) -> SystemLayoutModel:
-    silos, cages, lines, slot_assignments_by_line = await use_case.execute()
-    return ResponseMapper.to_system_layout_model(
-        silos, cages, lines, slot_assignments_by_line
-    )
+async def export_system(use_case: GetUseCaseDep, current_user: CurrentUser) -> SystemLayoutModel:
+    silos, cages, lines, slot_assignments_by_line = await use_case.execute(user_id=current_user.id)
+    return ResponseMapper.to_system_layout_model(silos, cages, lines, slot_assignments_by_line)

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from domain.aggregates.feeding_line.selector import Selector
+from infrastructure.persistence.models.feeding_line_model import FeedingLineModel
 from infrastructure.persistence.models.selector_model import SelectorModel
 
 
@@ -27,22 +28,29 @@ class SelectorRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def find_by_id(self, selector_id: UUID) -> Optional[Selector]:
-        """Busca un selector por su ID."""
+    async def find_by_id(self, selector_id: UUID, user_id: Optional[UUID] = None) -> Optional[Selector]:
+        """Busca un selector por su ID, opcionalmente filtrado por user_id."""
         stmt = select(SelectorModel).where(SelectorModel.id == selector_id)
+        if user_id is not None:
+            stmt = stmt.join(FeedingLineModel).where(FeedingLineModel.user_id == user_id)
         result = await self.session.execute(stmt)
         selector_model = result.scalar_one_or_none()
         return selector_model.to_domain() if selector_model else None
 
     async def find_by_id_with_context(
-        self, selector_id: UUID
+        self, selector_id: UUID, user_id: Optional[UUID] = None
     ) -> Optional[SelectorWithContext]:
-        """Busca un selector por su ID y devuelve también información de la línea."""
+        """Busca un selector por su ID y devuelve también información de la línea.
+
+        Si se proporciona user_id, verifica que el selector pertenezca a una línea del usuario.
+        """
         stmt = (
             select(SelectorModel)
             .options(selectinload(SelectorModel.feeding_line))
             .where(SelectorModel.id == selector_id)
         )
+        if user_id is not None:
+            stmt = stmt.join(FeedingLineModel).where(FeedingLineModel.user_id == user_id)
         result = await self.session.execute(stmt)
         selector_model = result.scalar_one_or_none()
 

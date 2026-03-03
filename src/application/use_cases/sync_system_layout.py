@@ -48,6 +48,7 @@ from domain.value_objects import (
     SiloName,
     Weight,
 )
+from domain.value_objects.identifiers import UserId
 
 
 class SyncSystemLayoutUseCase:
@@ -66,30 +67,26 @@ class SyncSystemLayoutUseCase:
         self.component_factory = component_factory
 
     async def execute(
-        self, request: SystemLayoutModel
-    ) -> Tuple[
-        List[Silo], List[Cage], List[FeedingLine], Dict[LineId, List[SlotAssignment]]
-    ]:
+        self, request: SystemLayoutModel, user_id: UserId
+    ) -> Tuple[List[Silo], List[Cage], List[FeedingLine], Dict[LineId, List[SlotAssignment]]]:
         id_map: Dict[str, Any] = {}
 
         # FASE 1: CÁLCULO DE DELTA
-        delta = await DeltaCalculator.calculate(
-            request, self.line_repo, self.silo_repo, self.cage_repo
-        )
+        delta = await DeltaCalculator.calculate(request, self.line_repo, self.silo_repo, self.cage_repo, user_id)
 
         print("delta: ", delta)
 
         # FASE 2: EJECUTAR ELIMINACIONES
-        await self._execute_deletions(delta)
+        await self._execute_deletions(delta, user_id)
 
         # FASE 3: EJECUTAR CREACIONES (y Mapear IDs)
-        await self._execute_creations(delta, id_map)
+        await self._execute_creations(delta, id_map, user_id)
 
         # FASE 4: EJECUTAR ACTUALIZACIONES
-        await self._execute_updates(delta, id_map)
+        await self._execute_updates(delta, id_map, user_id)
 
         # FASE 5: RECONSTRUIR LAYOUT CON IDs REALES
-        return await self._rebuild_layout()
+        return await self._rebuild_layout(user_id)
 
     # ========================================================================
     # MÉTODOS HELPER PRIVADOS
@@ -116,9 +113,7 @@ class SyncSystemLayoutUseCase:
             blow_after_time=blow_after_time,
         )
 
-    def _build_sensors_from_model(
-        self, sensors_model: List[SensorConfigModel]
-    ) -> List[ISensor]:
+    def _build_sensors_from_model(self, sensors_model: List[SensorConfigModel]) -> List[ISensor]:
         sensors = []
 
         for model in sensors_model:
@@ -126,29 +121,24 @@ class SyncSystemLayoutUseCase:
                 sensor_type = SensorType[model.sensor_type]
             except KeyError:
                 raise ValueError(
-                    f"Tipo de sensor inválido: '{model.sensor_type}'. "
-                    f"Valores válidos: {[t.name for t in SensorType]}"
+                    f"Tipo de sensor inválido: '{model.sensor_type}'. Valores válidos: {[t.name for t in SensorType]}"
                 )
 
             name = SensorName(model.name)
 
-            sensor = self.component_factory.create_sensor(
-                sensor_type=sensor_type, name=name
-            )
+            sensor = self.component_factory.create_sensor(sensor_type=sensor_type, name=name)
 
             sensors.append(sensor)
 
         return sensors
 
     async def _build_dosers_from_model(
-        self, dosers_model: List[DoserConfigModel], id_map: Dict[str, Any]
+        self, dosers_model: List[DoserConfigModel], id_map: Dict[str, Any], user_id: UserId
     ) -> List[IDoser]:
         dosers = []
 
         for model in dosers_model:
-            silo_id = await self._resolve_and_assign_silo(
-                model.assigned_silo_id, id_map
-            )
+            silo_id = await self._resolve_and_assign_silo(model.assigned_silo_id, id_map, user_id)
 
             name = DoserName(model.name)
             dosing_range = DosingRange(min_rate=model.min_rate, max_rate=model.max_rate)
@@ -195,9 +185,7 @@ class SyncSystemLayoutUseCase:
 
         return cooler
 
-    async def _resolve_and_assign_silo(
-        self, silo_id_str: str, id_map: Dict[str, Any]
-    ) -> SiloId:
+    async def _resolve_and_assign_silo(self, silo_id_str: str, id_map: Dict[str, Any], user_id: UserId) -> SiloId:
         if silo_id_str in id_map:
             silo_id = id_map[silo_id_str]
         elif self._is_uuid(silo_id_str):
@@ -205,7 +193,7 @@ class SyncSystemLayoutUseCase:
         else:
             raise ValueError(f"El silo con ID temporal '{silo_id_str}' no fue creado")
 
-        silo = await self.silo_repo.find_by_id(silo_id)
+        silo = await self.silo_repo.find_by_id(silo_id, user_id)
         if not silo:
             raise ValueError(f"El silo con ID '{silo_id_str}' no existe")
 
@@ -215,15 +203,13 @@ class SyncSystemLayoutUseCase:
 
         return silo_id
 
-    async def _resolve_cage_id(
-        self, cage_id_str: str, id_map: Dict[str, Any]
-    ) -> CageId:
+    async def _resolve_cage_id(self, cage_id_str: str, id_map: Dict[str, Any], user_id: UserId) -> CageId:
         if cage_id_str in id_map:
             return id_map[cage_id_str]
 
         if self._is_uuid(cage_id_str):
             cage_id = CageId.from_string(cage_id_str)
-            cage = await self.cage_repo.find_by_id(cage_id)
+            cage = await self.cage_repo.find_by_id(cage_id, user_id)
             if not cage:
                 raise ValueError(f"La jaula con ID '{cage_id_str}' no existe")
             return cage_id
@@ -234,32 +220,32 @@ class SyncSystemLayoutUseCase:
     # MÉTODOS DE ORQUESTACIÓN DE FASES
     # ========================================================================
 
-    async def _execute_deletions(self, delta) -> None:
+    async def _execute_deletions(self, delta, user_id: UserId) -> None:
         """Elimina agregados que no están en el request."""
         # Primero liberar slots de líneas a eliminar
         for line_id in delta.lines_to_delete:
-            await self.slot_assignment_repo.delete_by_line(line_id)
-            await self.line_repo.delete(line_id)
+            await self.slot_assignment_repo.delete_by_line(line_id, user_id)
+            await self.line_repo.delete(line_id, user_id)
 
         for silo_id in delta.silos_to_delete:
-            await self.silo_repo.delete(silo_id)
+            await self.silo_repo.delete(silo_id, user_id)
 
         # Para jaulas eliminadas, primero eliminar sus asignaciones
         for cage_id in delta.cages_to_delete:
-            await self.slot_assignment_repo.delete_by_cage(cage_id)
-            await self.cage_repo.delete(cage_id)
+            await self.slot_assignment_repo.delete_by_cage(cage_id, user_id)
+            await self.cage_repo.delete(cage_id, user_id)
 
-    async def _execute_creations(self, delta, id_map: Dict[str, Any]) -> None:
+    async def _execute_creations(self, delta, id_map: Dict[str, Any], user_id: UserId) -> None:
         """Crea nuevos agregados y mapea IDs temporales a reales."""
-        await self._create_silos(delta.silos_to_create, id_map)
-        await self._create_cages(delta.cages_to_create, id_map)
-        await self._create_feeding_lines(delta.lines_to_create, id_map)
+        await self._create_silos(delta.silos_to_create, id_map, user_id)
+        await self._create_cages(delta.cages_to_create, id_map, user_id)
+        await self._create_feeding_lines(delta.lines_to_create, id_map, user_id)
 
-    async def _create_silos(self, silos_dtos, id_map: Dict[str, Any]) -> None:
+    async def _create_silos(self, silos_dtos, id_map: Dict[str, Any], user_id: UserId) -> None:
         """Crea silos y mapea sus IDs."""
         for dto in silos_dtos:
             await NameValidator.validate_unique_silo_name(
-                dto.name, exclude_id=None, repo=self.silo_repo
+                dto.name, exclude_id=None, repo=self.silo_repo, user_id=user_id
             )
 
             name = SiloName(dto.name)
@@ -273,28 +259,30 @@ class SyncSystemLayoutUseCase:
                 stock_level=stock_level,
                 food_id=food_id,
             )
+            new_silo._user_id = user_id
 
             await self.silo_repo.save(new_silo)
             id_map[dto.id] = new_silo.id
 
-    async def _create_cages(self, cages_dtos, id_map: Dict[str, Any]) -> None:
+    async def _create_cages(self, cages_dtos, id_map: Dict[str, Any], user_id: UserId) -> None:
         """Crea jaulas y mapea sus IDs."""
         for dto in cages_dtos:
             await NameValidator.validate_unique_cage_name(
-                dto.name, exclude_id=None, repo=self.cage_repo
+                dto.name, exclude_id=None, repo=self.cage_repo, user_id=user_id
             )
 
             name = CageName(dto.name)
             new_cage = Cage(name=name)
+            new_cage._user_id = user_id
 
             await self.cage_repo.save(new_cage)
             id_map[dto.id] = new_cage.id
 
-    async def _create_feeding_lines(self, lines_dtos, id_map: Dict[str, Any]) -> None:
+    async def _create_feeding_lines(self, lines_dtos, id_map: Dict[str, Any], user_id: UserId) -> None:
         """Crea líneas de alimentación y mapea sus IDs."""
         for dto in lines_dtos:
             await NameValidator.validate_unique_line_name(
-                dto.line_name, exclude_id=None, repo=self.line_repo
+                dto.line_name, exclude_id=None, repo=self.line_repo, user_id=user_id
             )
 
             # Validar capacidad del selector vs número de slots
@@ -305,13 +293,9 @@ class SyncSystemLayoutUseCase:
                 )
 
             blower = self._build_blower_from_model(dto.blower_config)
-            cooler = (
-                self._build_cooler_from_model(dto.cooler_config)
-                if dto.cooler_config
-                else None
-            )
+            cooler = self._build_cooler_from_model(dto.cooler_config) if dto.cooler_config else None
             sensors = self._build_sensors_from_model(dto.sensors_config)
-            dosers = await self._build_dosers_from_model(dto.dosers_config, id_map)
+            dosers = await self._build_dosers_from_model(dto.dosers_config, id_map, user_id)
             selector = self._build_selector_from_model(dto.selector_config)
 
             new_line = FeedingLine.create(
@@ -322,6 +306,7 @@ class SyncSystemLayoutUseCase:
                 sensors=sensors,
                 cooler=cooler,
             )
+            new_line._user_id = user_id
 
             # PASO 1: Guardar línea PRIMERO (necesitamos line_id)
             await self.line_repo.save(new_line)
@@ -329,7 +314,7 @@ class SyncSystemLayoutUseCase:
 
             # PASO 2: Asignar cages a slots usando SlotAssignment
             await self._assign_cages_to_line(
-                new_line.id, dto.slot_assignments, selector.capacity.value, id_map
+                new_line.id, dto.slot_assignments, selector.capacity.value, id_map, user_id
             )
 
     async def _assign_cages_to_line(
@@ -338,18 +323,16 @@ class SyncSystemLayoutUseCase:
         slot_assignments_dto: List[SlotAssignmentModel],
         selector_capacity: int,
         id_map: Dict[str, Any],
+        user_id: UserId,
     ) -> None:
         """Asigna jaulas a slots de una línea."""
         for slot_dto in slot_assignments_dto:
             # Validar que el slot_number esté en el rango válido
             if slot_dto.slot_number < 1 or slot_dto.slot_number > selector_capacity:
-                raise ValueError(
-                    f"El slot {slot_dto.slot_number} está fuera del rango válido "
-                    f"(1-{selector_capacity})"
-                )
+                raise ValueError(f"El slot {slot_dto.slot_number} está fuera del rango válido (1-{selector_capacity})")
 
-            cage_id = await self._resolve_cage_id(slot_dto.cage_id, id_map)
-            cage = await self.cage_repo.find_by_id(cage_id)
+            cage_id = await self._resolve_cage_id(slot_dto.cage_id, id_map, user_id)
+            cage = await self.cage_repo.find_by_id(cage_id, user_id)
 
             if not cage:
                 raise ValueError(f"La jaula con ID '{slot_dto.cage_id}' no existe")
@@ -362,21 +345,15 @@ class SyncSystemLayoutUseCase:
 
             # Validar que no haya otra cage en el mismo slot
             existing_assignment = await self.slot_assignment_repo.find_by_line_and_slot(
-                line_id, slot_dto.slot_number
+                line_id, slot_dto.slot_number, user_id
             )
             if existing_assignment:
-                existing_cage = await self.cage_repo.find_by_id(
-                    existing_assignment.cage_id
-                )
+                existing_cage = await self.cage_repo.find_by_id(existing_assignment.cage_id, user_id)
                 cage_name = existing_cage.name if existing_cage else "desconocida"
-                raise ValueError(
-                    f"El slot {slot_dto.slot_number} ya está ocupado por la jaula '{cage_name}'"
-                )
+                raise ValueError(f"El slot {slot_dto.slot_number} ya está ocupado por la jaula '{cage_name}'")
 
             # Validar que la jaula no esté asignada a otro slot
-            existing_cage_assignment = await self.slot_assignment_repo.find_by_cage(
-                cage_id
-            )
+            existing_cage_assignment = await self.slot_assignment_repo.find_by_cage(cage_id, user_id)
             if existing_cage_assignment:
                 raise ValueError(f"La jaula '{cage.name}' ya está asignada a otro slot")
 
@@ -386,71 +363,70 @@ class SyncSystemLayoutUseCase:
                 cage_id=cage_id,
                 slot_number=slot_dto.slot_number,
             )
+            slot_assignment.user_id = user_id
             await self.slot_assignment_repo.save(slot_assignment)
 
             # Marcar jaula como en uso
             cage.set_in_use()
             await self.cage_repo.save(cage)
 
-    async def _execute_updates(self, delta, id_map: Dict[str, Any]) -> None:
+    async def _execute_updates(self, delta, id_map: Dict[str, Any], user_id: UserId) -> None:
         """Actualiza agregados existentes."""
-        await self._update_silos(delta.silos_to_update)
-        await self._update_cages(delta.cages_to_update)
-        await self._update_feeding_lines(delta.lines_to_update, id_map)
+        await self._update_silos(delta.silos_to_update, user_id)
+        await self._update_cages(delta.cages_to_update, user_id)
+        await self._update_feeding_lines(delta.lines_to_update, id_map, user_id)
 
-    async def _update_silos(self, silos_to_update) -> None:
+    async def _update_silos(self, silos_to_update, user_id: UserId) -> None:
         """Actualiza silos existentes."""
         for silo_id, dto in silos_to_update.items():
-            silo = await self.silo_repo.find_by_id(silo_id)
+            silo = await self.silo_repo.find_by_id(silo_id, user_id)
             if not silo:
                 continue
 
             # Validar FA2: Nombre duplicado (solo si cambió el nombre)
             if str(silo.name) != dto.name:
                 await NameValidator.validate_unique_silo_name(
-                    dto.name, exclude_id=silo_id, repo=self.silo_repo
+                    dto.name, exclude_id=silo_id, repo=self.silo_repo, user_id=user_id
                 )
                 silo.name = SiloName(dto.name)
 
             silo.capacity = Weight.from_kg(dto.capacity)
-            
+
             # Actualizar stock_level si está presente
-            if hasattr(dto, 'stock_level') and dto.stock_level is not None:
+            if hasattr(dto, "stock_level") and dto.stock_level is not None:
                 silo.stock_level = Weight.from_kg(dto.stock_level)
-            
+
             # Actualizar food_id
-            if hasattr(dto, 'food_id'):
+            if hasattr(dto, "food_id"):
                 if dto.food_id:
                     silo.assign_food(FoodId.from_string(dto.food_id))
                 else:
                     silo.remove_food()
-            
+
             await self.silo_repo.save(silo)
 
-    async def _update_cages(self, cages_to_update) -> None:
+    async def _update_cages(self, cages_to_update, user_id: UserId) -> None:
         """Actualiza jaulas existentes."""
         for cage_id, dto in cages_to_update.items():
-            cage = await self.cage_repo.find_by_id(cage_id)
+            cage = await self.cage_repo.find_by_id(cage_id, user_id)
             if not cage:
                 continue
 
             # Validar FA2: Nombre duplicado (solo si cambió el nombre)
             if str(cage.name) != dto.name:
                 await NameValidator.validate_unique_cage_name(
-                    dto.name, exclude_id=cage_id, repo=self.cage_repo
+                    dto.name, exclude_id=cage_id, repo=self.cage_repo, user_id=user_id
                 )
                 cage.rename(CageName(dto.name))
 
             await self.cage_repo.save(cage)
 
-    async def _update_feeding_lines(
-        self, lines_to_update, id_map: Dict[str, Any]
-    ) -> None:
+    async def _update_feeding_lines(self, lines_to_update, id_map: Dict[str, Any], user_id: UserId) -> None:
         """Actualiza líneas de alimentación existentes."""
         # Liberar recursos (ResourceReleaser ya actualizado)
         lines_to_release = []
         for line_id in lines_to_update.keys():
-            line = await self.line_repo.find_by_id(line_id)
+            line = await self.line_repo.find_by_id(line_id, user_id)
             if line:
                 lines_to_release.append(line)
 
@@ -459,18 +435,19 @@ class SyncSystemLayoutUseCase:
             self.silo_repo,
             self.cage_repo,
             self.slot_assignment_repo,
+            user_id,
         )
 
         # Reasignar recursos
         for line_id, dto in lines_to_update.items():
-            line = await self.line_repo.find_by_id(line_id)
+            line = await self.line_repo.find_by_id(line_id, user_id)
             if not line:
                 continue
 
             # Validar nombre único si cambió
             if str(line.name) != dto.line_name:
                 await NameValidator.validate_unique_line_name(
-                    dto.line_name, exclude_id=line_id, repo=self.line_repo
+                    dto.line_name, exclude_id=line_id, repo=self.line_repo, user_id=user_id
                 )
                 line.name = LineName(dto.line_name)
 
@@ -483,37 +460,29 @@ class SyncSystemLayoutUseCase:
 
             # Actualizar componentes
             blower = self._build_blower_from_model(dto.blower_config)
-            cooler = (
-                self._build_cooler_from_model(dto.cooler_config)
-                if dto.cooler_config
-                else None
-            )
+            cooler = self._build_cooler_from_model(dto.cooler_config) if dto.cooler_config else None
             sensors = self._build_sensors_from_model(dto.sensors_config)
-            dosers = await self._build_dosers_from_model(dto.dosers_config, id_map)
+            dosers = await self._build_dosers_from_model(dto.dosers_config, id_map, user_id)
             selector = self._build_selector_from_model(dto.selector_config)
 
             line.update_components(blower, dosers, selector, sensors, cooler)
             await self.line_repo.save(line)
 
             # Asignar nuevas cages (ResourceReleaser ya liberó las anteriores)
-            await self._assign_cages_to_line(
-                line_id, dto.slot_assignments, selector.capacity.value, id_map
-            )
+            await self._assign_cages_to_line(line_id, dto.slot_assignments, selector.capacity.value, id_map, user_id)
 
     async def _rebuild_layout(
-        self,
-    ) -> Tuple[
-        List[Silo], List[Cage], List[FeedingLine], Dict[LineId, List[SlotAssignment]]
-    ]:
+        self, user_id: UserId
+    ) -> Tuple[List[Silo], List[Cage], List[FeedingLine], Dict[LineId, List[SlotAssignment]]]:
         """Reconstruye el layout completo con IDs reales desde BD."""
-        all_silos = await self.silo_repo.get_all()
-        all_cages = await self.cage_repo.list()
-        all_lines = await self.line_repo.get_all()
+        all_silos = await self.silo_repo.get_all(user_id)
+        all_cages = await self.cage_repo.list(user_id)
+        all_lines = await self.line_repo.get_all(user_id)
 
         # Cargar slot assignments agrupados por línea
         slot_assignments_by_line: Dict[LineId, List[SlotAssignment]] = {}
         for line in all_lines:
-            assignments = await self.slot_assignment_repo.find_by_line(line.id)
+            assignments = await self.slot_assignment_repo.find_by_line(line.id, user_id)
             slot_assignments_by_line[line.id] = assignments
 
         return (all_silos, all_cages, all_lines, slot_assignments_by_line)

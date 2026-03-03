@@ -3,7 +3,7 @@
 from application.dtos.alert_dtos import AlertDTO, UpdateAlertRequest
 from domain.enums import AlertStatus
 from domain.repositories import IAlertRepository
-from domain.value_objects import AlertId
+from domain.value_objects import AlertId, UserId
 
 
 class UpdateAlertUseCase:
@@ -12,13 +12,14 @@ class UpdateAlertUseCase:
     def __init__(self, alert_repository: IAlertRepository):
         self._alert_repo = alert_repository
 
-    async def execute(self, alert_id: str, request: UpdateAlertRequest) -> AlertDTO:
+    async def execute(self, alert_id: str, request: UpdateAlertRequest, user_id: UserId) -> AlertDTO:
         """
         Actualiza una alerta existente.
 
         Args:
             alert_id: ID de la alerta a actualizar.
             request: Datos a actualizar (status, resolved_by).
+            user_id: ID del usuario propietario.
 
         Returns:
             Alerta actualizada.
@@ -27,7 +28,7 @@ class UpdateAlertUseCase:
             ValueError: Si la alerta no existe.
         """
         # Buscar alerta
-        alert = await self._alert_repo.find_by_id(AlertId.from_string(alert_id))
+        alert = await self._alert_repo.find_by_id(AlertId.from_string(alert_id), user_id=user_id)
         if not alert:
             raise ValueError(f"Alerta {alert_id} no encontrada")
 

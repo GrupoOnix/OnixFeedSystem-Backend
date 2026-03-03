@@ -19,6 +19,7 @@ from domain.repositories import (
     ISlotAssignmentRepository,
 )
 from domain.value_objects import LineId
+from domain.value_objects.identifiers import UserId
 
 
 class GetSystemLayoutUseCase:
@@ -43,9 +44,8 @@ class GetSystemLayoutUseCase:
 
     async def execute(
         self,
-    ) -> Tuple[
-        List[Silo], List[Cage], List[FeedingLine], Dict[LineId, List[SlotAssignment]]
-    ]:
+        user_id: UserId,
+    ) -> Tuple[List[Silo], List[Cage], List[FeedingLine], Dict[LineId, List[SlotAssignment]]]:
         """
         Ejecuta el caso de uso para obtener el layout del sistema.
 
@@ -53,14 +53,14 @@ class GetSystemLayoutUseCase:
             Tupla con (silos, cages, lines, slot_assignments_by_line)
         """
         # Cargar todos los agregados desde BD
-        all_silos = await self.silo_repo.get_all()
-        all_cages = await self.cage_repo.list()
-        all_lines = await self.line_repo.get_all()
+        all_silos = await self.silo_repo.get_all(user_id)
+        all_cages = await self.cage_repo.list(user_id)
+        all_lines = await self.line_repo.get_all(user_id)
 
         # Cargar slot assignments agrupados por línea
         slot_assignments_by_line: Dict[LineId, List[SlotAssignment]] = {}
         for line in all_lines:
-            assignments = await self.slot_assignment_repo.find_by_line(line.id)
+            assignments = await self.slot_assignment_repo.find_by_line(line.id, user_id)
             slot_assignments_by_line[line.id] = assignments
 
         return (all_silos, all_cages, all_lines, slot_assignments_by_line)

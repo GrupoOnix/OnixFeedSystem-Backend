@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 from domain.aggregates.alert import Alert
 from domain.enums import AlertCategory, AlertType
 from domain.repositories import IAlertRepository
-from domain.value_objects import AlertId
+from domain.value_objects import AlertId, UserId
 
 
 class CreateAlertUseCase:
@@ -29,6 +29,7 @@ class CreateAlertUseCase:
         category: AlertCategory,
         title: str,
         message: str,
+        user_id: UserId,
         source: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> AlertId:
@@ -40,6 +41,7 @@ class CreateAlertUseCase:
             category: Categoría de la alerta (DEVICE, INVENTORY, FEEDING, etc.).
             title: Título corto de la alerta.
             message: Descripción detallada.
+            user_id: ID del usuario propietario.
             source: Origen de la alerta (ej: "Soplador BL-001 - Línea 1").
             metadata: Datos adicionales en formato JSON.
 
@@ -54,6 +56,8 @@ class CreateAlertUseCase:
             source=source,
             metadata=metadata,
         )
+
+        alert._user_id = user_id
 
         await self._alert_repo.save(alert)
         return alert.id

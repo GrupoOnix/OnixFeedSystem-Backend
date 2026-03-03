@@ -9,6 +9,13 @@ from application.use_cases.cage_group.delete_cage_group import DeleteCageGroupUs
 from domain.aggregates.cage_group import CageGroup
 from domain.repositories import ICageGroupRepository
 from domain.value_objects import CageGroupId, CageGroupName, CageId
+from domain.value_objects.identifiers import UserId
+
+
+@pytest.fixture
+def test_user_id():
+    """Fixture que proporciona un UserId de prueba."""
+    return UserId.from_string("00000000-0000-0000-0000-000000000001")
 
 
 @pytest.fixture
@@ -29,7 +36,7 @@ class TestDeleteCageGroup:
     """Tests para la eliminación de grupos de jaulas."""
 
     async def test_delete_existing_group_successfully(
-        self, use_case, mock_group_repo
+        self, use_case, mock_group_repo, test_user_id
     ):
         """Debe eliminar un grupo existente exitosamente."""
         # Arrange
@@ -43,14 +50,14 @@ class TestDeleteCageGroup:
         mock_group_repo.delete = AsyncMock()
 
         # Act
-        await use_case.execute(group_id)
+        await use_case.execute(group_id, test_user_id)
 
         # Assert
-        mock_group_repo.find_by_id.assert_called_once_with(CageGroupId.from_string(group_id))
-        mock_group_repo.delete.assert_called_once_with(CageGroupId.from_string(group_id))
+        mock_group_repo.find_by_id.assert_called_once_with(CageGroupId.from_string(group_id), test_user_id)
+        mock_group_repo.delete.assert_called_once_with(CageGroupId.from_string(group_id), test_user_id)
 
     async def test_delete_fails_when_group_not_found(
-        self, use_case, mock_group_repo
+        self, use_case, mock_group_repo, test_user_id
     ):
         """Debe fallar si el grupo no existe."""
         # Arrange
@@ -59,13 +66,13 @@ class TestDeleteCageGroup:
 
         # Act & Assert
         with pytest.raises(ValueError, match=f"No existe un grupo con ID '{group_id}'"):
-            await use_case.execute(group_id)
+            await use_case.execute(group_id, test_user_id)
 
         # No debe intentar eliminar
         mock_group_repo.delete.assert_not_called()
 
     async def test_delete_with_invalid_uuid_format(
-        self, use_case, mock_group_repo
+        self, use_case, mock_group_repo, test_user_id
     ):
         """Debe fallar con UUID inválido."""
         # Arrange
@@ -73,10 +80,10 @@ class TestDeleteCageGroup:
 
         # Act & Assert: El ValueError debe venir de CageGroupId
         with pytest.raises(ValueError):
-            await use_case.execute(invalid_id)
+            await use_case.execute(invalid_id, test_user_id)
 
     async def test_delete_group_with_multiple_cages(
-        self, use_case, mock_group_repo
+        self, use_case, mock_group_repo, test_user_id
     ):
         """Debe eliminar grupo que contiene múltiples jaulas."""
         # Arrange
@@ -92,13 +99,13 @@ class TestDeleteCageGroup:
         mock_group_repo.delete = AsyncMock()
 
         # Act
-        await use_case.execute(group_id)
+        await use_case.execute(group_id, test_user_id)
 
         # Assert: Debe eliminar el grupo independientemente de cuántas jaulas tenga
-        mock_group_repo.delete.assert_called_once_with(CageGroupId.from_string(group_id))
+        mock_group_repo.delete.assert_called_once_with(CageGroupId.from_string(group_id), test_user_id)
 
     async def test_delete_is_permanent(
-        self, use_case, mock_group_repo
+        self, use_case, mock_group_repo, test_user_id
     ):
         """Debe realizar eliminación física (hard delete)."""
         # Arrange
@@ -112,13 +119,13 @@ class TestDeleteCageGroup:
         mock_group_repo.delete = AsyncMock()
 
         # Act
-        await use_case.execute(group_id)
+        await use_case.execute(group_id, test_user_id)
 
         # Assert: Debe llamar al método delete (hard delete)
         mock_group_repo.delete.assert_called_once()
 
     async def test_delete_does_not_return_value(
-        self, use_case, mock_group_repo
+        self, use_case, mock_group_repo, test_user_id
     ):
         """La eliminación no debe retornar ningún valor."""
         # Arrange
@@ -132,13 +139,13 @@ class TestDeleteCageGroup:
         mock_group_repo.delete = AsyncMock()
 
         # Act
-        result = await use_case.execute(group_id)
+        result = await use_case.execute(group_id, test_user_id)
 
         # Assert: Debe retornar None
         assert result is None
 
     async def test_delete_group_with_description(
-        self, use_case, mock_group_repo
+        self, use_case, mock_group_repo, test_user_id
     ):
         """Debe eliminar grupo que tiene descripción."""
         # Arrange
@@ -153,13 +160,13 @@ class TestDeleteCageGroup:
         mock_group_repo.delete = AsyncMock()
 
         # Act
-        await use_case.execute(group_id)
+        await use_case.execute(group_id, test_user_id)
 
         # Assert
         mock_group_repo.delete.assert_called_once()
 
     async def test_delete_verifies_existence_before_deleting(
-        self, use_case, mock_group_repo
+        self, use_case, mock_group_repo, test_user_id
     ):
         """Debe verificar que el grupo existe antes de intentar eliminar."""
         # Arrange
@@ -168,7 +175,7 @@ class TestDeleteCageGroup:
 
         # Act & Assert
         with pytest.raises(ValueError):
-            await use_case.execute(group_id)
+            await use_case.execute(group_id, test_user_id)
 
         # Verificar que find_by_id fue llamado
         mock_group_repo.find_by_id.assert_called_once()
@@ -177,7 +184,7 @@ class TestDeleteCageGroup:
         mock_group_repo.delete.assert_not_called()
 
     async def test_delete_multiple_times_same_id(
-        self, use_case, mock_group_repo
+        self, use_case, mock_group_repo, test_user_id
     ):
         """Segundo intento de eliminar el mismo ID debe fallar."""
         # Arrange
@@ -192,11 +199,11 @@ class TestDeleteCageGroup:
         mock_group_repo.delete = AsyncMock()
 
         # Act: Primera eliminación
-        await use_case.execute(group_id)
+        await use_case.execute(group_id, test_user_id)
 
         # Arrange: Segunda vez el grupo ya no existe
         mock_group_repo.find_by_id = AsyncMock(return_value=None)
 
         # Act & Assert: Segunda eliminación debe fallar
         with pytest.raises(ValueError, match="No existe un grupo"):
-            await use_case.execute(group_id)
+            await use_case.execute(group_id, test_user_id)

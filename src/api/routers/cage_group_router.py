@@ -17,6 +17,7 @@ from application.dtos.cage_group_dtos import (
 
 from api.dependencies import (
     CreateCageGroupUseCaseDep,
+    CurrentUser,
     DeleteCageGroupUseCaseDep,
     GetCageGroupUseCaseDep,
     ListCageGroupsUseCaseDep,
@@ -35,6 +36,7 @@ router = APIRouter(prefix="/cage-groups", tags=["Cage Groups"])
 async def create_cage_group(
     request: CreateCageGroupRequestModel,
     use_case: CreateCageGroupUseCaseDep,
+    current_user: CurrentUser,
 ) -> CageGroupResponseModel:
     """
     Crea un nuevo grupo de jaulas.
@@ -54,7 +56,7 @@ async def create_cage_group(
             cage_ids=request.cage_ids,
             description=request.description,
         )
-        result = await use_case.execute(dto)
+        result = await use_case.execute(dto, user_id=current_user.id)
         return CageGroupResponseModel.from_dto(result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -63,9 +65,8 @@ async def create_cage_group(
 @router.get("", response_model=ListCageGroupsResponseModel)
 async def list_cage_groups(
     use_case: ListCageGroupsUseCaseDep,
-    search: Optional[str] = Query(
-        None, description="Buscar en nombre, descripción o IDs de jaulas"
-    ),
+    current_user: CurrentUser,
+    search: Optional[str] = Query(None, description="Buscar en nombre, descripción o IDs de jaulas"),
     limit: int = Query(50, ge=1, le=100, description="Cantidad máxima de resultados"),
     offset: int = Query(0, ge=0, description="Desplazamiento para paginación"),
 ) -> ListCageGroupsResponseModel:
@@ -82,7 +83,7 @@ async def list_cage_groups(
     - Lista de grupos con métricas calculadas en tiempo real
     - Total de grupos que coinciden con los filtros
     """
-    result = await use_case.execute(search=search, limit=limit, offset=offset)
+    result = await use_case.execute(user_id=current_user.id, search=search, limit=limit, offset=offset)
     return ListCageGroupsResponseModel.from_dto(result)
 
 
@@ -90,6 +91,7 @@ async def list_cage_groups(
 async def get_cage_group(
     group_id: str,
     use_case: GetCageGroupUseCaseDep,
+    current_user: CurrentUser,
 ) -> CageGroupResponseModel:
     """
     Obtiene un grupo de jaulas por su ID.
@@ -101,7 +103,7 @@ async def get_cage_group(
     - Datos completos del grupo incluyendo métricas agregadas calculadas
     """
     try:
-        result = await use_case.execute(group_id)
+        result = await use_case.execute(group_id, user_id=current_user.id)
         return CageGroupResponseModel.from_dto(result)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -112,6 +114,7 @@ async def update_cage_group(
     group_id: str,
     request: UpdateCageGroupRequestModel,
     use_case: UpdateCageGroupUseCaseDep,
+    current_user: CurrentUser,
 ) -> CageGroupResponseModel:
     """
     Actualiza un grupo de jaulas.
@@ -134,7 +137,7 @@ async def update_cage_group(
             cage_ids=request.cage_ids,
             description=request.description,
         )
-        result = await use_case.execute(group_id, dto)
+        result = await use_case.execute(group_id, dto, user_id=current_user.id)
         return CageGroupResponseModel.from_dto(result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -144,6 +147,7 @@ async def update_cage_group(
 async def delete_cage_group(
     group_id: str,
     use_case: DeleteCageGroupUseCaseDep,
+    current_user: CurrentUser,
 ) -> None:
     """
     Elimina un grupo de jaulas.
@@ -157,6 +161,6 @@ async def delete_cage_group(
     - No retorna contenido (204 No Content)
     """
     try:
-        await use_case.execute(group_id)
+        await use_case.execute(group_id, user_id=current_user.id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

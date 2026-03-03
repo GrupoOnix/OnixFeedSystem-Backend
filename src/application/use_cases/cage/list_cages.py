@@ -7,6 +7,7 @@ from application.dtos.cage_dtos import (
 )
 from domain.aggregates.cage import Cage
 from domain.repositories import ICageRepository, ICageFeedingRepository
+from domain.value_objects.identifiers import UserId
 
 
 class ListCagesUseCase:
@@ -20,14 +21,17 @@ class ListCagesUseCase:
         self.cage_repository = cage_repository
         self.cage_feeding_repository = cage_feeding_repository
 
-    async def execute(self) -> ListCagesResponse:
+    async def execute(self, user_id: UserId) -> ListCagesResponse:
         """
-        Lista todas las jaulas.
+        Lista todas las jaulas de un usuario.
+
+        Args:
+            user_id: ID del usuario propietario
 
         Returns:
             ListCagesResponse con la lista de jaulas
         """
-        cages = await self.cage_repository.list()
+        cages = await self.cage_repository.list(user_id)
 
         cage_ids = [str(cage.id.value) for cage in cages]
         dispensed_map = await self.cage_feeding_repository.get_today_dispensed_by_cages(cage_ids)
