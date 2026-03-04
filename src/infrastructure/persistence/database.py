@@ -13,14 +13,19 @@ def _get_required_env(key: str) -> str:
     return value
 
 
-DB_HOST = _get_required_env("DB_HOST")
-DB_PORT = _get_required_env("DB_PORT")
-DB_USER = _get_required_env("DB_USER")
-DB_PASSWORD = _get_required_env("DB_PASSWORD")
-DB_NAME = _get_required_env("DB_NAME")
 DB_ECHO = os.getenv("DB_ECHO", "false").lower() == "true"
 
-DATABASE_URL = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+# Soporta DATABASE_URL (Render) o variables individuales (desarrollo local)
+_database_url_raw = os.getenv("DATABASE_URL")
+if _database_url_raw:
+    DATABASE_URL = _database_url_raw.replace("postgresql://", "postgresql+asyncpg://", 1)
+else:
+    DB_HOST = _get_required_env("DB_HOST")
+    DB_PORT = _get_required_env("DB_PORT")
+    DB_USER = _get_required_env("DB_USER")
+    DB_PASSWORD = _get_required_env("DB_PASSWORD")
+    DB_NAME = _get_required_env("DB_NAME")
+    DATABASE_URL = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 async_engine = create_async_engine(
     DATABASE_URL,
