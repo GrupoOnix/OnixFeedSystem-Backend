@@ -2,6 +2,7 @@ services:
   - type: web
     name: onix-feeding-backend
     runtime: docker
+    plan: free
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
