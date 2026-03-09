@@ -31,7 +31,7 @@ class DoserModel(SQLModel, table=True):
     min_rate_value: float
     max_rate_value: float
     rate_unit: str
-    is_on: bool = Field(default=True)
+    is_on: bool = Field(default=False)
     speed_percentage: int = Field(default=50)
 
     feeding_line: "FeedingLineModel" = Relationship(back_populates="dosers")
