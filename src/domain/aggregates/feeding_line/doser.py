@@ -18,7 +18,8 @@ class Doser(IDoser):
                  is_on: bool = True,
                  speed_percentage: int = 50,
                  *,
-                 _skip_validation: bool = False):
+                 _skip_validation: bool = False,
+                 _existing_id: str | None = None):
         """
         Inicializa un Doser.
         
@@ -40,7 +41,7 @@ class Doser(IDoser):
                 f"está fuera del rango permitido ({dosing_range})."
             )
 
-        self._id = DoserId.generate()
+        self._id = DoserId.from_string(_existing_id) if _existing_id else DoserId.generate()
         self._name = name
         self._assigned_silo_id = assigned_silo_id
         self._doser_type = doser_type

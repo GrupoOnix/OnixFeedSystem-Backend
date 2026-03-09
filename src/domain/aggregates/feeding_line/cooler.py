@@ -35,6 +35,8 @@ class Cooler(ICooler):
         name: CoolerName,
         cooling_power_percentage: CoolerPowerPercentage,
         is_on: bool = False,
+        *,
+        _existing_id: str | None = None,
     ):
         """
         Crea una nueva instancia de Cooler.
@@ -44,7 +46,7 @@ class Cooler(ICooler):
             cooling_power_percentage: Potencia de enfriamiento inicial
             is_on: Estado inicial (por defecto apagado)
         """
-        self._id = CoolerId.generate()
+        self._id = CoolerId.from_string(_existing_id) if _existing_id else CoolerId.generate()
         self._name = name
         self._is_on = is_on
         self._cooling_power_percentage = cooling_power_percentage

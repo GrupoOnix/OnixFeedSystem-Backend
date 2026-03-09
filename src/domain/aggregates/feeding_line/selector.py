@@ -17,8 +17,10 @@ class Selector(ISelector):
         capacity: SelectorCapacity,
         speed_profile: SelectorSpeedProfile,
         current_slot: Optional[int] = None,
+        *,
+        _existing_id: Optional[str] = None,
     ):
-        self._id = SelectorId.generate()
+        self._id = SelectorId.from_string(_existing_id) if _existing_id else SelectorId.generate()
         self._name: SelectorName = name
         self._capacity = capacity
         self._speed_profile = speed_profile

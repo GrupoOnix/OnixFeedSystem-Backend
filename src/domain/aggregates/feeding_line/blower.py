@@ -17,8 +17,10 @@ class Blower(IBlower):
         blow_before_time: BlowDurationInSeconds,
         blow_after_time: BlowDurationInSeconds,
         current_power: BlowerPowerPercentage | None = None,
+        *,
+        _existing_id: str | None = None,
     ):
-        self._id = BlowerId.generate()
+        self._id = BlowerId.from_string(_existing_id) if _existing_id else BlowerId.generate()
         self._name = name
         self._non_feeding_power = non_feeding_power
         self._current_power = current_power or non_feeding_power

@@ -114,6 +114,7 @@ class SyncSystemLayoutUseCase:
             non_feeding_power=non_feeding_power,
             blow_before_time=blow_before_time,
             blow_after_time=blow_after_time,
+            existing_id=model.id if self._is_uuid(model.id) else None,
         )
 
     def _build_sensors_from_model(
@@ -133,7 +134,9 @@ class SyncSystemLayoutUseCase:
             name = SensorName(model.name)
 
             sensor = self.component_factory.create_sensor(
-                sensor_type=sensor_type, name=name
+                sensor_type=sensor_type,
+                name=name,
+                existing_id=model.id if self._is_uuid(model.id) else None,
             )
 
             sensors.append(sensor)
@@ -161,6 +164,7 @@ class SyncSystemLayoutUseCase:
                 dosing_range=dosing_range,
                 current_rate=current_rate,
                 speed_percentage=model.speed_percentage,
+                existing_id=model.id if self._is_uuid(model.id) else None,
             )
 
             dosers.append(doser)
@@ -180,6 +184,7 @@ class SyncSystemLayoutUseCase:
             name=name,
             capacity=capacity,
             speed_profile=speed_profile,
+            existing_id=model.id if self._is_uuid(model.id) else None,
         )
 
     def _build_cooler_from_model(self, model: CoolerConfigModel) -> ICooler:
@@ -191,6 +196,7 @@ class SyncSystemLayoutUseCase:
             name=name,
             cooling_power_percentage=cooling_power,
             is_on=model.is_on,
+            _existing_id=model.id if self._is_uuid(model.id) else None,
         )
 
         return cooler

@@ -41,12 +41,14 @@ class CageFeedingModel(SQLModel, table=True):
         foreign_key="dosers.id",
         nullable=True,
         index=True,
+        ondelete="SET NULL",
     )
     silo_id: Optional[UUID] = Field(
         default=None,
         foreign_key="silos.id",
         nullable=True,
         index=True,
+        ondelete="SET NULL",
     )
 
     # Configuración

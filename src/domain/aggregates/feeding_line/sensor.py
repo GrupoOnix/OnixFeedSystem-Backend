@@ -24,6 +24,8 @@ class Sensor(ISensor):
         is_enabled: bool = True,
         warning_threshold: Optional[float] = None,
         critical_threshold: Optional[float] = None,
+        *,
+        _existing_id: Optional[str] = None,
     ):
         """
         Crea una nueva instancia de Sensor.
@@ -35,7 +37,7 @@ class Sensor(ISensor):
             warning_threshold: Umbral para advertencia (opcional)
             critical_threshold: Umbral para alerta crítica (opcional)
         """
-        self._id = SensorId.generate()
+        self._id = SensorId.from_string(_existing_id) if _existing_id else SensorId.generate()
         self._name = name
         self._sensor_type = sensor_type
         self._is_enabled = is_enabled
