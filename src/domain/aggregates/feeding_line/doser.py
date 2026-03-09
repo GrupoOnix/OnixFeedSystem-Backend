@@ -15,7 +15,7 @@ class Doser(IDoser):
                  doser_type: DoserType,
                  dosing_range: DosingRange,
                  current_rate: DosingRate,
-                 is_on: bool = True,
+                 is_on: bool = False,
                  speed_percentage: int = 50,
                  *,
                  _skip_validation: bool = False,
