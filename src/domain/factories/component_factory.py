@@ -1,5 +1,6 @@
 """Factory para creación de componentes de líneas de alimentación."""
 
+from typing import Optional
 
 from ..interfaces import IBlower, IDoser, ISelector, ISensor
 from ..value_objects import (
@@ -24,7 +25,8 @@ class ComponentFactory:
         name: BlowerName,
         non_feeding_power: BlowerPowerPercentage,
         blow_before_time: BlowDurationInSeconds,
-        blow_after_time: BlowDurationInSeconds
+        blow_after_time: BlowDurationInSeconds,
+        existing_id: Optional[str] = None,
     ) -> IBlower:
 
         blower_type_lower = blower_type.lower()
@@ -34,7 +36,8 @@ class ComponentFactory:
                 name=name,
                 non_feeding_power=non_feeding_power,
                 blow_before_time=blow_before_time,
-                blow_after_time=blow_after_time
+                blow_after_time=blow_after_time,
+                _existing_id=existing_id,
             )
 
         # TODO: Extender con VariBlower, TurboBlower, etc.
@@ -49,6 +52,7 @@ class ComponentFactory:
         dosing_range: DosingRange,
         current_rate: DosingRate,
         speed_percentage: int = 50,
+        existing_id: Optional[str] = None,
     ) -> IDoser:
 
         # Validar y convertir string a enum
@@ -56,7 +60,6 @@ class ComponentFactory:
         if doser_type not in valid_types:
             raise ValueError(f"Tipo de doser no soportado: '{doser_type}'")
 
-        # Convertir string a enum
         doser_type_enum = DoserType(doser_type)
 
         return Doser(
@@ -66,6 +69,7 @@ class ComponentFactory:
             dosing_range=dosing_range,
             current_rate=current_rate,
             speed_percentage=speed_percentage,
+            _existing_id=existing_id,
         )
 
     @staticmethod
@@ -73,7 +77,8 @@ class ComponentFactory:
         selector_type: str,
         name: SelectorName,
         capacity: SelectorCapacity,
-        speed_profile: SelectorSpeedProfile
+        speed_profile: SelectorSpeedProfile,
+        existing_id: Optional[str] = None,
     ) -> ISelector:
 
         selector_type_lower = selector_type.lower()
@@ -82,7 +87,8 @@ class ComponentFactory:
             return Selector(
                 name=name,
                 capacity=capacity,
-                speed_profile=speed_profile
+                speed_profile=speed_profile,
+                _existing_id=existing_id,
             )
 
         # TODO: Extender con nuevos tipos de selectoras
@@ -92,12 +98,14 @@ class ComponentFactory:
     @staticmethod
     def create_sensor(
         sensor_type: SensorType,
-        name: SensorName
+        name: SensorName,
+        existing_id: Optional[str] = None,
     ) -> ISensor:
 
         return Sensor(
             name=name,
-            sensor_type=sensor_type
+            sensor_type=sensor_type,
+            _existing_id=existing_id,
         )
 
         # TODO: Extender con implementaciones específicas por tipo de sensor
