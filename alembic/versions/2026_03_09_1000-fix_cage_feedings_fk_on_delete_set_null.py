@@ -1,7 +1,7 @@
 """fix cage_feedings doser_id and silo_id fk on delete set null
 
 Revision ID: fix_cage_feedings_fk
-Revises: 720a03b05d34
+Revises: dfe5ac557bbd
 Create Date: 2026-03-09 10:00:00.000000
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'fix_cage_feedings_fk'
-down_revision: Union[str, Sequence[str], None] = '720a03b05d34'
+down_revision: Union[str, Sequence[str], None] = 'dfe5ac557bbd'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

@@ -56,7 +56,7 @@ async def turn_blower_on(
     - **blower_id**: ID del blower (UUID)
     """
     try:
-        await use_case.execute(blower_id, user_id=current_user.id)
+        await use_case.execute(blower_id, user_id=current_user.id.value)
         return {"message": "Blower turned on successfully"}
 
     except ValueError as e:
@@ -89,7 +89,7 @@ async def turn_blower_off(
     - **blower_id**: ID del blower (UUID)
     """
     try:
-        await use_case.execute(blower_id, user_id=current_user.id)
+        await use_case.execute(blower_id, user_id=current_user.id.value)
         return {"message": "Blower turned off successfully"}
 
     except ValueError as e:
@@ -125,7 +125,7 @@ async def set_blower_power(
     - **power_percentage**: Potencia del blower (0-100%)
     """
     try:
-        await use_case.execute(blower_id, request.power_percentage, user_id=current_user.id)
+        await use_case.execute(blower_id, request.power_percentage, user_id=current_user.id.value)
         return {"message": f"Blower power set to {request.power_percentage}% successfully"}
 
     except ValueError as e:
@@ -156,7 +156,7 @@ async def get_blower_status(
     - **blower_id**: ID del blower (UUID)
     """
     try:
-        return await use_case.execute(blower_id, user_id=current_user.id)
+        return await use_case.execute(blower_id, user_id=current_user.id.value)
 
     except ValueError as e:
         raise HTTPException(
@@ -193,7 +193,7 @@ async def turn_doser_on(
     - **doser_id**: ID del doser (UUID)
     """
     try:
-        await use_case.execute(doser_id, user_id=current_user.id)
+        await use_case.execute(doser_id, user_id=current_user.id.value)
         return {"message": "Doser turned on successfully"}
 
     except ValueError as e:
@@ -226,7 +226,7 @@ async def turn_doser_off(
     - **doser_id**: ID del doser (UUID)
     """
     try:
-        await use_case.execute(doser_id, user_id=current_user.id)
+        await use_case.execute(doser_id, user_id=current_user.id.value)
         return {"message": "Doser turned off successfully"}
 
     except ValueError as e:
@@ -262,7 +262,7 @@ async def set_doser_rate(
     - **rate_kg_min**: Tasa de dosificación en kg/min
     """
     try:
-        await use_case.execute(doser_id, request.rate_kg_min, user_id=current_user.id)
+        await use_case.execute(doser_id, request.rate_kg_min, user_id=current_user.id.value)
         return {"message": f"Doser rate set to {request.rate_kg_min} kg/min successfully"}
 
     except ValueError as e:
@@ -298,7 +298,7 @@ async def set_doser_speed(
     - **speed_percentage**: Velocidad del motor (1-100%)
     """
     try:
-        await use_case.execute(doser_id, request.speed_percentage, user_id=current_user.id)
+        await use_case.execute(doser_id, request.speed_percentage, user_id=current_user.id.value)
         return {"message": f"Doser speed set to {request.speed_percentage}%"}
 
     except ValueError as e:
@@ -329,7 +329,7 @@ async def get_doser_status(
     - **doser_id**: ID del doser (UUID)
     """
     try:
-        return await use_case.execute(doser_id, user_id=current_user.id)
+        return await use_case.execute(doser_id, user_id=current_user.id.value)
 
     except ValueError as e:
         raise HTTPException(
@@ -369,7 +369,7 @@ async def move_selector(
     - **slot_number**: Número de slot destino (1 a capacity)
     """
     try:
-        await use_case.execute(selector_id, request.slot_number, user_id=current_user.id)
+        await use_case.execute(selector_id, request.slot_number, user_id=current_user.id.value)
         return {"message": f"Selector moved to slot {request.slot_number} successfully"}
 
     except ValueError as e:
@@ -403,7 +403,7 @@ async def reset_selector(
     - **selector_id**: ID del selector (UUID)
     """
     try:
-        await use_case.execute(selector_id, user_id=current_user.id)
+        await use_case.execute(selector_id, user_id=current_user.id.value)
         return {"message": "Selector position reset successfully"}
 
     except ValueError as e:
@@ -434,7 +434,7 @@ async def get_selector_status(
     - **selector_id**: ID del selector (UUID)
     """
     try:
-        return await use_case.execute(selector_id, user_id=current_user.id)
+        return await use_case.execute(selector_id, user_id=current_user.id.value)
 
     except ValueError as e:
         raise HTTPException(
@@ -471,7 +471,7 @@ async def turn_cooler_on(
     - **cooler_id**: ID del cooler (UUID)
     """
     try:
-        await use_case.execute(cooler_id, user_id=current_user.id)
+        await use_case.execute(cooler_id, user_id=current_user.id.value)
         return {"message": "Cooler turned on successfully"}
 
     except ValueError as e:
@@ -504,7 +504,7 @@ async def turn_cooler_off(
     - **cooler_id**: ID del cooler (UUID)
     """
     try:
-        await use_case.execute(cooler_id, user_id=current_user.id)
+        await use_case.execute(cooler_id, user_id=current_user.id.value)
         return {"message": "Cooler turned off successfully"}
 
     except ValueError as e:
@@ -540,7 +540,7 @@ async def set_cooler_power(
     - **power_percentage**: Potencia del cooler (0-100%)
     """
     try:
-        await use_case.execute(cooler_id, request.power_percentage, user_id=current_user.id)
+        await use_case.execute(cooler_id, request.power_percentage, user_id=current_user.id.value)
         return {"message": f"Cooler power set to {request.power_percentage}% successfully"}
 
     except ValueError as e:
