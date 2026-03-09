@@ -26,3 +26,7 @@ AGENTS.md
 # Ruff
 .ruff_cache/
 
+
+# Scripts locales de cambio de rama
+switch-main.sh
+switch-demo.sh
