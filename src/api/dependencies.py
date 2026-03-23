@@ -53,6 +53,7 @@ from application.use_cases.cage_group import (
 )
 from application.use_cases.device_control import (
     GetBlowerStatusUseCase,
+    GetCoolerStatusUseCase,
     GetDoserStatusUseCase,
     GetSelectorStatusUseCase,
     MoveSelectorToSlotDirectUseCase,
@@ -550,6 +551,13 @@ async def get_turn_cooler_off_use_case(
         cooler_repository=cooler_repo,
         machine_service=machine_service,
     )
+
+
+async def get_get_cooler_status_use_case(
+    cooler_repo: CoolerRepository = Depends(get_cooler_repo),
+) -> GetCoolerStatusUseCase:
+    """Crea instancia del caso de uso de status de cooler."""
+    return GetCoolerStatusUseCase(cooler_repository=cooler_repo)
 
 
 async def get_get_blower_status_use_case(
@@ -1302,6 +1310,8 @@ GetBlowerStatusUseCaseDep = Annotated[GetBlowerStatusUseCase, Depends(get_get_bl
 GetDoserStatusUseCaseDep = Annotated[GetDoserStatusUseCase, Depends(get_get_doser_status_use_case)]
 
 GetSelectorStatusUseCaseDep = Annotated[GetSelectorStatusUseCase, Depends(get_get_selector_status_use_case)]
+
+GetCoolerStatusUseCaseDep = Annotated[GetCoolerStatusUseCase, Depends(get_get_cooler_status_use_case)]
 
 
 # ============================================================================

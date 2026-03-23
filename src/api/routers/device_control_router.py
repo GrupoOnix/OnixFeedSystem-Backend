@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from api.dependencies import (
     GetBlowerStatusUseCaseDep,
+    GetCoolerStatusUseCaseDep,
     GetDoserStatusUseCaseDep,
     GetSelectorStatusUseCaseDep,
     MoveSelectorDirectUseCaseDep,
@@ -23,6 +24,7 @@ from api.dependencies import (
 )
 from application.dtos.device_control_dtos import (
     BlowerStatusResponse,
+    CoolerStatusResponse,
     DoserStatusResponse,
     MoveSelectorRequest,
     SelectorStatusResponse,
@@ -517,6 +519,35 @@ async def set_cooler_power(
         return {
             "message": f"Cooler power set to {request.power_percentage}% successfully"
         }
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+
+    except DomainException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}",
+        )
+
+
+@router.get("/coolers/{cooler_id}/status", status_code=status.HTTP_200_OK)
+async def get_cooler_status(
+    cooler_id: str,
+    use_case: GetCoolerStatusUseCaseDep,
+) -> CoolerStatusResponse:
+    """
+    Obtiene el estado actual de un cooler específico.
+
+    - **cooler_id**: ID del cooler (UUID)
+    """
+    try:
+        return await use_case.execute(cooler_id)
 
     except ValueError as e:
         raise HTTPException(

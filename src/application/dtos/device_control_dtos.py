@@ -58,3 +58,9 @@ class DoserStatusResponse(BaseModel):
 class SelectorStatusResponse(BaseModel):
     selector_id: str
     current_slot: Optional[int]
+
+
+class CoolerStatusResponse(BaseModel):
+    cooler_id: str
+    is_on: bool
+    current_power: float

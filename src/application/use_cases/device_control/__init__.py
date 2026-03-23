@@ -1,6 +1,7 @@
 """Casos de uso para control directo de devices."""
 
 from .get_blower_status import GetBlowerStatusUseCase
+from .get_cooler_status import GetCoolerStatusUseCase
 from .get_doser_status import GetDoserStatusUseCase
 from .get_selector_status import GetSelectorStatusUseCase
 from .move_selector_to_slot import MoveSelectorToSlotDirectUseCase
@@ -15,6 +16,7 @@ from .turn_doser_on_off import TurnDoserOffUseCase, TurnDoserOnUseCase
 
 __all__ = [
     "GetBlowerStatusUseCase",
+    "GetCoolerStatusUseCase",
     "GetDoserStatusUseCase",
     "GetSelectorStatusUseCase",
     "SetBlowerPowerUseCase",
