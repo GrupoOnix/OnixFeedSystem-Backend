@@ -1,5 +1,6 @@
 """Modelos de persistencia con SQLModel."""
 
+from .activity_log_model import ActivityLogModel
 from .alert_model import AlertModel
 from .blower_model import BlowerModel
 from .cage_feeding_model import CageFeedingModel
@@ -23,6 +24,7 @@ from .slot_assignment_model import SlotAssignmentModel
 from .system_config_model import SystemConfigModel
 
 __all__ = [
+    "ActivityLogModel",
     "SiloModel",
     "CageModel",
     "CageFeedingModel",

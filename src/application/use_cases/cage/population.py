@@ -10,7 +10,15 @@ from application.dtos.cage_dtos import (
     UpdateBiometryRequest,
 )
 from domain.aggregates.cage import Cage
-from domain.repositories import IBiometryLogRepository, ICageRepository, IMortalityLogRepository, IPopulationEventRepository
+from domain.enums import ActivityLogCategory, ActivityLogEventType
+from domain.repositories import (
+    IBiometryLogRepository,
+    ICageActivityLogRepository,
+    ICageRepository,
+    IMortalityLogRepository,
+    IPopulationEventRepository,
+)
+from domain.value_objects.activity_log_entry import ActivityLogEntry
 from domain.value_objects.biometry_log_entry import BiometryLogEntry
 from domain.value_objects.identifiers import CageId
 from domain.value_objects.mortality_log_entry import MortalityLogEntry
@@ -23,9 +31,11 @@ class SetPopulationUseCase:
         self,
         cage_repository: ICageRepository,
         event_repository: IPopulationEventRepository,
+        activity_log_repository: ICageActivityLogRepository,
     ):
         self.cage_repository = cage_repository
         self.event_repository = event_repository
+        self.activity_log_repository = activity_log_repository
 
     async def execute(self, cage_id: str, request: SetPopulationRequest) -> CageResponse:
         """
@@ -57,6 +67,16 @@ class SetPopulationUseCase:
         await self.cage_repository.save(cage)
         await self.event_repository.save(event)
 
+        await self.activity_log_repository.save(
+            ActivityLogEntry.create(
+                cage_id=cage.id,
+                event_type=ActivityLogEventType.INFO,
+                category=ActivityLogCategory.POPULATION,
+                message="Siembra inicial registrada",
+                details=f"{request.fish_count} peces, {request.avg_weight_grams}g promedio",
+            )
+        )
+
         return _to_response(cage)
 
 
@@ -68,10 +88,12 @@ class RegisterMortalityUseCase:
         cage_repository: ICageRepository,
         event_repository: IPopulationEventRepository,
         mortality_log_repository: IMortalityLogRepository,
+        activity_log_repository: ICageActivityLogRepository,
     ):
         self.cage_repository = cage_repository
         self.event_repository = event_repository
         self.mortality_log_repository = mortality_log_repository
+        self.activity_log_repository = activity_log_repository
 
     async def execute(self, cage_id: str, request: RegisterMortalityRequest) -> CageResponse:
         """
@@ -111,6 +133,16 @@ class RegisterMortalityUseCase:
         )
         await self.mortality_log_repository.save(log_entry)
 
+        await self.activity_log_repository.save(
+            ActivityLogEntry.create(
+                cage_id=cage.id,
+                event_type=ActivityLogEventType.INFO,
+                category=ActivityLogCategory.MORTALITY,
+                message="Registro de mortalidad",
+                details=f"{request.dead_count} peces muertos",
+            )
+        )
+
         return _to_response(cage)
 
 
@@ -122,10 +154,12 @@ class UpdateBiometryUseCase:
         cage_repository: ICageRepository,
         event_repository: IPopulationEventRepository,
         biometry_log_repository: IBiometryLogRepository,
+        activity_log_repository: ICageActivityLogRepository,
     ):
         self.cage_repository = cage_repository
         self.event_repository = event_repository
         self.biometry_log_repository = biometry_log_repository
+        self.activity_log_repository = activity_log_repository
 
     async def execute(self, cage_id: str, request: UpdateBiometryRequest) -> CageResponse:
         """
@@ -172,6 +206,16 @@ class UpdateBiometryUseCase:
         )
         await self.biometry_log_repository.save(log_entry)
 
+        await self.activity_log_repository.save(
+            ActivityLogEntry.create(
+                cage_id=cage.id,
+                event_type=ActivityLogEventType.INFO,
+                category=ActivityLogCategory.BIOMETRY,
+                message="Registro de biometría completado",
+                details=f"Peso promedio: {old_avg_weight}g → {request.avg_weight_grams}g",
+            )
+        )
+
         return _to_response(cage)
 
 
@@ -182,9 +226,11 @@ class HarvestUseCase:
         self,
         cage_repository: ICageRepository,
         event_repository: IPopulationEventRepository,
+        activity_log_repository: ICageActivityLogRepository,
     ):
         self.cage_repository = cage_repository
         self.event_repository = event_repository
+        self.activity_log_repository = activity_log_repository
 
     async def execute(self, cage_id: str, request: HarvestRequest) -> CageResponse:
         """
@@ -215,6 +261,16 @@ class HarvestUseCase:
         await self.cage_repository.save(cage)
         await self.event_repository.save(event)
 
+        await self.activity_log_repository.save(
+            ActivityLogEntry.create(
+                cage_id=cage.id,
+                event_type=ActivityLogEventType.INFO,
+                category=ActivityLogCategory.POPULATION,
+                message="Cosecha registrada",
+                details=f"{request.count} peces cosechados",
+            )
+        )
+
         return _to_response(cage)
 
 
@@ -225,9 +281,11 @@ class AdjustPopulationUseCase:
         self,
         cage_repository: ICageRepository,
         event_repository: IPopulationEventRepository,
+        activity_log_repository: ICageActivityLogRepository,
     ):
         self.cage_repository = cage_repository
         self.event_repository = event_repository
+        self.activity_log_repository = activity_log_repository
 
     async def execute(self, cage_id: str, request: AdjustPopulationRequest) -> CageResponse:
         """
@@ -247,6 +305,8 @@ class AdjustPopulationUseCase:
         if not cage:
             raise ValueError(f"No existe una jaula con ID '{cage_id}'")
 
+        old_fish_count = cage.fish_count
+
         # Crear evento y ajustar población
         event = cage.adjust_population(
             new_fish_count=request.new_fish_count,
@@ -257,6 +317,16 @@ class AdjustPopulationUseCase:
         # Persistir cambios
         await self.cage_repository.save(cage)
         await self.event_repository.save(event)
+
+        await self.activity_log_repository.save(
+            ActivityLogEntry.create(
+                cage_id=cage.id,
+                event_type=ActivityLogEventType.CONFIG,
+                category=ActivityLogCategory.POPULATION,
+                message="Ajuste de inventario registrado",
+                details=f"{old_fish_count} → {request.new_fish_count} peces",
+            )
+        )
 
         return _to_response(cage)
 

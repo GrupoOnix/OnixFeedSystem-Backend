@@ -1,6 +1,7 @@
 """Use cases para el módulo de jaulas."""
 
 from application.use_cases.cage.create_cage import CreateCageUseCase
+from application.use_cases.cage.list_activity_log_use_case import ListActivityLogUseCase
 from application.use_cases.cage.delete_cage import DeleteCageUseCase
 from application.use_cases.cage.get_cage import GetCageUseCase
 from application.use_cases.cage.get_population_history import (
@@ -44,4 +45,5 @@ __all__ = [
     "ListMortalityUseCase",
     "ListConfigChangesUseCase",
     "GetCageFeedingHistoryUseCase",
+    "ListActivityLogUseCase",
 ]

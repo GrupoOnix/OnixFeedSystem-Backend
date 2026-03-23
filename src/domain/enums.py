@@ -106,6 +106,27 @@ class AlertCategory(Enum):
     CONNECTION = "CONNECTION"  # Conectividad
 
 
+class ActivityLogEventType(Enum):
+    """Tipo/severidad del evento de actividad."""
+
+    SUCCESS = "SUCCESS"
+    INFO = "INFO"
+    CONFIG = "CONFIG"
+    ALERT = "ALERT"
+
+
+class ActivityLogCategory(Enum):
+    """Categoría funcional del evento de actividad."""
+
+    FEEDING = "FEEDING"
+    CONFIG = "CONFIG"
+    BIOMETRY = "BIOMETRY"
+    MORTALITY = "MORTALITY"
+    POPULATION = "POPULATION"
+    DEVICE = "DEVICE"
+    SYSTEM = "SYSTEM"
+
+
 class ScheduledAlertFrequency(Enum):
     """Frecuencia de repetición de alertas programadas."""
 

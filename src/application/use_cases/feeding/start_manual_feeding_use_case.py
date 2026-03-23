@@ -5,8 +5,9 @@ from application.services.feeding_orchestrator import FeedingOrchestrator
 from domain.entities.cage_feeding import CageFeeding, CageFeedingMode
 from domain.entities.feeding_event import FeedingEvent
 from domain.entities.feeding_session import FeedingSession, FeedingType
-from domain.enums import CageStatus
+from domain.enums import ActivityLogCategory, ActivityLogEventType, CageStatus
 from domain.repositories import (
+    ICageActivityLogRepository,
     ICageFeedingRepository,
     ICageRepository,
     IFeedingEventRepository,
@@ -19,6 +20,7 @@ from domain.repositories import (
 from domain.services.feeding_time_calculator import calculate_visit_duration
 from domain.services.operating_schedule_service import OperatingScheduleService
 from domain.value_objects import CageId, LineId
+from domain.value_objects.activity_log_entry import ActivityLogEntry
 from domain.value_objects.identifiers import DoserId
 from domain.value_objects.measurements import Weight
 
@@ -36,6 +38,7 @@ class StartManualFeedingUseCase:
         slot_assignment_repository: ISlotAssignmentRepository,
         orchestrator: FeedingOrchestrator,
         system_config_repository: ISystemConfigRepository,
+        activity_log_repository: ICageActivityLogRepository,
     ):
         self.session_repo = session_repository
         self.cage_feeding_repo = cage_feeding_repository
@@ -46,6 +49,7 @@ class StartManualFeedingUseCase:
         self.slot_assignment_repo = slot_assignment_repository
         self.orchestrator = orchestrator
         self.system_config_repo = system_config_repository
+        self.activity_log_repo = activity_log_repository
 
     async def execute(self, request: ManualFeedingRequest) -> ManualFeedingResponse:
         # Paso 1: VALIDACIÓN — retorna entidades ya cargadas para reutilizar
@@ -98,6 +102,18 @@ class StartManualFeedingUseCase:
         await self.session_repo.save(session)
         await self.cage_feeding_repo.save(cage_feeding)
         await self.event_repo.save(session_started_event)
+
+        await self.activity_log_repo.save(
+            ActivityLogEntry.create(
+                cage_id=CageId.from_string(request.cage_id),
+                event_type=ActivityLogEventType.INFO,
+                category=ActivityLogCategory.FEEDING,
+                message="Inicio de operación de alimentación",
+                details=f"{request.quantity_kg} kg a {request.rate_kg_per_min} kg/min",
+                source_entity_type="feeding_session",
+                source_entity_id=session.id,
+            )
+        )
 
         # Paso 4: LANZAR ORQUESTADOR EN BACKGROUND
         asyncio.create_task(

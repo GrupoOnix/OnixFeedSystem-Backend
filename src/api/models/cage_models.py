@@ -5,6 +5,10 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+from application.dtos.activity_log_dtos import (
+    ActivityLogItemResponse,
+    PaginatedActivityLogResponse,
+)
 from application.dtos.biometry_dtos import (
     BiometryLogItemResponse,
     PaginatedBiometryResponse,
@@ -493,4 +497,55 @@ class CageFeedingHistoryResponseModel(BaseModel):
         return cls(
             items=[FeedingHistoryItemResponseModel.from_dto(i) for i in dto.items],
             pagination=FeedingHistoryPaginationResponseModel.from_dto(dto.pagination),
+        )
+
+
+# =============================================================================
+# ACTIVITY LOG RESPONSE MODELS
+# =============================================================================
+
+
+class ActivityLogItemResponseModel(BaseModel):
+    """Response para un registro de actividad de jaula."""
+
+    log_id: str
+    cage_id: str
+    event_type: str
+    category: str
+    message: str
+    details: Optional[str]
+    actor: Optional[str]
+    source_entity_type: Optional[str]
+    source_entity_id: Optional[str]
+    event_at: datetime
+    created_at: datetime
+
+    @classmethod
+    def from_dto(cls, dto: ActivityLogItemResponse) -> "ActivityLogItemResponseModel":
+        return cls(
+            log_id=dto.log_id,
+            cage_id=dto.cage_id,
+            event_type=dto.event_type,
+            category=dto.category,
+            message=dto.message,
+            details=dto.details,
+            actor=dto.actor,
+            source_entity_type=dto.source_entity_type,
+            source_entity_id=dto.source_entity_id,
+            event_at=dto.event_at,
+            created_at=dto.created_at,
+        )
+
+
+class PaginatedActivityLogResponseModel(BaseModel):
+    """Response paginado para registros de actividad de jaula."""
+
+    logs: List[ActivityLogItemResponseModel]
+    pagination: PaginationInfoModel
+
+    @classmethod
+    def from_dto(cls, dto: PaginatedActivityLogResponse) -> "PaginatedActivityLogResponseModel":
+        return cls(
+            logs=[ActivityLogItemResponseModel.from_dto(e) for e in dto.logs],
+            pagination=PaginationInfoModel.from_dto(dto.pagination),
         )

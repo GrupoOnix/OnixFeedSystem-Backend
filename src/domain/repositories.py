@@ -15,10 +15,11 @@ from domain.entities.feeding_event import FeedingEvent, FeedingEventType
 from domain.entities.feeding_session import FeedingSession as FeedingSessionEntity
 from domain.entities.population_event import PopulationEvent
 from domain.entities.slot_assignment import SlotAssignment
-from domain.enums import AlertCategory, AlertStatus, AlertType, PopulationEventType
+from domain.enums import ActivityLogCategory, ActivityLogEventType, AlertCategory, AlertStatus, AlertType, PopulationEventType
 
 from .aggregates.feeding_line.feeding_line import FeedingLine
 from .value_objects import (
+    ActivityLogEntry,
     AlertId,
     BiometryLogEntry,
     CageGroupId,
@@ -370,6 +371,41 @@ class IConfigChangeLogRepository(ABC):
     @abstractmethod
     async def count_by_cage(self, cage_id: CageId) -> int:
         """Cuenta total de registros de cambios de configuración de una jaula."""
+        ...
+
+
+class ICageActivityLogRepository(ABC):
+    """Repositorio para logs de actividad de jaulas."""
+
+    @abstractmethod
+    async def save(self, entry: ActivityLogEntry) -> None:
+        """Guarda un registro de actividad."""
+        ...
+
+    @abstractmethod
+    async def list_by_cage(
+        self,
+        cage_id: CageId,
+        event_type: Optional[List[ActivityLogEventType]] = None,
+        category: Optional[List[ActivityLogCategory]] = None,
+        from_date: Optional[datetime] = None,
+        to_date: Optional[datetime] = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> List[ActivityLogEntry]:
+        """Lista registros de actividad de una jaula, ordenados por event_at DESC."""
+        ...
+
+    @abstractmethod
+    async def count_by_cage(
+        self,
+        cage_id: CageId,
+        event_type: Optional[List[ActivityLogEventType]] = None,
+        category: Optional[List[ActivityLogCategory]] = None,
+        from_date: Optional[datetime] = None,
+        to_date: Optional[datetime] = None,
+    ) -> int:
+        """Cuenta registros de actividad de una jaula con filtros opcionales."""
         ...
 
 

@@ -7,8 +7,9 @@ from application.services.feeding_orchestrator import FeedingOrchestrator
 from domain.entities.cage_feeding import CageFeeding, CageFeedingMode
 from domain.entities.feeding_event import FeedingEvent
 from domain.entities.feeding_session import FeedingSession, FeedingType
-from domain.enums import CageStatus
+from domain.enums import ActivityLogCategory, ActivityLogEventType, CageStatus
 from domain.repositories import (
+    ICageActivityLogRepository,
     ICageFeedingRepository,
     ICageGroupRepository,
     ICageRepository,
@@ -22,6 +23,7 @@ from domain.repositories import (
 from domain.services.feeding_time_calculator import calculate_visit_duration
 from domain.services.operating_schedule_service import OperatingScheduleService
 from domain.value_objects import CageId, LineId
+from domain.value_objects.activity_log_entry import ActivityLogEntry
 from domain.value_objects.identifiers import CageGroupId, DoserId
 from domain.value_objects.measurements import Weight
 
@@ -40,6 +42,7 @@ class StartCyclicFeedingUseCase:
         slot_assignment_repository: ISlotAssignmentRepository,
         orchestrator: FeedingOrchestrator,
         system_config_repository: ISystemConfigRepository,
+        activity_log_repository: ICageActivityLogRepository,
     ):
         self.session_repo = session_repository
         self.cage_feeding_repo = cage_feeding_repository
@@ -51,6 +54,7 @@ class StartCyclicFeedingUseCase:
         self.slot_assignment_repo = slot_assignment_repository
         self.orchestrator = orchestrator
         self.system_config_repo = system_config_repository
+        self.activity_log_repo = activity_log_repository
 
     async def execute(self, request: CyclicFeedingRequest) -> CyclicFeedingResponse:
         # Paso 1: Validar y cargar todas las entidades necesarias
@@ -157,6 +161,22 @@ class StartCyclicFeedingUseCase:
         for cf in cage_feedings:
             await self.cage_feeding_repo.save(cf)
         await self.event_repo.save(session_started_event)
+
+        # Crear log de actividad por cada jaula NORMAL
+        for cf, cage, _assignment in cage_data:
+            if cf.mode == "FASTING":
+                continue
+            await self.activity_log_repo.save(
+                ActivityLogEntry.create(
+                    cage_id=cage.id,
+                    event_type=ActivityLogEventType.INFO,
+                    category=ActivityLogCategory.FEEDING,
+                    message="Inicio de operación de alimentación",
+                    details=f"{cf.quantity_kg} kg a {cf.rate_kg_per_min} kg/min ({request.visits} visitas)",
+                    source_entity_type="feeding_session",
+                    source_entity_id=session.id,
+                )
+            )
 
         # Paso 7: Lanzar orquestador en background
         asyncio.create_task(

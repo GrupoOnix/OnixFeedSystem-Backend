@@ -1,5 +1,6 @@
 """Implementaciones de repositorios con SQLModel."""
 
+from .activity_log_repository import ActivityLogRepository
 from .alert_repository import AlertRepository
 from .biometry_log_repository import BiometryLogRepository
 from .cage_feeding_repository import CageFeedingRepository
@@ -19,6 +20,7 @@ from .slot_assignment_repository import SlotAssignmentRepository
 from .system_config_repository import SystemConfigRepository
 
 __all__ = [
+    "ActivityLogRepository",
     "SiloRepository",
     "CageRepository",
     "CageFeedingRepository",

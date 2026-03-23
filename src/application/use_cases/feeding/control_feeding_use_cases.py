@@ -1,12 +1,15 @@
 from domain.entities.feeding_event import FeedingEvent
+from domain.enums import ActivityLogCategory, ActivityLogEventType
 from domain.interfaces import IMachine
 from domain.repositories import (
+    ICageActivityLogRepository,
     ICageFeedingRepository,
     IFeedingEventRepository,
     IFeedingLineRepository,
     IFeedingSessionRepository,
 )
-from domain.value_objects import LineId
+from domain.value_objects import CageId, LineId
+from domain.value_objects.activity_log_entry import ActivityLogEntry
 from domain.value_objects.identifiers import DoserId
 
 
@@ -71,12 +74,16 @@ class PauseFeedingUseCase:
     def __init__(
         self,
         session_repo: IFeedingSessionRepository,
+        cage_feeding_repo: ICageFeedingRepository,
         event_repo: IFeedingEventRepository,
         machine: IMachine,
+        activity_log_repository: ICageActivityLogRepository,
     ):
         self._session_repo = session_repo
+        self._cage_feeding_repo = cage_feeding_repo
         self._event_repo = event_repo
         self._machine = machine
+        self._activity_log_repo = activity_log_repository
 
     async def execute(self, session_id: str, operator_id: str, reason: str) -> None:
         session = await self._session_repo.find_by_id(session_id)
@@ -94,18 +101,36 @@ class PauseFeedingUseCase:
         )
         await self._event_repo.save(event)
 
+        cage_feedings = await self._cage_feeding_repo.find_by_session(session_id)
+        for cf in cage_feedings:
+            await self._activity_log_repo.save(
+                ActivityLogEntry.create(
+                    cage_id=CageId.from_string(cf.cage_id),
+                    event_type=ActivityLogEventType.INFO,
+                    category=ActivityLogCategory.FEEDING,
+                    message="Alimentación pausada",
+                    details=reason if reason else None,
+                    source_entity_type="feeding_session",
+                    source_entity_id=session_id,
+                )
+            )
+
 
 class ResumeFeedingUseCase:
 
     def __init__(
         self,
         session_repo: IFeedingSessionRepository,
+        cage_feeding_repo: ICageFeedingRepository,
         event_repo: IFeedingEventRepository,
         machine: IMachine,
+        activity_log_repository: ICageActivityLogRepository,
     ):
         self._session_repo = session_repo
+        self._cage_feeding_repo = cage_feeding_repo
         self._event_repo = event_repo
         self._machine = machine
+        self._activity_log_repo = activity_log_repository
 
     async def execute(self, session_id: str, operator_id: str) -> None:
         session = await self._session_repo.find_by_id(session_id)
@@ -122,18 +147,35 @@ class ResumeFeedingUseCase:
         )
         await self._event_repo.save(event)
 
+        cage_feedings = await self._cage_feeding_repo.find_by_session(session_id)
+        for cf in cage_feedings:
+            await self._activity_log_repo.save(
+                ActivityLogEntry.create(
+                    cage_id=CageId.from_string(cf.cage_id),
+                    event_type=ActivityLogEventType.INFO,
+                    category=ActivityLogCategory.FEEDING,
+                    message="Alimentación reanudada",
+                    source_entity_type="feeding_session",
+                    source_entity_id=session_id,
+                )
+            )
+
 
 class CancelFeedingUseCase:
 
     def __init__(
         self,
         session_repo: IFeedingSessionRepository,
+        cage_feeding_repo: ICageFeedingRepository,
         event_repo: IFeedingEventRepository,
         machine: IMachine,
+        activity_log_repository: ICageActivityLogRepository,
     ):
         self._session_repo = session_repo
+        self._cage_feeding_repo = cage_feeding_repo
         self._event_repo = event_repo
         self._machine = machine
+        self._activity_log_repo = activity_log_repository
 
     async def execute(self, session_id: str, operator_id: str, reason: str) -> None:
         session = await self._session_repo.find_by_id(session_id)
@@ -150,6 +192,20 @@ class CancelFeedingUseCase:
             reason=reason,
         )
         await self._event_repo.save(event)
+
+        cage_feedings = await self._cage_feeding_repo.find_by_session(session_id)
+        for cf in cage_feedings:
+            await self._activity_log_repo.save(
+                ActivityLogEntry.create(
+                    cage_id=CageId.from_string(cf.cage_id),
+                    event_type=ActivityLogEventType.INFO,
+                    category=ActivityLogCategory.FEEDING,
+                    message="Alimentación cancelada",
+                    details=reason if reason else None,
+                    source_entity_type="feeding_session",
+                    source_entity_id=session_id,
+                )
+            )
 
 
 class UpdateBlowerPowerUseCase:

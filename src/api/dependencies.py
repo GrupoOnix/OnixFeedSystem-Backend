@@ -33,6 +33,7 @@ from application.use_cases.cage import (
     GetCageUseCase,
     GetPopulationHistoryUseCase,
     HarvestUseCase,
+    ListActivityLogUseCase,
     ListBiometryUseCase,
     ListCagesUseCase,
     ListConfigChangesUseCase,
@@ -132,6 +133,7 @@ from domain.factories import ComponentFactory
 from domain.interfaces import IFeedingMachine
 from infrastructure.persistence.database import async_session_maker, get_session
 from infrastructure.persistence.repositories import (
+    ActivityLogRepository,
     AlertRepository,
     BiometryLogRepository,
     CageFeedingRepository,
@@ -266,6 +268,13 @@ async def get_cage_feeding_repo(
 ) -> CageFeedingRepository:
     """Crea instancia del repositorio de alimentaciones de jaulas."""
     return CageFeedingRepository(session)
+
+
+async def get_activity_log_repo(
+    session: AsyncSession = Depends(get_session),
+) -> ActivityLogRepository:
+    """Crea instancia del repositorio de logs de actividad de jaulas."""
+    return ActivityLogRepository(session)
 
 
 async def get_feeding_event_repo(
@@ -579,6 +588,7 @@ async def get_start_manual_feeding_use_case(
     slot_assignment_repo: SlotAssignmentRepository = Depends(get_slot_assignment_repo),
     orchestrator: FeedingOrchestrator = Depends(get_feeding_orchestrator),
     system_config_repo: SystemConfigRepository = Depends(get_system_config_repo),
+    activity_log_repo: ActivityLogRepository = Depends(get_activity_log_repo),
 ) -> StartManualFeedingUseCase:
     """Crea instancia del caso de uso de inicio de alimentación manual."""
     return StartManualFeedingUseCase(
@@ -591,6 +601,7 @@ async def get_start_manual_feeding_use_case(
         slot_assignment_repository=slot_assignment_repo,
         orchestrator=orchestrator,
         system_config_repository=system_config_repo,
+        activity_log_repository=activity_log_repo,
     )
 
 
@@ -605,6 +616,7 @@ async def get_start_cyclic_feeding_use_case(
     slot_assignment_repo: SlotAssignmentRepository = Depends(get_slot_assignment_repo),
     orchestrator: FeedingOrchestrator = Depends(get_feeding_orchestrator),
     system_config_repo: SystemConfigRepository = Depends(get_system_config_repo),
+    activity_log_repo: ActivityLogRepository = Depends(get_activity_log_repo),
 ) -> StartCyclicFeedingUseCase:
     """Crea instancia del caso de uso de inicio de alimentación cíclica."""
     return StartCyclicFeedingUseCase(
@@ -618,6 +630,7 @@ async def get_start_cyclic_feeding_use_case(
         slot_assignment_repository=slot_assignment_repo,
         orchestrator=orchestrator,
         system_config_repository=system_config_repo,
+        activity_log_repository=activity_log_repo,
     )
 
 
@@ -644,37 +657,49 @@ async def get_update_feeding_rate_use_case(
 
 async def get_pause_feeding_use_case(
     session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
+    cage_feeding_repo: CageFeedingRepository = Depends(get_cage_feeding_repo),
     event_repo: FeedingEventRepository = Depends(get_feeding_event_repo),
     machine: SimulatedMachine = Depends(get_simulated_machine),
+    activity_log_repo: ActivityLogRepository = Depends(get_activity_log_repo),
 ) -> PauseFeedingUseCase:
     return PauseFeedingUseCase(
         session_repo=session_repo,
+        cage_feeding_repo=cage_feeding_repo,
         event_repo=event_repo,
         machine=machine,
+        activity_log_repository=activity_log_repo,
     )
 
 
 async def get_resume_feeding_use_case(
     session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
+    cage_feeding_repo: CageFeedingRepository = Depends(get_cage_feeding_repo),
     event_repo: FeedingEventRepository = Depends(get_feeding_event_repo),
     machine: SimulatedMachine = Depends(get_simulated_machine),
+    activity_log_repo: ActivityLogRepository = Depends(get_activity_log_repo),
 ) -> ResumeFeedingUseCase:
     return ResumeFeedingUseCase(
         session_repo=session_repo,
+        cage_feeding_repo=cage_feeding_repo,
         event_repo=event_repo,
         machine=machine,
+        activity_log_repository=activity_log_repo,
     )
 
 
 async def get_cancel_feeding_use_case(
     session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
+    cage_feeding_repo: CageFeedingRepository = Depends(get_cage_feeding_repo),
     event_repo: FeedingEventRepository = Depends(get_feeding_event_repo),
     machine: SimulatedMachine = Depends(get_simulated_machine),
+    activity_log_repo: ActivityLogRepository = Depends(get_activity_log_repo),
 ) -> CancelFeedingUseCase:
     return CancelFeedingUseCase(
         session_repo=session_repo,
+        cage_feeding_repo=cage_feeding_repo,
         event_repo=event_repo,
         machine=machine,
+        activity_log_repository=activity_log_repo,
     )
 
 
@@ -909,17 +934,27 @@ async def get_delete_cage_use_case(
 async def get_update_cage_config_use_case(
     cage_repo: CageRepository = Depends(get_cage_repo),
     cage_feeding_repo: CageFeedingRepository = Depends(get_cage_feeding_repo),
+    activity_log_repo: ActivityLogRepository = Depends(get_activity_log_repo),
 ) -> UpdateCageConfigUseCase:
     """Crea instancia del caso de uso de actualización de configuración."""
-    return UpdateCageConfigUseCase(cage_repository=cage_repo, cage_feeding_repository=cage_feeding_repo)
+    return UpdateCageConfigUseCase(
+        cage_repository=cage_repo,
+        cage_feeding_repository=cage_feeding_repo,
+        activity_log_repository=activity_log_repo,
+    )
 
 
 async def get_set_population_use_case(
     cage_repo: CageRepository = Depends(get_cage_repo),
     event_repo: PopulationEventRepository = Depends(get_population_event_repo),
+    activity_log_repo: ActivityLogRepository = Depends(get_activity_log_repo),
 ) -> SetPopulationUseCase:
     """Crea instancia del caso de uso de establecer población."""
-    return SetPopulationUseCase(cage_repository=cage_repo, event_repository=event_repo)
+    return SetPopulationUseCase(
+        cage_repository=cage_repo,
+        event_repository=event_repo,
+        activity_log_repository=activity_log_repo,
+    )
 
 
 async def get_biometry_log_repo(
@@ -940,12 +975,14 @@ async def get_register_mortality_use_case(
     cage_repo: CageRepository = Depends(get_cage_repo),
     event_repo: PopulationEventRepository = Depends(get_population_event_repo),
     mortality_log_repo: MortalityLogRepository = Depends(get_mortality_log_repo),
+    activity_log_repo: ActivityLogRepository = Depends(get_activity_log_repo),
 ) -> RegisterMortalityUseCase:
     """Crea instancia del caso de uso de registro de mortalidad."""
     return RegisterMortalityUseCase(
         cage_repository=cage_repo,
         event_repository=event_repo,
         mortality_log_repository=mortality_log_repo,
+        activity_log_repository=activity_log_repo,
     )
 
 
@@ -953,29 +990,41 @@ async def get_update_biometry_use_case(
     cage_repo: CageRepository = Depends(get_cage_repo),
     event_repo: PopulationEventRepository = Depends(get_population_event_repo),
     biometry_log_repo: BiometryLogRepository = Depends(get_biometry_log_repo),
+    activity_log_repo: ActivityLogRepository = Depends(get_activity_log_repo),
 ) -> UpdateBiometryUseCase:
     """Crea instancia del caso de uso de actualización de biometría."""
     return UpdateBiometryUseCase(
         cage_repository=cage_repo,
         event_repository=event_repo,
         biometry_log_repository=biometry_log_repo,
+        activity_log_repository=activity_log_repo,
     )
 
 
 async def get_harvest_use_case(
     cage_repo: CageRepository = Depends(get_cage_repo),
     event_repo: PopulationEventRepository = Depends(get_population_event_repo),
+    activity_log_repo: ActivityLogRepository = Depends(get_activity_log_repo),
 ) -> HarvestUseCase:
     """Crea instancia del caso de uso de cosecha."""
-    return HarvestUseCase(cage_repository=cage_repo, event_repository=event_repo)
+    return HarvestUseCase(
+        cage_repository=cage_repo,
+        event_repository=event_repo,
+        activity_log_repository=activity_log_repo,
+    )
 
 
 async def get_adjust_population_use_case(
     cage_repo: CageRepository = Depends(get_cage_repo),
     event_repo: PopulationEventRepository = Depends(get_population_event_repo),
+    activity_log_repo: ActivityLogRepository = Depends(get_activity_log_repo),
 ) -> AdjustPopulationUseCase:
     """Crea instancia del caso de uso de ajuste de población."""
-    return AdjustPopulationUseCase(cage_repository=cage_repo, event_repository=event_repo)
+    return AdjustPopulationUseCase(
+        cage_repository=cage_repo,
+        event_repository=event_repo,
+        activity_log_repository=activity_log_repo,
+    )
 
 
 async def get_population_history_use_case(
@@ -1018,6 +1067,13 @@ async def get_cage_feeding_history_use_case(
 ) -> GetCageFeedingHistoryUseCase:
     """Crea instancia del caso de uso de historial de alimentación por jaula."""
     return GetCageFeedingHistoryUseCase(session=session)
+
+
+async def get_list_activity_log_use_case(
+    activity_log_repo: ActivityLogRepository = Depends(get_activity_log_repo),
+) -> ListActivityLogUseCase:
+    """Crea instancia del caso de uso de listado de actividad de jaulas."""
+    return ListActivityLogUseCase(activity_log_repository=activity_log_repo)
 
 
 # ============================================================================
@@ -1172,6 +1228,8 @@ ListMortalityUseCaseDep = Annotated[ListMortalityUseCase, Depends(get_list_morta
 ListConfigChangesUseCaseDep = Annotated[ListConfigChangesUseCase, Depends(get_list_config_changes_use_case)]
 
 GetCageFeedingHistoryUseCaseDep = Annotated[GetCageFeedingHistoryUseCase, Depends(get_cage_feeding_history_use_case)]
+
+ListActivityLogUseCaseDep = Annotated[ListActivityLogUseCase, Depends(get_list_activity_log_use_case)]
 
 
 # ============================================================================

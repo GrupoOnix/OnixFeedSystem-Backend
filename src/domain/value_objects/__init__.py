@@ -14,6 +14,9 @@ from .aquaculture import (
     FishCount,
 )
 
+# Activity Log Entry
+from .activity_log_entry import ActivityLogEntry
+
 # Log Entries (legacy - kept for backward compatibility)
 from .biometry_log_entry import BiometryLogEntry
 
@@ -126,6 +129,8 @@ __all__ = [
     "FCR",
     # Cage Configuration
     "CageConfiguration",
+    # Activity Log
+    "ActivityLogEntry",
     # Log Entries (legacy)
     "BiometryLogEntry",
     "MortalityLogEntry",

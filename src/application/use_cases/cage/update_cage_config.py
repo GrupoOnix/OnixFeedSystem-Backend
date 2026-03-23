@@ -1,12 +1,16 @@
 """Use case para actualizar la configuración de una jaula."""
 
+from typing import List
+
 from application.dtos.cage_dtos import (
     CageConfigResponse,
     CageResponse,
     UpdateCageConfigRequest,
 )
 from domain.aggregates.cage import Cage
-from domain.repositories import ICageRepository, ICageFeedingRepository
+from domain.enums import ActivityLogCategory, ActivityLogEventType
+from domain.repositories import ICageActivityLogRepository, ICageFeedingRepository, ICageRepository
+from domain.value_objects.activity_log_entry import ActivityLogEntry
 from domain.value_objects.cage_configuration import CageConfiguration
 from domain.value_objects.identifiers import CageId
 
@@ -18,9 +22,11 @@ class UpdateCageConfigUseCase:
         self,
         cage_repository: ICageRepository,
         cage_feeding_repository: ICageFeedingRepository,
+        activity_log_repository: ICageActivityLogRepository,
     ):
         self.cage_repository = cage_repository
         self.cage_feeding_repository = cage_feeding_repository
+        self.activity_log_repository = activity_log_repository
 
     async def execute(self, cage_id: str, request: UpdateCageConfigRequest) -> CageResponse:
         """
@@ -61,15 +67,55 @@ class UpdateCageConfigUseCase:
             else current_config.daily_feeding_target_kg,
         )
 
+        # Detectar campos modificados antes de actualizar
+        changed_fields = self._detect_changes(current_config, new_config, request)
+
         # Actualizar configuración
         cage.update_config(new_config)
 
         # Persistir cambios
         await self.cage_repository.save(cage)
 
+        # Persistir logs de actividad por cada campo modificado
+        for log_entry in changed_fields:
+            await self.activity_log_repository.save(
+                ActivityLogEntry.create(
+                    cage_id=cage.id,
+                    event_type=ActivityLogEventType.CONFIG,
+                    category=ActivityLogCategory.CONFIG,
+                    message=f"Configuración actualizada: {log_entry['field']}",
+                    details=f"{log_entry['old']} → {log_entry['new']}",
+                )
+            )
+
         today_feeding_kg = await self.cage_feeding_repository.get_today_dispensed_by_cage(cage_id)
 
         return self._to_response(cage, today_feeding_kg)
+
+    def _detect_changes(
+        self,
+        current_config: CageConfiguration,
+        new_config: CageConfiguration,
+        request: UpdateCageConfigRequest,
+    ) -> List[dict]:
+        """Detecta qué campos de configuración cambiaron."""
+        changes = []
+        field_map = [
+            ("fcr", current_config.fcr, new_config.fcr),
+            ("volume_m3", current_config.volume_m3, new_config.volume_m3),
+            ("max_density_kg_m3", current_config.max_density_kg_m3, new_config.max_density_kg_m3),
+            ("transport_time_seconds", current_config.transport_time_seconds, new_config.transport_time_seconds),
+            ("blower_power", current_config.blower_power, new_config.blower_power),
+            ("daily_feeding_target_kg", current_config.daily_feeding_target_kg, new_config.daily_feeding_target_kg),
+        ]
+        for field, old_val, new_val in field_map:
+            if old_val != new_val:
+                changes.append({
+                    "field": field,
+                    "old": str(old_val) if old_val is not None else "—",
+                    "new": str(new_val) if new_val is not None else "—",
+                })
+        return changes
 
     def _to_response(self, cage: Cage, today_feeding_kg: float = 0.0) -> CageResponse:
         """Convierte la entidad a response DTO."""

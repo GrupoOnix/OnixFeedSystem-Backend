@@ -1,5 +1,6 @@
 """Router para el módulo de jaulas."""
 
+from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
@@ -10,6 +11,7 @@ from api.models.cage_models import (
     CreateCageRequestModel,
     HarvestRequestModel,
     ListCagesResponseModel,
+    PaginatedActivityLogResponseModel,
     PaginatedBiometryResponseModel,
     PaginatedConfigChangesResponseModel,
     PaginatedMortalityResponseModel,
@@ -29,6 +31,7 @@ from api.dependencies import (
     GetCageUseCaseDep,
     GetPopulationHistoryUseCaseDep,
     HarvestUseCaseDep,
+    ListActivityLogUseCaseDep,
     ListBiometryUseCaseDep,
     ListCagesUseCaseDep,
     ListConfigChangesUseCaseDep,
@@ -439,5 +442,37 @@ async def get_cage_feeding_history(
     try:
         result = await use_case.execute(cage_id=cage_id, limit=limit, offset=offset)
         return CageFeedingHistoryResponseModel.from_dto(result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/{cage_id}/activity-log", response_model=PaginatedActivityLogResponseModel)
+async def get_activity_log(
+    cage_id: str,
+    use_case: ListActivityLogUseCaseDep,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    event_type: Optional[List[str]] = Query(None, description="Filtrar por tipo de evento: SUCCESS, INFO, CONFIG, ALERT"),
+    category: Optional[List[str]] = Query(None, description="Filtrar por categoría: FEEDING, CONFIG, BIOMETRY, MORTALITY, POPULATION, DEVICE, SYSTEM"),
+    from_date: Optional[datetime] = Query(None, description="Fecha/hora de inicio (ISO 8601)"),
+    to_date: Optional[datetime] = Query(None, description="Fecha/hora de fin (ISO 8601)"),
+) -> PaginatedActivityLogResponseModel:
+    """
+    Retorna el log de actividad paginado de una jaula.
+
+    Incluye eventos de alimentación, configuración, biometría, mortalidad y población.
+    Ordenado por fecha de evento descendente.
+    """
+    try:
+        result = await use_case.execute(
+            cage_id=cage_id,
+            event_type=event_type,
+            category=category,
+            from_date=from_date,
+            to_date=to_date,
+            limit=limit,
+            offset=offset,
+        )
+        return PaginatedActivityLogResponseModel.from_dto(result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
