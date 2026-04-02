@@ -249,6 +249,23 @@ class FeedingOrchestrator:
                         f"[Orchestrator] Session {session.id}: externally stopped "
                         f"(status={refreshed_session.status.value}), exiting visit poll loop"
                     )
+                    # Guardar la cantidad dispensada parcial antes de salir
+                    if status.dispensed_kg > 0:
+                        cage_feeding.add_dispensed_amount(status.dispensed_kg)
+                        _captured_status = status
+
+                        async def _persist_partial(db: AsyncSession):
+                            await CageFeedingRepository(db).save(cage_feeding)
+                            silo = await SiloRepository(db).find_by_id(silo_id)
+                            if silo:
+                                silo.stock_level = silo.stock_level - Weight.from_kg(_captured_status.dispensed_kg)
+                                await SiloRepository(db).save(silo)
+
+                        await self._save(_persist_partial)
+                        logger.info(
+                            f"[Orchestrator] Session {session.id}: saved partial dispensed "
+                            f"{status.dispensed_kg}kg for cage {cage_feeding.cage_id} on external stop"
+                        )
                     return
 
             logger.info(
