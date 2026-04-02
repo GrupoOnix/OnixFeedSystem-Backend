@@ -32,6 +32,7 @@ from api.models.feeding_models import (
     CyclicFeedingRequest,
     CyclicFeedingResponse,
     CyclicSessionStatusResponse,
+    DailyFeedingStatsResponse,
     FeedingActionResponse,
     FeedingSessionStatusResponse,
     ManualFeedingRequest,
@@ -64,6 +65,7 @@ from application.use_cases.feeding.start_manual_feeding_use_case import (
 )
 from domain.entities.cage_feeding import CageFeedingMode
 from domain.entities.feeding_event import FeedingEventType
+from domain.entities.feeding_session import SessionStatus
 from domain.value_objects import CageId, LineId
 from infrastructure.persistence.repositories.cage_feeding_repository import CageFeedingRepository
 from infrastructure.persistence.repositories.cage_repository import CageRepository
@@ -230,6 +232,48 @@ async def get_cyclic_feeding_status(
         )
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.get("/stats/daily")
+async def get_daily_feeding_stats(
+    session_repo: Annotated[FeedingSessionRepository, Depends(get_feeding_session_repo)],
+    config_repo: Annotated[SystemConfigRepository, Depends(get_system_config_repo)],
+    date_param: Optional[str] = Query(default=None, alias="date", description="Fecha YYYY-MM-DD (default: hoy)"),
+    line_id: Optional[str] = Query(default=None, description="Filtrar por línea"),
+) -> DailyFeedingStatsResponse:
+    try:
+        system_config = await config_repo.get()
+        tz = ZoneInfo(system_config.timezone_id)
+
+        if date_param:
+            target_date = date.fromisoformat(date_param)
+        else:
+            target_date = datetime.now(tz).date()
+
+        day_start = datetime.combine(target_date, time.min, tzinfo=tz).astimezone(timezone.utc)
+        day_end = datetime.combine(target_date, time.max, tzinfo=tz).astimezone(timezone.utc)
+
+        sessions = await session_repo.list_by_date_range(day_start, day_end)
+
+        if line_id:
+            sessions = [s for s in sessions if s.line_id == line_id]
+
+        total_dispensed_kg = sum(s.total_dispensed_kg for s in sessions)
+        total_programmed_kg = sum(s.total_programmed_kg for s in sessions)
+        sessions_completed = sum(1 for s in sessions if s.status == SessionStatus.COMPLETED)
+        sessions_in_progress = sum(
+            1 for s in sessions if s.status in (SessionStatus.IN_PROGRESS, SessionStatus.PAUSED)
+        )
+
+        return DailyFeedingStatsResponse(
+            date=target_date.isoformat(),
+            total_dispensed_kg=round(total_dispensed_kg, 2),
+            total_programmed_kg=round(total_programmed_kg, 2),
+            sessions_completed=sessions_completed,
+            sessions_in_progress=sessions_in_progress,
+        )
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 

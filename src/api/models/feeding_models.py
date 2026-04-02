@@ -419,3 +419,11 @@ class CageVisitHistory(BaseModel):
     visits: List[VisitHistoryItem]
     total_dispensed_kg: float
     avg_duration_seconds: Optional[float]
+
+
+class DailyFeedingStatsResponse(BaseModel):
+    date: str
+    total_dispensed_kg: float
+    total_programmed_kg: float
+    sessions_completed: int
+    sessions_in_progress: int
