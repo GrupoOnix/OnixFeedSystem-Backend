@@ -96,7 +96,6 @@ class StartCyclicFeedingUseCase:
             if cfg.mode == "FASTING":
                 continue
             transport_time = float(cage.config.transport_time_seconds)
-            # Para PAUSE se calcula la duración simulada completa con sus kg/tasa
             kg_per_visit = round(cfg.quantity_kg / request.visits, 3)
             visit_seconds = calculate_visit_duration(
                 quantity_kg=kg_per_visit,
@@ -104,8 +103,12 @@ class StartCyclicFeedingUseCase:
                 transport_time_seconds=transport_time,
                 blower=line.blower,
                 selector_positioning_seconds=selector_positioning_seconds,
+                include_blow_before=False,
+                include_blow_after=False,
             )
             estimated_total_seconds += visit_seconds * request.visits
+        # Soplido previo al inicio y posterior al final: una sola vez cada uno
+        estimated_total_seconds += blow_before + blow_after
 
         # Validar horario operativo
         if not request.allow_overtime:

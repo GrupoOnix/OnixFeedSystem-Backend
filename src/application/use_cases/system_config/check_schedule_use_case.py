@@ -211,7 +211,14 @@ class CheckScheduleUseCase:
                 transport_time_seconds=cage.config.transport_time_seconds,
                 blower=line.blower,
                 selector_positioning_seconds=selector_positioning_seconds,
+                include_blow_before=False,
+                include_blow_after=False,
             )
             estimated_seconds += visit_seconds * request.visits
 
+        # Soplido previo al inicio y posterior al final: una sola vez cada uno
+        estimated_seconds += (
+            line.blower.blow_before_feeding_time.value
+            + line.blower.blow_after_feeding_time.value
+        )
         return estimated_seconds

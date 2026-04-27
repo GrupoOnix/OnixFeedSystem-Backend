@@ -9,19 +9,21 @@ def calculate_visit_duration(
     transport_time_seconds: int,
     blower: IBlower,
     selector_positioning_seconds: float = SELECTOR_POSITIONING_SECONDS,
+    include_blow_before: bool = True,
+    include_blow_after: bool = True,
 ) -> float:
     """
     Calcula la duración estimada de una visita de alimentación en segundos.
 
     Flujo y fórmula:
-        T_visita = T_selector + T_soplado_previo + T_dosificacion + T_transporte + T_soplado_posterior
+        T_visita = T_selector [+ T_soplado_previo] + T_dosificacion + T_transporte [+ T_soplado_posterior]
 
     Donde:
         T_selector          = selector_positioning_seconds (configurable, posicionamiento mecánico)
-        T_soplado_previo    = blow_before_feeding_time (prepara la línea)
+        T_soplado_previo    = blow_before_feeding_time — solo en la primera visita de la sesión
         T_dosificacion      = (quantity_kg / rate_kg_per_min) * 60
         T_transporte        = transport_time_seconds (garantiza que el último pellet llega a la jaula)
-        T_soplado_posterior = blow_after_feeding_time (limpieza final de la línea)
+        T_soplado_posterior = blow_after_feeding_time — solo en la última visita de la sesión
 
     Args:
         quantity_kg: Cantidad a dispensar en kg.
@@ -29,15 +31,19 @@ def calculate_visit_duration(
         transport_time_seconds: Tiempo de transporte del pellet hasta la jaula (seg).
         blower: Entidad blower de la línea (provee tiempos de soplado).
         selector_positioning_seconds: Tiempo de posicionamiento de la selectora (seg).
+        include_blow_before: Si True, incluye T_soplado_previo en el total.
+        include_blow_after: Si True, incluye T_soplado_posterior en el total.
 
     Returns:
         Duración estimada total en segundos.
     """
     dispensing_time = (quantity_kg / rate_kg_per_min) * 60
+    blow_before = blower.blow_before_feeding_time.value if include_blow_before else 0.0
+    blow_after = blower.blow_after_feeding_time.value if include_blow_after else 0.0
     return (
         selector_positioning_seconds
-        + blower.blow_before_feeding_time.value
+        + blow_before
         + dispensing_time
         + transport_time_seconds
-        + blower.blow_after_feeding_time.value
+        + blow_after
     )

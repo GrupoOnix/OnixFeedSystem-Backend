@@ -70,6 +70,15 @@ class FeedingOrchestrator:
             default=0,
         )
 
+        # Primera y última jaula activa: determinan dónde van blow_before y blow_after.
+        first_active_feeding = None
+        last_active_feeding = None
+        for cf in cage_feedings:
+            if cf.mode != CageFeedingMode.FASTING:
+                if first_active_feeding is None:
+                    first_active_feeding = cf
+                last_active_feeding = cf
+
         for round_number in range(total_rounds):
             visit_number_in_round = round_number + 1
 
@@ -83,13 +92,17 @@ class FeedingOrchestrator:
                     continue
 
                 transport_time = transport_time_map.get(cage_feeding.cage_id, 0.0)
+                is_first_visit = round_number == 0 and cage_feeding is first_active_feeding
+                is_last_visit = round_number == total_rounds - 1 and cage_feeding is last_active_feeding
+                actual_blow_before = blow_before_seconds if is_first_visit else 0.0
+                actual_blow_after = blow_after_seconds if is_last_visit else 0.0
 
                 if cage_feeding.mode == CageFeedingMode.PAUSE:
                     await self._execute_pause(
                         session=session,
                         cage_feeding=cage_feeding,
-                        blow_before_seconds=blow_before_seconds,
-                        blow_after_seconds=blow_after_seconds,
+                        blow_before_seconds=actual_blow_before,
+                        blow_after_seconds=actual_blow_after,
                         transport_time_seconds=transport_time,
                         selector_positioning_seconds=selector_positioning_seconds,
                     )
@@ -104,8 +117,8 @@ class FeedingOrchestrator:
                         blower_power_percentage=blower_power_percentage,
                         visit_number=visit_number_in_round,
                         transport_time_seconds=transport_time,
-                        blow_before_seconds=blow_before_seconds,
-                        blow_after_seconds=blow_after_seconds,
+                        blow_before_seconds=actual_blow_before,
+                        blow_after_seconds=actual_blow_after,
                         selector_positioning_seconds=selector_positioning_seconds,
                     )
 
