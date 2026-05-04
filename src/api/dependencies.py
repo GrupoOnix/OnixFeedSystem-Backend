@@ -699,6 +699,7 @@ async def get_cancel_feeding_use_case(
     session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
     cage_feeding_repo: CageFeedingRepository = Depends(get_cage_feeding_repo),
     event_repo: FeedingEventRepository = Depends(get_feeding_event_repo),
+    line_repo: FeedingLineRepository = Depends(get_line_repo),
     machine: SimulatedMachine = Depends(get_simulated_machine),
     activity_log_repo: ActivityLogRepository = Depends(get_activity_log_repo),
 ) -> CancelFeedingUseCase:
@@ -706,6 +707,7 @@ async def get_cancel_feeding_use_case(
         session_repo=session_repo,
         cage_feeding_repo=cage_feeding_repo,
         event_repo=event_repo,
+        line_repo=line_repo,
         machine=machine,
         activity_log_repository=activity_log_repo,
     )

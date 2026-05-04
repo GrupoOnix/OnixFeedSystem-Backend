@@ -8,7 +8,7 @@ from domain.repositories import (
     IFeedingLineRepository,
     IFeedingSessionRepository,
 )
-from domain.value_objects import CageId, LineId
+from domain.value_objects import BlowerPowerPercentage, CageId, LineId
 from domain.value_objects.activity_log_entry import ActivityLogEntry
 from domain.value_objects.identifiers import DoserId
 
@@ -168,12 +168,14 @@ class CancelFeedingUseCase:
         session_repo: IFeedingSessionRepository,
         cage_feeding_repo: ICageFeedingRepository,
         event_repo: IFeedingEventRepository,
+        line_repo: IFeedingLineRepository,
         machine: IMachine,
         activity_log_repository: ICageActivityLogRepository,
     ):
         self._session_repo = session_repo
         self._cage_feeding_repo = cage_feeding_repo
         self._event_repo = event_repo
+        self._line_repo = line_repo
         self._machine = machine
         self._activity_log_repo = activity_log_repository
 
@@ -182,8 +184,10 @@ class CancelFeedingUseCase:
         if not session:
             raise ValueError(f"Sesión {session_id} no encontrada")
 
+        line_id = LineId.from_string(session.line_id)
         session.cancel()
-        await self._machine.stop(LineId.from_string(session.line_id))
+        await self._machine.stop(line_id)
+        await self._turn_off_persisted_blower(line_id)
         await self._session_repo.save(session)
 
         event = FeedingEvent.session_cancelled(
@@ -206,6 +210,14 @@ class CancelFeedingUseCase:
                     source_entity_id=session_id,
                 )
             )
+
+    async def _turn_off_persisted_blower(self, line_id: LineId) -> None:
+        line = await self._line_repo.find_by_id(line_id)
+        if not line:
+            return
+
+        line.blower.current_power = BlowerPowerPercentage(0.0)
+        await self._line_repo.save(line)
 
 
 class UpdateBlowerPowerUseCase:

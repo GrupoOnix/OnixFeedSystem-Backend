@@ -10,10 +10,12 @@ from domain.entities.cage_feeding import CageFeeding, CageFeedingMode
 from domain.entities.feeding_event import FeedingEvent
 from domain.entities.feeding_session import FeedingSession
 from domain.interfaces import IMachine
+from domain.value_objects import BlowerPowerPercentage
 from domain.value_objects.identifiers import LineId, SiloId
 from domain.value_objects.measurements import Weight
 from infrastructure.persistence.repositories.cage_feeding_repository import CageFeedingRepository
 from infrastructure.persistence.repositories.feeding_event_repository import FeedingEventRepository
+from infrastructure.persistence.repositories.feeding_line_repository import FeedingLineRepository
 from infrastructure.persistence.repositories.feeding_session_repository import FeedingSessionRepository
 from infrastructure.persistence.repositories.silo_repository import SiloRepository
 
@@ -164,6 +166,7 @@ class FeedingOrchestrator:
 
         await self._save(_persist_completion)
         await self._machine.stop(line_id)
+        await self._turn_off_persisted_blower(line_id)
         logger.info(f"[Orchestrator] Session {session.id}: COMPLETED")
 
     async def _execute_pause(
@@ -304,6 +307,7 @@ class FeedingOrchestrator:
 
                 await self._save(_persist_interrupt)
                 await self._machine.stop(line_id)
+                await self._turn_off_persisted_blower(line_id)
                 return
 
             if status.current_stage == VisitStage.COMPLETED:
@@ -341,3 +345,14 @@ class FeedingOrchestrator:
                     f"dispensed={status.dispensed_kg}kg in {duration_seconds:.1f}s"
                 )
                 return
+
+    async def _turn_off_persisted_blower(self, line_id: LineId) -> None:
+        async def _persist_blower_off(db: AsyncSession):
+            line = await FeedingLineRepository(db).find_by_id(line_id)
+            if not line:
+                return
+
+            line.blower.current_power = BlowerPowerPercentage(0.0)
+            await FeedingLineRepository(db).save(line)
+
+        await self._save(_persist_blower_off)

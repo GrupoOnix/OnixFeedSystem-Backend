@@ -20,6 +20,8 @@ alembic/versions/__pycache__/
 
 # Claude Code
 .claude/
+.agents/
+.codex/
 CLAUDE.md
 AGENTS.md
 

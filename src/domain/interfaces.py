@@ -61,6 +61,14 @@ class IBlower(ABC):
 
     @property
     @abstractmethod
+    def current_power(self) -> BlowerPowerPercentage: ...
+
+    @current_power.setter
+    @abstractmethod
+    def current_power(self, power: BlowerPowerPercentage) -> None: ...
+
+    @property
+    @abstractmethod
     def blow_before_feeding_time(self) -> BlowDurationInSeconds: ...
 
     @blow_before_feeding_time.setter
