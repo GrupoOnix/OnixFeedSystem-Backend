@@ -146,6 +146,38 @@ class IDoser(ABC):
 
     @property
     @abstractmethod
+    def calibrated_grams_per_second(self) -> Optional[float]: ...
+
+    @calibrated_grams_per_second.setter
+    @abstractmethod
+    def calibrated_grams_per_second(self, value: Optional[float]) -> None: ...
+
+    @property
+    @abstractmethod
+    def pulse_on_time(self) -> Optional[float]: ...
+
+    @pulse_on_time.setter
+    @abstractmethod
+    def pulse_on_time(self, value: Optional[float]) -> None: ...
+
+    @property
+    @abstractmethod
+    def pulse_off_time(self) -> Optional[float]: ...
+
+    @pulse_off_time.setter
+    @abstractmethod
+    def pulse_off_time(self, value: Optional[float]) -> None: ...
+
+    @property
+    @abstractmethod
+    def pulse_speed(self) -> Optional[int]: ...
+
+    @pulse_speed.setter
+    @abstractmethod
+    def pulse_speed(self, value: Optional[int]) -> None: ...
+
+    @property
+    @abstractmethod
     def is_on(self) -> bool: ...
 
     @property
@@ -356,9 +388,7 @@ class IFeedingMachine(ABC):
     """
 
     @abstractmethod
-    async def send_configuration(
-        self, line_id: LineId, config: MachineConfiguration
-    ) -> None:
+    async def send_configuration(self, line_id: LineId, config: MachineConfiguration) -> None:
         """
         Envía una configuración completa al PLC.
         Debe traducir el DTO lógico a registros/señales específicas.

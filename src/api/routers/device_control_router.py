@@ -1,6 +1,6 @@
 """Router para control directo de devices (blower, doser, selector)."""
 
-from typing import Dict
+from typing import Dict, List
 
 from fastapi import APIRouter, HTTPException, status
 
@@ -9,8 +9,12 @@ from api.dependencies import (
     GetCoolerStatusUseCaseDep,
     GetDoserStatusUseCaseDep,
     GetSelectorStatusUseCaseDep,
+    ListDoserCalibrationHistoryUseCaseDep,
     MoveSelectorDirectUseCaseDep,
     ResetSelectorDirectUseCaseDep,
+    RunDoserForDurationUseCaseDep,
+    RunDoserPulsesUseCaseDep,
+    SaveDoserCalibrationUseCaseDep,
     SetBlowerPowerUseCaseDep,
     SetCoolerPowerUseCaseDep,
     SetDoserRateUseCaseDep,
@@ -25,8 +29,12 @@ from api.dependencies import (
 from application.dtos.device_control_dtos import (
     BlowerStatusResponse,
     CoolerStatusResponse,
+    DoserCalibrationRequest,
+    DoserCalibrationResponse,
     DoserStatusResponse,
     MoveSelectorRequest,
+    RunDoserDurationRequest,
+    RunDoserPulsesRequest,
     SelectorStatusResponse,
     SetBlowerPowerRequest,
     SetCoolerPowerRequest,
@@ -119,9 +127,7 @@ async def set_blower_power(
     """
     try:
         await use_case.execute(blower_id, request.power_percentage)
-        return {
-            "message": f"Blower power set to {request.power_percentage}% successfully"
-        }
+        return {"message": f"Blower power set to {request.power_percentage}% successfully"}
 
     except ValueError as e:
         raise HTTPException(
@@ -220,9 +226,7 @@ async def set_doser_rate(
     """
     try:
         await use_case.execute(doser_id, request.rate_kg_min)
-        return {
-            "message": f"Doser rate set to {request.rate_kg_min} kg/min successfully"
-        }
+        return {"message": f"Doser rate set to {request.rate_kg_min} kg/min successfully"}
 
     except ValueError as e:
         raise HTTPException(
@@ -262,6 +266,126 @@ async def set_doser_speed(
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+
+    except DomainException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}",
+        )
+
+
+@router.post(
+    "/dosers/{doser_id}/calibration",
+    status_code=status.HTTP_201_CREATED,
+    response_model=DoserCalibrationResponse,
+)
+async def save_doser_calibration(
+    doser_id: str,
+    request: DoserCalibrationRequest,
+    use_case: SaveDoserCalibrationUseCaseDep,
+) -> DoserCalibrationResponse:
+    """
+    Guarda una calibración explícita del doser en g/s.
+
+    max_rate se mantiene como capacidad/configuración en kg/min y se expone
+    por separado en /system-layout.
+    """
+    try:
+        return await use_case.execute(doser_id, request)
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+
+    except DomainException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}",
+        )
+
+
+@router.get(
+    "/dosers/{doser_id}/calibration/history",
+    status_code=status.HTTP_200_OK,
+    response_model=List[DoserCalibrationResponse],
+)
+async def get_doser_calibration_history(
+    doser_id: str,
+    use_case: ListDoserCalibrationHistoryUseCaseDep,
+) -> List[DoserCalibrationResponse]:
+    """Obtiene el historial de calibraciones del doser."""
+    try:
+        return await use_case.execute(doser_id)
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+
+    except DomainException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}",
+        )
+
+
+@router.post("/dosers/{doser_id}/run-pulses", status_code=status.HTTP_200_OK)
+async def run_doser_pulses(
+    doser_id: str,
+    request: RunDoserPulsesRequest,
+    use_case: RunDoserPulsesUseCaseDep,
+) -> Dict[str, str]:
+    """Ejecuta pulsos de calibración controlados por backend."""
+    try:
+        await use_case.execute(doser_id, request.pulse_count)
+        return {"message": f"Doser ran {request.pulse_count} pulses successfully"}
+
+    except ValueError as e:
+        status_code = status.HTTP_404_NOT_FOUND if "no encontrado" in str(e) else status.HTTP_400_BAD_REQUEST
+        raise HTTPException(
+            status_code=status_code,
+            detail=str(e),
+        )
+
+    except DomainException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}",
+        )
+
+
+@router.post("/dosers/{doser_id}/run-for-duration", status_code=status.HTTP_200_OK)
+async def run_doser_for_duration(
+    doser_id: str,
+    request: RunDoserDurationRequest,
+    use_case: RunDoserForDurationUseCaseDep,
+) -> Dict[str, str]:
+    """Ejecuta el doser durante una duración acotada y lo apaga al finalizar."""
+    try:
+        await use_case.execute(doser_id, request.duration_seconds)
+        return {"message": f"Doser ran for {request.duration_seconds} seconds successfully"}
+
+    except ValueError as e:
+        status_code = status.HTTP_404_NOT_FOUND if "no encontrado" in str(e) else status.HTTP_400_BAD_REQUEST
+        raise HTTPException(
+            status_code=status_code,
             detail=str(e),
         )
 
@@ -516,9 +640,7 @@ async def set_cooler_power(
     """
     try:
         await use_case.execute(cooler_id, request.power_percentage)
-        return {
-            "message": f"Cooler power set to {request.power_percentage}% successfully"
-        }
+        return {"message": f"Cooler power set to {request.power_percentage}% successfully"}
 
     except ValueError as e:
         raise HTTPException(

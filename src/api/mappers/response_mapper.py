@@ -34,10 +34,7 @@ class ResponseMapper:
             silos=[ResponseMapper._to_silo_model(s) for s in silos],
             cages=[ResponseMapper._to_cage_model(c) for c in cages],
             feeding_lines=[
-                ResponseMapper._to_feeding_line_model(
-                    line, slot_assignments_by_line.get(line.id, [])
-                )
-                for line in lines
+                ResponseMapper._to_feeding_line_model(line, slot_assignments_by_line.get(line.id, [])) for line in lines
             ],
         )
 
@@ -56,9 +53,7 @@ class ResponseMapper:
         return CageConfigModel(id=str(cage.id), name=str(cage.name))
 
     @staticmethod
-    def _to_feeding_line_model(
-        line: FeedingLine, slot_assignments: List[SlotAssignment]
-    ) -> FeedingLineConfigModel:
+    def _to_feeding_line_model(line: FeedingLine, slot_assignments: List[SlotAssignment]) -> FeedingLineConfigModel:
         # Ordenar por slot_number para consistencia
         sorted_assignments = sorted(slot_assignments, key=lambda a: a.slot_number)
 
@@ -66,15 +61,12 @@ class ResponseMapper:
             id=str(line.id),
             line_name=str(line.name),
             blower_config=ResponseMapper._to_blower_model(line.blower),
-            cooler_config=ResponseMapper._to_cooler_model(line.cooler)
-            if line.cooler
-            else None,
+            cooler_config=ResponseMapper._to_cooler_model(line.cooler) if line.cooler else None,
             sensors_config=[ResponseMapper._to_sensor_model(s) for s in line._sensors],
             dosers_config=[ResponseMapper._to_doser_model(d) for d in line.dosers],
             selector_config=ResponseMapper._to_selector_model(line.selector),
             slot_assignments=[
-                ResponseMapper._to_slot_assignment_model(assignment)
-                for assignment in sorted_assignments
+                ResponseMapper._to_slot_assignment_model(assignment) for assignment in sorted_assignments
             ],
         )
 
@@ -120,8 +112,13 @@ class ResponseMapper:
             doser_type=doser.doser_type.value,
             min_rate=doser.dosing_range.min_rate,
             max_rate=doser.dosing_range.max_rate,
+            max_rate_unit="kg/min",
             current_rate=doser.current_rate.value,
             speed_percentage=doser.speed_percentage,
+            calibrated_grams_per_second=doser.calibrated_grams_per_second,
+            pulse_on_time=doser.pulse_on_time,
+            pulse_off_time=doser.pulse_off_time,
+            pulse_speed=doser.pulse_speed,
         )
 
     @staticmethod

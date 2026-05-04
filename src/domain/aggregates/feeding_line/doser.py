@@ -1,28 +1,31 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from domain.interfaces import IDoser
 from domain.enums import DoserType
-from domain.value_objects import (
-    DoserId, DoserName, SiloId, DosingRange, DosingRate
-)
+from domain.value_objects import DoserId, DoserName, SiloId, DosingRange, DosingRate
 
 
 class Doser(IDoser):
-
-    def __init__(self,
-                 name: DoserName,
-                 assigned_silo_id: SiloId,
-                 doser_type: DoserType,
-                 dosing_range: DosingRange,
-                 current_rate: DosingRate,
-                 is_on: bool = False,
-                 speed_percentage: int = 50,
-                 *,
-                 _skip_validation: bool = False,
-                 _existing_id: str | None = None):
+    def __init__(
+        self,
+        name: DoserName,
+        assigned_silo_id: SiloId,
+        doser_type: DoserType,
+        dosing_range: DosingRange,
+        current_rate: DosingRate,
+        is_on: bool = False,
+        speed_percentage: int = 50,
+        calibrated_grams_per_second: Optional[float] = None,
+        pulse_on_time: Optional[float] = None,
+        pulse_off_time: Optional[float] = None,
+        pulse_speed: Optional[int] = None,
+        *,
+        _skip_validation: bool = False,
+        _existing_id: str | None = None,
+    ):
         """
         Inicializa un Doser.
-        
+
         Args:
             name: Nombre del doser
             assigned_silo_id: ID del silo asignado
@@ -37,8 +40,7 @@ class Doser(IDoser):
         # Skip validation permite cargar dosers con rate=0 desde la DB
         if not _skip_validation and not dosing_range.contains(current_rate):
             raise ValueError(
-                f"La tasa de dosificación inicial ({current_rate}) "
-                f"está fuera del rango permitido ({dosing_range})."
+                f"La tasa de dosificación inicial ({current_rate}) está fuera del rango permitido ({dosing_range})."
             )
 
         self._id = DoserId.from_string(_existing_id) if _existing_id else DoserId.generate()
@@ -49,6 +51,10 @@ class Doser(IDoser):
         self._current_rate = current_rate
         self._is_on = is_on
         self._speed_percentage = speed_percentage
+        self.calibrated_grams_per_second = calibrated_grams_per_second
+        self.pulse_on_time = pulse_on_time
+        self.pulse_off_time = pulse_off_time
+        self.pulse_speed = pulse_speed
         self._calibration_data: Dict[str, Any] = {"status": "uncalibrated"}
 
     @property
@@ -81,8 +87,8 @@ class Doser(IDoser):
 
     @dosing_range.setter
     def dosing_range(self, new_range: DosingRange) -> None:
-        #TODO Cuando exista calibración comprobar que el nuevo rango
-        #TODO incluye la tasa actual
+        # TODO Cuando exista calibración comprobar que el nuevo rango
+        # TODO incluye la tasa actual
         self._dosing_range = new_range
 
     @property
@@ -108,6 +114,50 @@ class Doser(IDoser):
         self._speed_percentage = value
 
     @property
+    def calibrated_grams_per_second(self) -> Optional[float]:
+        """Caudal calibrado explícito en gramos por segundo."""
+        return self._calibrated_grams_per_second
+
+    @calibrated_grams_per_second.setter
+    def calibrated_grams_per_second(self, value: Optional[float]) -> None:
+        if value is not None and value <= 0:
+            raise ValueError("calibrated_grams_per_second debe ser mayor que 0")
+        self._calibrated_grams_per_second = value
+
+    @property
+    def pulse_on_time(self) -> Optional[float]:
+        """Tiempo activo de cada pulso en segundos."""
+        return self._pulse_on_time
+
+    @pulse_on_time.setter
+    def pulse_on_time(self, value: Optional[float]) -> None:
+        if value is not None and value <= 0:
+            raise ValueError("pulse_on_time debe ser mayor que 0")
+        self._pulse_on_time = value
+
+    @property
+    def pulse_off_time(self) -> Optional[float]:
+        """Tiempo de pausa entre pulsos en segundos."""
+        return self._pulse_off_time
+
+    @pulse_off_time.setter
+    def pulse_off_time(self, value: Optional[float]) -> None:
+        if value is not None and value < 0:
+            raise ValueError("pulse_off_time no puede ser negativo")
+        self._pulse_off_time = value
+
+    @property
+    def pulse_speed(self) -> Optional[int]:
+        """Velocidad usada para pulsos de calibración (1-100)."""
+        return self._pulse_speed
+
+    @pulse_speed.setter
+    def pulse_speed(self, value: Optional[int]) -> None:
+        if value is not None and not (1 <= value <= 100):
+            raise ValueError(f"pulse_speed debe estar entre 1 y 100, recibido: {value}")
+        self._pulse_speed = value
+
+    @property
     def is_on(self) -> bool:
         """Indica si el doser está encendido."""
         return self._is_on
@@ -120,10 +170,10 @@ class Doser(IDoser):
     def turn_on(self) -> None:
         """
         Enciende el doser.
-        
+
         Valida que el current_rate configurado esté dentro del rango permitido.
         Si no hay un rate válido configurado, la operación falla.
-        
+
         Raises:
             ValueError: Si current_rate no está dentro del dosing_range
         """
@@ -138,7 +188,7 @@ class Doser(IDoser):
     def stop(self) -> None:
         """
         Apaga el doser.
-        
+
         El current_rate configurado se mantiene guardado para cuando
         se vuelva a encender.
         """

@@ -1,14 +1,15 @@
 """Repositorio para operaciones de Doser."""
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from domain.aggregates.feeding_line.doser import Doser
+from infrastructure.persistence.models.doser_calibration_model import DoserCalibrationModel
 from infrastructure.persistence.models.doser_model import DoserModel
 
 
@@ -34,15 +35,9 @@ class DoserRepository:
         doser_model = result.scalar_one_or_none()
         return doser_model.to_domain() if doser_model else None
 
-    async def find_by_id_with_context(
-        self, doser_id: UUID
-    ) -> Optional[DoserWithContext]:
+    async def find_by_id_with_context(self, doser_id: UUID) -> Optional[DoserWithContext]:
         """Busca un doser por su ID y devuelve también información de la línea."""
-        stmt = (
-            select(DoserModel)
-            .options(selectinload(DoserModel.feeding_line))
-            .where(DoserModel.id == doser_id)
-        )
+        stmt = select(DoserModel).options(selectinload(DoserModel.feeding_line)).where(DoserModel.id == doser_id)
         result = await self.session.execute(stmt)
         doser_model = result.scalar_one_or_none()
 
@@ -75,5 +70,39 @@ class DoserRepository:
         doser_model.rate_unit = doser.dosing_range.unit
         doser_model.is_on = doser.is_on
         doser_model.speed_percentage = doser.speed_percentage
+        doser_model.calibrated_grams_per_second = doser.calibrated_grams_per_second
+        doser_model.pulse_on_time = doser.pulse_on_time
+        doser_model.pulse_off_time = doser.pulse_off_time
+        doser_model.pulse_speed = doser.pulse_speed
 
         await self.session.flush()
+
+    async def update_calibration(
+        self,
+        doser_id: UUID,
+        calibration: DoserCalibrationModel,
+    ) -> DoserCalibrationModel:
+        """Guarda una calibración y actualiza el valor actual del doser."""
+        stmt = select(DoserModel).where(DoserModel.id == doser_id)
+        result = await self.session.execute(stmt)
+        doser_model = result.scalar_one_or_none()
+
+        if not doser_model:
+            raise ValueError(f"Doser {doser_id} no encontrado")
+
+        doser_model.calibrated_grams_per_second = calibration.grams_per_second
+
+        self.session.add(calibration)
+        await self.session.flush()
+        await self.session.refresh(calibration)
+        return calibration
+
+    async def list_calibration_history(self, doser_id: UUID) -> List[DoserCalibrationModel]:
+        """Lista historial de calibraciones, más reciente primero."""
+        stmt = (
+            select(DoserCalibrationModel)
+            .where(DoserCalibrationModel.doser_id == doser_id)
+            .order_by(desc(DoserCalibrationModel.created_at))
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())

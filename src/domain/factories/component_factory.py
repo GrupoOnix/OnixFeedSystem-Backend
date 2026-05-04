@@ -4,10 +4,17 @@ from typing import Optional
 
 from ..interfaces import IBlower, IDoser, ISelector, ISensor
 from ..value_objects import (
-    BlowerName, BlowerPowerPercentage, BlowDurationInSeconds,
-    DoserName, SiloId, DosingRange, DosingRate,
-    SelectorName, SelectorCapacity, SelectorSpeedProfile,
-    SensorName
+    BlowerName,
+    BlowerPowerPercentage,
+    BlowDurationInSeconds,
+    DoserName,
+    SiloId,
+    DosingRange,
+    DosingRate,
+    SelectorName,
+    SelectorCapacity,
+    SelectorSpeedProfile,
+    SensorName,
 )
 from ..enums import SensorType, DoserType
 from ..aggregates.feeding_line.blower import Blower
@@ -28,7 +35,6 @@ class ComponentFactory:
         blow_after_time: BlowDurationInSeconds,
         existing_id: Optional[str] = None,
     ) -> IBlower:
-
         blower_type_lower = blower_type.lower()
 
         if blower_type_lower == "standard" or blower_type_lower == "blower":
@@ -52,9 +58,12 @@ class ComponentFactory:
         dosing_range: DosingRange,
         current_rate: DosingRate,
         speed_percentage: int = 50,
+        calibrated_grams_per_second: Optional[float] = None,
+        pulse_on_time: Optional[float] = None,
+        pulse_off_time: Optional[float] = None,
+        pulse_speed: Optional[int] = None,
         existing_id: Optional[str] = None,
     ) -> IDoser:
-
         # Validar y convertir string a enum
         valid_types = [dt.value for dt in DoserType]
         if doser_type not in valid_types:
@@ -69,6 +78,10 @@ class ComponentFactory:
             dosing_range=dosing_range,
             current_rate=current_rate,
             speed_percentage=speed_percentage,
+            calibrated_grams_per_second=calibrated_grams_per_second,
+            pulse_on_time=pulse_on_time,
+            pulse_off_time=pulse_off_time,
+            pulse_speed=pulse_speed,
             _existing_id=existing_id,
         )
 
@@ -80,7 +93,6 @@ class ComponentFactory:
         speed_profile: SelectorSpeedProfile,
         existing_id: Optional[str] = None,
     ) -> ISelector:
-
         selector_type_lower = selector_type.lower()
 
         if selector_type_lower in ["standard", "selector"]:
@@ -101,7 +113,6 @@ class ComponentFactory:
         name: SensorName,
         existing_id: Optional[str] = None,
     ) -> ISensor:
-
         return Sensor(
             name=name,
             sensor_type=sensor_type,

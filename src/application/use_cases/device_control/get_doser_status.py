@@ -19,4 +19,6 @@ class GetDoserStatusUseCase:
             doser_id=doser_id,
             is_running=doser.is_on,
             current_rate_kg_min=doser.current_rate.value,
+            max_rate_kg_min=doser.max_rate_kg_per_min,
+            calibrated_grams_per_second=doser.calibrated_grams_per_second,
         )

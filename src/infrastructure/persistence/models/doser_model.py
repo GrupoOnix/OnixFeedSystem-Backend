@@ -33,6 +33,10 @@ class DoserModel(SQLModel, table=True):
     rate_unit: str
     is_on: bool = Field(default=False)
     speed_percentage: int = Field(default=50)
+    calibrated_grams_per_second: Optional[float] = Field(default=None)
+    pulse_on_time: Optional[float] = Field(default=None)
+    pulse_off_time: Optional[float] = Field(default=None)
+    pulse_speed: Optional[int] = Field(default=None)
 
     feeding_line: "FeedingLineModel" = Relationship(back_populates="dosers")
 
@@ -52,6 +56,10 @@ class DoserModel(SQLModel, table=True):
             rate_unit=doser.dosing_range.unit,
             is_on=doser.is_on,
             speed_percentage=doser.speed_percentage,
+            calibrated_grams_per_second=doser.calibrated_grams_per_second,
+            pulse_on_time=doser.pulse_on_time,
+            pulse_off_time=doser.pulse_off_time,
+            pulse_speed=doser.pulse_speed,
         )
 
     def to_domain(self) -> "Doser":
@@ -74,6 +82,10 @@ class DoserModel(SQLModel, table=True):
             current_rate=DosingRate(value=self.dosing_rate_value, unit=self.dosing_rate_unit),
             is_on=self.is_on,
             speed_percentage=self.speed_percentage,
+            calibrated_grams_per_second=self.calibrated_grams_per_second,
+            pulse_on_time=self.pulse_on_time,
+            pulse_off_time=self.pulse_off_time,
+            pulse_speed=self.pulse_speed,
             _skip_validation=True,  # Permitir cargar dosers con rate=0 desde DB
         )
         doser._id = DoserId(self.id)

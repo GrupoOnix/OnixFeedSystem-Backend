@@ -12,7 +12,11 @@ class ManualFeedingRequest(BaseModel):
     doser_id: str = Field(description="ID del doser a usar (UUID)")
     quantity_kg: float = Field(gt=0, description="Cantidad a dispensar en kg")
     rate_kg_per_min: float = Field(gt=0, description="Tasa de alimentación en kg/min")
-    blower_power_percentage: float = Field(ge=30, le=100, description="Potencia del blower en porcentaje (30-100%). Mínimo operativo: 30%.")
+    blower_power_percentage: float = Field(
+        ge=30,
+        le=100,
+        description="Potencia del blower en porcentaje (30-100%). Mínimo operativo: 30%.",
+    )
     operator_id: str = Field(description="ID del operador que inicia la alimentación (UUID)")
     allow_overtime: bool = Field(
         default=False,
@@ -121,7 +125,11 @@ class CancelFeedingRequest(BaseModel):
 
 
 class UpdateBlowerRequest(BaseModel):
-    power_percentage: float = Field(ge=30, le=100, description="Potencia del blower en porcentaje (30-100%). Mínimo operativo: 30%.")
+    power_percentage: float = Field(
+        ge=30,
+        le=100,
+        description="Potencia del blower en porcentaje (30-100%). Mínimo operativo: 30%.",
+    )
 
 
 class UpdateBlowerResponse(BaseModel):
@@ -254,6 +262,9 @@ class CageSummaryItem(BaseModel):
     programmed_visits: int
     completed_visits: int
     overall_completion_percentage: float
+    grams_per_pulse: Optional[float] = None
+    pulses_per_visit: Optional[int] = None
+    estimated_pulses_total: Optional[int] = None
 
 
 class ActiveCageInfo(BaseModel):
@@ -266,8 +277,12 @@ class ActiveCageInfo(BaseModel):
     current_stage: str
     current_visit_dispensed_kg: float
     current_visit_programmed_kg: float
+    programmed_kg_per_visit: float
     current_visit_completion_percentage: float
     current_flow_rate_kg_per_min: float
+    grams_per_pulse: Optional[float] = None
+    pulses_per_visit: Optional[int] = None
+    estimated_pulses_total: Optional[int] = None
 
 
 class CageFeedingStatusItem(BaseModel):

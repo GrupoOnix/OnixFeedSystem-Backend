@@ -67,15 +67,11 @@ class SyncSystemLayoutUseCase:
 
     async def execute(
         self, request: SystemLayoutModel
-    ) -> Tuple[
-        List[Silo], List[Cage], List[FeedingLine], Dict[LineId, List[SlotAssignment]]
-    ]:
+    ) -> Tuple[List[Silo], List[Cage], List[FeedingLine], Dict[LineId, List[SlotAssignment]]]:
         id_map: Dict[str, Any] = {}
 
         # FASE 1: CÁLCULO DE DELTA
-        delta = await DeltaCalculator.calculate(
-            request, self.line_repo, self.silo_repo, self.cage_repo
-        )
+        delta = await DeltaCalculator.calculate(request, self.line_repo, self.silo_repo, self.cage_repo)
 
         print("delta: ", delta)
 
@@ -117,9 +113,7 @@ class SyncSystemLayoutUseCase:
             existing_id=model.id if self._is_uuid(model.id) else None,
         )
 
-    def _build_sensors_from_model(
-        self, sensors_model: List[SensorConfigModel]
-    ) -> List[ISensor]:
+    def _build_sensors_from_model(self, sensors_model: List[SensorConfigModel]) -> List[ISensor]:
         sensors = []
 
         for model in sensors_model:
@@ -127,8 +121,7 @@ class SyncSystemLayoutUseCase:
                 sensor_type = SensorType[model.sensor_type]
             except KeyError:
                 raise ValueError(
-                    f"Tipo de sensor inválido: '{model.sensor_type}'. "
-                    f"Valores válidos: {[t.name for t in SensorType]}"
+                    f"Tipo de sensor inválido: '{model.sensor_type}'. Valores válidos: {[t.name for t in SensorType]}"
                 )
 
             name = SensorName(model.name)
@@ -149,9 +142,7 @@ class SyncSystemLayoutUseCase:
         dosers = []
 
         for model in dosers_model:
-            silo_id = await self._resolve_and_assign_silo(
-                model.assigned_silo_id, id_map
-            )
+            silo_id = await self._resolve_and_assign_silo(model.assigned_silo_id, id_map)
 
             name = DoserName(model.name)
             dosing_range = DosingRange(min_rate=model.min_rate, max_rate=model.max_rate)
@@ -164,6 +155,10 @@ class SyncSystemLayoutUseCase:
                 dosing_range=dosing_range,
                 current_rate=current_rate,
                 speed_percentage=model.speed_percentage,
+                calibrated_grams_per_second=model.calibrated_grams_per_second,
+                pulse_on_time=model.pulse_on_time,
+                pulse_off_time=model.pulse_off_time,
+                pulse_speed=model.pulse_speed,
                 existing_id=model.id if self._is_uuid(model.id) else None,
             )
 
@@ -201,9 +196,7 @@ class SyncSystemLayoutUseCase:
 
         return cooler
 
-    async def _resolve_and_assign_silo(
-        self, silo_id_str: str, id_map: Dict[str, Any]
-    ) -> SiloId:
+    async def _resolve_and_assign_silo(self, silo_id_str: str, id_map: Dict[str, Any]) -> SiloId:
         if silo_id_str in id_map:
             silo_id = id_map[silo_id_str]
         elif self._is_uuid(silo_id_str):
@@ -221,9 +214,7 @@ class SyncSystemLayoutUseCase:
 
         return silo_id
 
-    async def _resolve_cage_id(
-        self, cage_id_str: str, id_map: Dict[str, Any]
-    ) -> CageId:
+    async def _resolve_cage_id(self, cage_id_str: str, id_map: Dict[str, Any]) -> CageId:
         if cage_id_str in id_map:
             return id_map[cage_id_str]
 
@@ -264,9 +255,7 @@ class SyncSystemLayoutUseCase:
     async def _create_silos(self, silos_dtos, id_map: Dict[str, Any]) -> None:
         """Crea silos y mapea sus IDs."""
         for dto in silos_dtos:
-            await NameValidator.validate_unique_silo_name(
-                dto.name, exclude_id=None, repo=self.silo_repo
-            )
+            await NameValidator.validate_unique_silo_name(dto.name, exclude_id=None, repo=self.silo_repo)
 
             name = SiloName(dto.name)
             capacity = Weight.from_kg(dto.capacity)
@@ -286,9 +275,7 @@ class SyncSystemLayoutUseCase:
     async def _create_cages(self, cages_dtos, id_map: Dict[str, Any]) -> None:
         """Crea jaulas y mapea sus IDs."""
         for dto in cages_dtos:
-            await NameValidator.validate_unique_cage_name(
-                dto.name, exclude_id=None, repo=self.cage_repo
-            )
+            await NameValidator.validate_unique_cage_name(dto.name, exclude_id=None, repo=self.cage_repo)
 
             name = CageName(dto.name)
             new_cage = Cage(name=name)
@@ -299,9 +286,7 @@ class SyncSystemLayoutUseCase:
     async def _create_feeding_lines(self, lines_dtos, id_map: Dict[str, Any]) -> None:
         """Crea líneas de alimentación y mapea sus IDs."""
         for dto in lines_dtos:
-            await NameValidator.validate_unique_line_name(
-                dto.line_name, exclude_id=None, repo=self.line_repo
-            )
+            await NameValidator.validate_unique_line_name(dto.line_name, exclude_id=None, repo=self.line_repo)
 
             # Validar capacidad del selector vs número de slots
             if len(dto.slot_assignments) > dto.selector_config.capacity:
@@ -311,11 +296,7 @@ class SyncSystemLayoutUseCase:
                 )
 
             blower = self._build_blower_from_model(dto.blower_config)
-            cooler = (
-                self._build_cooler_from_model(dto.cooler_config)
-                if dto.cooler_config
-                else None
-            )
+            cooler = self._build_cooler_from_model(dto.cooler_config) if dto.cooler_config else None
             sensors = self._build_sensors_from_model(dto.sensors_config)
             dosers = await self._build_dosers_from_model(dto.dosers_config, id_map)
             selector = self._build_selector_from_model(dto.selector_config)
@@ -334,9 +315,7 @@ class SyncSystemLayoutUseCase:
             id_map[dto.id] = new_line.id
 
             # PASO 2: Asignar cages a slots usando SlotAssignment
-            await self._assign_cages_to_line(
-                new_line.id, dto.slot_assignments, selector.capacity.value, id_map
-            )
+            await self._assign_cages_to_line(new_line.id, dto.slot_assignments, selector.capacity.value, id_map)
 
     async def _assign_cages_to_line(
         self,
@@ -349,10 +328,7 @@ class SyncSystemLayoutUseCase:
         for slot_dto in slot_assignments_dto:
             # Validar que el slot_number esté en el rango válido
             if slot_dto.slot_number < 1 or slot_dto.slot_number > selector_capacity:
-                raise ValueError(
-                    f"El slot {slot_dto.slot_number} está fuera del rango válido "
-                    f"(1-{selector_capacity})"
-                )
+                raise ValueError(f"El slot {slot_dto.slot_number} está fuera del rango válido (1-{selector_capacity})")
 
             cage_id = await self._resolve_cage_id(slot_dto.cage_id, id_map)
             cage = await self.cage_repo.find_by_id(cage_id)
@@ -367,22 +343,14 @@ class SyncSystemLayoutUseCase:
                 )
 
             # Validar que no haya otra cage en el mismo slot
-            existing_assignment = await self.slot_assignment_repo.find_by_line_and_slot(
-                line_id, slot_dto.slot_number
-            )
+            existing_assignment = await self.slot_assignment_repo.find_by_line_and_slot(line_id, slot_dto.slot_number)
             if existing_assignment:
-                existing_cage = await self.cage_repo.find_by_id(
-                    existing_assignment.cage_id
-                )
+                existing_cage = await self.cage_repo.find_by_id(existing_assignment.cage_id)
                 cage_name = existing_cage.name if existing_cage else "desconocida"
-                raise ValueError(
-                    f"El slot {slot_dto.slot_number} ya está ocupado por la jaula '{cage_name}'"
-                )
+                raise ValueError(f"El slot {slot_dto.slot_number} ya está ocupado por la jaula '{cage_name}'")
 
             # Validar que la jaula no esté asignada a otro slot
-            existing_cage_assignment = await self.slot_assignment_repo.find_by_cage(
-                cage_id
-            )
+            existing_cage_assignment = await self.slot_assignment_repo.find_by_cage(cage_id)
             if existing_cage_assignment:
                 raise ValueError(f"La jaula '{cage.name}' ya está asignada a otro slot")
 
@@ -413,24 +381,22 @@ class SyncSystemLayoutUseCase:
 
             # Validar FA2: Nombre duplicado (solo si cambió el nombre)
             if str(silo.name) != dto.name:
-                await NameValidator.validate_unique_silo_name(
-                    dto.name, exclude_id=silo_id, repo=self.silo_repo
-                )
+                await NameValidator.validate_unique_silo_name(dto.name, exclude_id=silo_id, repo=self.silo_repo)
                 silo.name = SiloName(dto.name)
 
             silo.capacity = Weight.from_kg(dto.capacity)
-            
+
             # Actualizar stock_level si está presente
-            if hasattr(dto, 'stock_level') and dto.stock_level is not None:
+            if hasattr(dto, "stock_level") and dto.stock_level is not None:
                 silo.stock_level = Weight.from_kg(dto.stock_level)
-            
+
             # Actualizar food_id
-            if hasattr(dto, 'food_id'):
+            if hasattr(dto, "food_id"):
                 if dto.food_id:
                     silo.assign_food(FoodId.from_string(dto.food_id))
                 else:
                     silo.remove_food()
-            
+
             await self.silo_repo.save(silo)
 
     async def _update_cages(self, cages_to_update) -> None:
@@ -442,16 +408,12 @@ class SyncSystemLayoutUseCase:
 
             # Validar FA2: Nombre duplicado (solo si cambió el nombre)
             if str(cage.name) != dto.name:
-                await NameValidator.validate_unique_cage_name(
-                    dto.name, exclude_id=cage_id, repo=self.cage_repo
-                )
+                await NameValidator.validate_unique_cage_name(dto.name, exclude_id=cage_id, repo=self.cage_repo)
                 cage.rename(CageName(dto.name))
 
             await self.cage_repo.save(cage)
 
-    async def _update_feeding_lines(
-        self, lines_to_update, id_map: Dict[str, Any]
-    ) -> None:
+    async def _update_feeding_lines(self, lines_to_update, id_map: Dict[str, Any]) -> None:
         """Actualiza líneas de alimentación existentes."""
         # Liberar recursos (ResourceReleaser ya actualizado)
         lines_to_release = []
@@ -475,9 +437,7 @@ class SyncSystemLayoutUseCase:
 
             # Validar nombre único si cambió
             if str(line.name) != dto.line_name:
-                await NameValidator.validate_unique_line_name(
-                    dto.line_name, exclude_id=line_id, repo=self.line_repo
-                )
+                await NameValidator.validate_unique_line_name(dto.line_name, exclude_id=line_id, repo=self.line_repo)
                 line.name = LineName(dto.line_name)
 
             # Validar capacidad del selector
@@ -489,11 +449,7 @@ class SyncSystemLayoutUseCase:
 
             # Actualizar componentes
             blower = self._build_blower_from_model(dto.blower_config)
-            cooler = (
-                self._build_cooler_from_model(dto.cooler_config)
-                if dto.cooler_config
-                else None
-            )
+            cooler = self._build_cooler_from_model(dto.cooler_config) if dto.cooler_config else None
             sensors = self._build_sensors_from_model(dto.sensors_config)
             dosers = await self._build_dosers_from_model(dto.dosers_config, id_map)
             selector = self._build_selector_from_model(dto.selector_config)
@@ -502,15 +458,11 @@ class SyncSystemLayoutUseCase:
             await self.line_repo.save(line)
 
             # Asignar nuevas cages (ResourceReleaser ya liberó las anteriores)
-            await self._assign_cages_to_line(
-                line_id, dto.slot_assignments, selector.capacity.value, id_map
-            )
+            await self._assign_cages_to_line(line_id, dto.slot_assignments, selector.capacity.value, id_map)
 
     async def _rebuild_layout(
         self,
-    ) -> Tuple[
-        List[Silo], List[Cage], List[FeedingLine], Dict[LineId, List[SlotAssignment]]
-    ]:
+    ) -> Tuple[List[Silo], List[Cage], List[FeedingLine], Dict[LineId, List[SlotAssignment]]]:
         """Reconstruye el layout completo con IDs reales desde BD."""
         all_silos = await self.silo_repo.get_all()
         all_cages = await self.cage_repo.list()

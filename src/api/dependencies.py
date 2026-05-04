@@ -56,8 +56,12 @@ from application.use_cases.device_control import (
     GetCoolerStatusUseCase,
     GetDoserStatusUseCase,
     GetSelectorStatusUseCase,
+    ListDoserCalibrationHistoryUseCase,
     MoveSelectorToSlotDirectUseCase,
     ResetSelectorDirectUseCase,
+    RunDoserForDurationUseCase,
+    RunDoserPulsesUseCase,
+    SaveDoserCalibrationUseCase,
     SetBlowerPowerUseCase,
     SetCoolerPowerUseCase,
     SetDoserRateUseCase,
@@ -572,6 +576,42 @@ async def get_get_doser_status_use_case(
 ) -> GetDoserStatusUseCase:
     """Crea instancia del caso de uso de status de doser."""
     return GetDoserStatusUseCase(doser_repository=doser_repo)
+
+
+async def get_save_doser_calibration_use_case(
+    doser_repo: DoserRepository = Depends(get_doser_repo),
+) -> SaveDoserCalibrationUseCase:
+    """Crea instancia del caso de uso para guardar calibración de doser."""
+    return SaveDoserCalibrationUseCase(doser_repository=doser_repo)
+
+
+async def get_list_doser_calibration_history_use_case(
+    doser_repo: DoserRepository = Depends(get_doser_repo),
+) -> ListDoserCalibrationHistoryUseCase:
+    """Crea instancia del caso de uso para historial de calibración."""
+    return ListDoserCalibrationHistoryUseCase(doser_repository=doser_repo)
+
+
+async def get_run_doser_pulses_use_case(
+    doser_repo: DoserRepository = Depends(get_doser_repo),
+    machine_service: IFeedingMachine = Depends(get_machine_service),
+) -> RunDoserPulsesUseCase:
+    """Crea instancia del caso de uso para pulsos controlados por backend."""
+    return RunDoserPulsesUseCase(
+        doser_repository=doser_repo,
+        machine_service=machine_service,
+    )
+
+
+async def get_run_doser_for_duration_use_case(
+    doser_repo: DoserRepository = Depends(get_doser_repo),
+    machine_service: IFeedingMachine = Depends(get_machine_service),
+) -> RunDoserForDurationUseCase:
+    """Crea instancia del caso de uso para ejecución acotada por duración."""
+    return RunDoserForDurationUseCase(
+        doser_repository=doser_repo,
+        machine_service=machine_service,
+    )
 
 
 async def get_get_selector_status_use_case(
@@ -1310,6 +1350,17 @@ TurnCoolerOffUseCaseDep = Annotated[TurnCoolerOffUseCase, Depends(get_turn_coole
 GetBlowerStatusUseCaseDep = Annotated[GetBlowerStatusUseCase, Depends(get_get_blower_status_use_case)]
 
 GetDoserStatusUseCaseDep = Annotated[GetDoserStatusUseCase, Depends(get_get_doser_status_use_case)]
+
+SaveDoserCalibrationUseCaseDep = Annotated[SaveDoserCalibrationUseCase, Depends(get_save_doser_calibration_use_case)]
+
+ListDoserCalibrationHistoryUseCaseDep = Annotated[
+    ListDoserCalibrationHistoryUseCase,
+    Depends(get_list_doser_calibration_history_use_case),
+]
+
+RunDoserPulsesUseCaseDep = Annotated[RunDoserPulsesUseCase, Depends(get_run_doser_pulses_use_case)]
+
+RunDoserForDurationUseCaseDep = Annotated[RunDoserForDurationUseCase, Depends(get_run_doser_for_duration_use_case)]
 
 GetSelectorStatusUseCaseDep = Annotated[GetSelectorStatusUseCase, Depends(get_get_selector_status_use_case)]
 

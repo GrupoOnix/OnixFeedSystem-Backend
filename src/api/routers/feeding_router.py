@@ -25,7 +25,6 @@ from api.models.feeding_models import (
     BatchStatusResponse,
     BatchStatusSessionCyclic,
     BatchStatusSessionManual,
-    CageFeedingStatusItem,
     CageHistorySummary,
     CageVisitHistory,
     CancelFeedingRequest,
@@ -63,7 +62,6 @@ from application.use_cases.feeding.start_cyclic_feeding_use_case import (
 from application.use_cases.feeding.start_manual_feeding_use_case import (
     StartManualFeedingUseCase,
 )
-from domain.entities.cage_feeding import CageFeedingMode
 from domain.entities.feeding_event import FeedingEventType
 from domain.entities.feeding_session import SessionStatus
 from domain.value_objects import CageId, LineId
@@ -198,6 +196,7 @@ async def get_cyclic_feeding_status(
     session_repo: Annotated[FeedingSessionRepository, Depends(get_feeding_session_repo)],
     cage_feeding_repo: Annotated[CageFeedingRepository, Depends(get_cage_feeding_repo)],
     cage_repo: Annotated[CageRepository, Depends(get_cage_repo)],
+    line_repo: Annotated[FeedingLineRepository, Depends(get_line_repo)],
     machine: Annotated[SimulatedMachine, Depends(get_simulated_machine)],
 ) -> CyclicSessionStatusResponse:
     try:
@@ -205,7 +204,7 @@ async def get_cyclic_feeding_status(
         if not session:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Sesión {session_id} no encontrada")
 
-        status_data = await build_cyclic_status(session, cage_feeding_repo, cage_repo, machine)
+        status_data = await build_cyclic_status(session, cage_feeding_repo, cage_repo, line_repo, machine)
 
         from api.models.feeding_models import CageSummaryItem, ActiveCageInfo
 
@@ -283,7 +282,11 @@ async def list_sessions_history(
     session_repo: Annotated[FeedingSessionRepository, Depends(get_feeding_session_repo)],
     config_repo: Annotated[SystemConfigRepository, Depends(get_system_config_repo)],
     line_repo: Annotated[FeedingLineRepository, Depends(get_line_repo)],
-    date_param: Optional[str] = Query(default=None, alias="date", description="Fecha YYYY-MM-DD (default: hoy en timezone del sistema)"),
+    date_param: Optional[str] = Query(
+        default=None,
+        alias="date",
+        description="Fecha YYYY-MM-DD (default: hoy en timezone del sistema)",
+    ),
     line_id: Optional[str] = Query(default=None),
     status_filter: Optional[str] = Query(default=None, alias="status"),
 ) -> List[SessionHistoryItem]:
@@ -514,6 +517,7 @@ async def get_batch_session_status(
     session_repo: Annotated[FeedingSessionRepository, Depends(get_feeding_session_repo)],
     cage_feeding_repo: Annotated[CageFeedingRepository, Depends(get_cage_feeding_repo)],
     cage_repo: Annotated[CageRepository, Depends(get_cage_repo)],
+    line_repo: Annotated[FeedingLineRepository, Depends(get_line_repo)],
     machine: Annotated[SimulatedMachine, Depends(get_simulated_machine)],
     session_ids: str = Query(..., description="Comma-separated session UUIDs"),
 ) -> BatchStatusResponse:
@@ -537,7 +541,7 @@ async def get_batch_session_status(
                     status_data = await build_manual_status(session, cage_repo, machine)
                     results.append(BatchStatusSessionManual(**status_data))
                 elif session.type.value == "CYCLIC":
-                    status_data = await build_cyclic_status(session, cage_feeding_repo, cage_repo, machine)
+                    status_data = await build_cyclic_status(session, cage_feeding_repo, cage_repo, line_repo, machine)
                     cages_summary = [CageSummaryItem(**cage_data) for cage_data in status_data["cages_summary"]]
                     active_cage = ActiveCageInfo(**status_data["active_cage"]) if status_data["active_cage"] else None
                     results.append(BatchStatusSessionCyclic(

@@ -23,6 +23,7 @@ from src.infrastructure.persistence.models.silo_model import SiloModel
 from src.infrastructure.persistence.models.feeding_line_model import FeedingLineModel
 from src.infrastructure.persistence.models.blower_model import BlowerModel
 from src.infrastructure.persistence.models.doser_model import DoserModel
+from src.infrastructure.persistence.models.doser_calibration_model import DoserCalibrationModel
 from src.infrastructure.persistence.models.selector_model import SelectorModel
 from src.infrastructure.persistence.models.sensor_model import SensorModel
 from src.infrastructure.persistence.models.biometry_log_model import BiometryLogModel

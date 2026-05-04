@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -39,9 +39,14 @@ class DoserConfigModel(BaseModel):
     assigned_silo_id: str
     doser_type: str
     min_rate: float = Field(ge=0.0)
-    max_rate: float = Field(gt=0.0)
+    max_rate: float = Field(gt=0.0, description="Tasa máxima del dosificador en kg/min")
+    max_rate_unit: Literal["kg/min"] = Field(default="kg/min", description="Unidad de max_rate")
     current_rate: float = Field(ge=0.0)
     speed_percentage: int = Field(default=50, ge=1, le=100)
+    calibrated_grams_per_second: Optional[float] = Field(default=None, gt=0.0)
+    pulse_on_time: Optional[float] = Field(default=None, gt=0.0)
+    pulse_off_time: Optional[float] = Field(default=None, ge=0.0)
+    pulse_speed: Optional[int] = Field(default=None, ge=1, le=100)
 
 
 class SelectorConfigModel(BaseModel):
