@@ -10,7 +10,9 @@ from api.dependencies import (
     get_cage_repo,
     get_feeding_event_repo,
     get_feeding_session_repo,
+    get_get_last_valid_manual_feeding_config_use_case,
     get_line_repo,
+    get_list_last_valid_manual_feeding_configs_use_case,
     get_pause_feeding_use_case,
     get_resume_feeding_use_case,
     get_simulated_machine,
@@ -18,7 +20,13 @@ from api.dependencies import (
     get_start_manual_feeding_use_case,
     get_system_config_repo,
     get_update_blower_power_use_case,
+    get_update_feeding_amount_use_case,
     get_update_feeding_rate_use_case,
+    get_upsert_last_valid_manual_feeding_config_use_case,
+)
+from application.dtos.manual_feeding_config_dtos import (
+    LastValidManualFeedingConfigPayload,
+    LastValidManualFeedingConfigResponse,
 )
 from api.models.feeding_models import (
     ActiveSessionItem,
@@ -42,6 +50,8 @@ from api.models.feeding_models import (
     SessionHistoryDetail,
     SessionHistoryItem,
     TimelineEvent,
+    UpdateAmountRequest,
+    UpdateAmountResponse,
     UpdateBlowerRequest,
     UpdateBlowerResponse,
     UpdateRateRequest,
@@ -54,6 +64,7 @@ from application.use_cases.feeding.control_feeding_use_cases import (
     PauseFeedingUseCase,
     ResumeFeedingUseCase,
     UpdateBlowerPowerUseCase,
+    UpdateFeedingAmountUseCase,
     UpdateFeedingRateUseCase,
 )
 from application.use_cases.feeding.start_cyclic_feeding_use_case import (
@@ -62,8 +73,14 @@ from application.use_cases.feeding.start_cyclic_feeding_use_case import (
 from application.use_cases.feeding.start_manual_feeding_use_case import (
     StartManualFeedingUseCase,
 )
+from application.use_cases.feeding.manual_feeding_config_use_cases import (
+    GetLastValidManualFeedingConfigUseCase,
+    ListLastValidManualFeedingConfigsUseCase,
+    UpsertLastValidManualFeedingConfigUseCase,
+)
 from domain.entities.feeding_event import FeedingEventType
 from domain.entities.feeding_session import SessionStatus
+from domain.exceptions import FeedingLineUnavailableException
 from domain.value_objects import CageId, LineId
 from infrastructure.persistence.repositories.cage_feeding_repository import CageFeedingRepository
 from infrastructure.persistence.repositories.cage_repository import CageRepository
@@ -80,17 +97,60 @@ router = APIRouter(prefix="/feeding", tags=["Feeding"])
 @router.post("/manual/start", status_code=status.HTTP_201_CREATED)
 async def start_manual_feeding(
     request: ManualFeedingRequest,
-    use_case: Annotated[StartManualFeedingUseCase, Depends(get_start_manual_feeding_use_case)]
+    use_case: Annotated[StartManualFeedingUseCase, Depends(get_start_manual_feeding_use_case)],
 ) -> ManualFeedingResponse:
     try:
         return await use_case.execute(request)
+    except FeedingLineUnavailableException as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error inesperado al iniciar alimentación manual: {str(e)}"
+            detail=f"Error inesperado al iniciar alimentación manual: {str(e)}",
         )
+
+
+@router.get("/manual/last-valid-configs")
+async def list_last_valid_manual_feeding_configs(
+    use_case: Annotated[
+        ListLastValidManualFeedingConfigsUseCase,
+        Depends(get_list_last_valid_manual_feeding_configs_use_case),
+    ],
+) -> dict[str, LastValidManualFeedingConfigResponse]:
+    return await use_case.execute()
+
+
+@router.get("/manual/lines/{line_id}/last-valid-config")
+async def get_last_valid_manual_feeding_config(
+    line_id: str,
+    use_case: Annotated[
+        GetLastValidManualFeedingConfigUseCase,
+        Depends(get_get_last_valid_manual_feeding_config_use_case),
+    ],
+) -> LastValidManualFeedingConfigResponse:
+    try:
+        return await use_case.execute(line_id)
+    except LookupError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.put("/manual/lines/{line_id}/last-valid-config")
+async def upsert_last_valid_manual_feeding_config(
+    line_id: str,
+    request: LastValidManualFeedingConfigPayload,
+    use_case: Annotated[
+        UpsertLastValidManualFeedingConfigUseCase,
+        Depends(get_upsert_last_valid_manual_feeding_config_use_case),
+    ],
+) -> LastValidManualFeedingConfigResponse:
+    try:
+        return await use_case.execute(line_id, request)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.post("/cyclic/start", status_code=status.HTTP_201_CREATED)
@@ -100,6 +160,8 @@ async def start_cyclic_feeding(
 ) -> CyclicFeedingResponse:
     try:
         return await use_case.execute(request)
+    except FeedingLineUnavailableException as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
@@ -120,6 +182,24 @@ async def update_feeding_rate(
         return UpdateRateResponse(
             message="Tasa de alimentación actualizada",
             new_rate_kg_per_min=new_rate,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.patch("/sessions/{session_id}/amount")
+async def update_feeding_amount(
+    session_id: str,
+    request: UpdateAmountRequest,
+    use_case: Annotated[UpdateFeedingAmountUseCase, Depends(get_update_feeding_amount_use_case)],
+) -> UpdateAmountResponse:
+    try:
+        new_amount = await use_case.execute(session_id, request.amount_kg)
+        return UpdateAmountResponse(
+            message="Cantidad de alimentación actualizada",
+            new_amount_kg=new_amount,
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

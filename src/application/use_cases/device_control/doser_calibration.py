@@ -8,6 +8,7 @@ from application.dtos.device_control_dtos import (
     DoserCalibrationRequest,
     DoserCalibrationResponse,
 )
+from application.use_cases.device_control.manual_control_guard import require_manual_control
 from domain.dtos import DoserCommand
 from domain.interfaces import IFeedingMachine
 from infrastructure.persistence.models.doser_calibration_model import DoserCalibrationModel
@@ -63,6 +64,7 @@ class RunDoserPulsesUseCase:
         if not result:
             raise ValueError(f"Doser {doser_id} no encontrado")
 
+        require_manual_control(result.line_name, result.line_status)
         doser = result.doser
         if doser.pulse_on_time is None:
             raise ValueError("El doser no tiene pulse_on_time configurado")
@@ -101,6 +103,7 @@ class RunDoserForDurationUseCase:
         if not result:
             raise ValueError(f"Doser {doser_id} no encontrado")
 
+        require_manual_control(result.line_name, result.line_status)
         doser = result.doser
         command_on = _build_doser_command(
             result=result,

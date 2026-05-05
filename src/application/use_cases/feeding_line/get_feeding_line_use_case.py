@@ -110,6 +110,10 @@ class GetFeedingLineUseCase:
         return FeedingLineDTO(
             id=str(line.id),
             name=str(line.name),
+            status=line.status.value,
+            locked_by=line.locked_by,
+            locked_reason=line.locked_reason,
+            locked_at=line.locked_at,
             created_at=line._created_at,
             blower=blower_dto,
             dosers=doser_dtos,

@@ -108,6 +108,11 @@ class FeedingSession:
     def add_cage_feeding(self, cage_feeding):
         self._cage_feedings.append(cage_feeding)
 
+    def set_total_programmed_kg(self, total_programmed_kg: float) -> None:
+        if total_programmed_kg <= 0:
+            raise ValueError("La cantidad total programada debe ser mayor a 0")
+        self._total_programmed_kg = total_programmed_kg
+
     def add_event(self, event):
         self._events.append(event)
 

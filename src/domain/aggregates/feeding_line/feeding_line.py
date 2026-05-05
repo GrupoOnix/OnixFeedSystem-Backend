@@ -1,15 +1,31 @@
 from datetime import datetime, timezone
 from typing import Any, List, Optional, Tuple, cast
 
-from ...exceptions import DuplicateSensorTypeException, InsufficientComponentsException
+from ...enums import FeedingLineStatus
+from ...exceptions import (
+    DuplicateSensorTypeException,
+    FeedingLineUnavailableException,
+    InsufficientComponentsException,
+)
 from ...interfaces import IBlower, ICooler, IDoser, ISelector, ISensor
 from ...value_objects import LineId, LineName, SensorId
 
 
 class FeedingLine:
-    def __init__(self, name: LineName):
+    def __init__(
+        self,
+        name: LineName,
+        status: FeedingLineStatus = FeedingLineStatus.AVAILABLE,
+        locked_by: Optional[str] = None,
+        locked_reason: Optional[str] = None,
+        locked_at: Optional[datetime] = None,
+    ):
         self._id = LineId.generate()
         self._name = name
+        self._status = status
+        self._locked_by = locked_by
+        self._locked_reason = locked_reason
+        self._locked_at = locked_at
         self._blower: Optional[IBlower] = None
         self._dosers: Tuple[IDoser, ...] = ()
         self._selector: Optional[ISelector] = None
@@ -64,6 +80,22 @@ class FeedingLine:
         self._name = name
 
     @property
+    def status(self) -> FeedingLineStatus:
+        return self._status
+
+    @property
+    def locked_by(self) -> Optional[str]:
+        return self._locked_by
+
+    @property
+    def locked_reason(self) -> Optional[str]:
+        return self._locked_reason
+
+    @property
+    def locked_at(self) -> Optional[datetime]:
+        return self._locked_at
+
+    @property
     def blower(self) -> IBlower:
         return cast(IBlower, self._blower)
 
@@ -105,6 +137,98 @@ class FeedingLine:
             if sensor.id == sensor_id:
                 return sensor
         return None
+
+    def reserve_for_feeding(self, operator_id: Optional[str] = None) -> None:
+        """Reserva la línea para una sesión de alimentación."""
+        self._assert_available("iniciar alimentación")
+        self._set_lock(
+            status=FeedingLineStatus.FEEDING,
+            locked_by=operator_id,
+            locked_reason="feeding",
+        )
+
+    def release_from_feeding(self) -> None:
+        """Libera la línea si estaba reservada por alimentación."""
+        if self._status == FeedingLineStatus.FEEDING:
+            self._clear_lock()
+
+    def acquire_manual_control(
+        self,
+        operator_id: Optional[str] = None,
+        reason: Optional[str] = None,
+    ) -> None:
+        """Bloquea la línea para manipulación manual directa de dispositivos."""
+        self._assert_available("tomar control manual")
+        self._set_lock(
+            status=FeedingLineStatus.MANUAL_CONTROL,
+            locked_by=operator_id,
+            locked_reason=reason or "manual_control",
+        )
+
+    def release_manual_control(self) -> None:
+        """Libera la línea si estaba bloqueada por control manual."""
+        if self._status != FeedingLineStatus.MANUAL_CONTROL:
+            raise FeedingLineUnavailableException(
+                f"No se puede liberar control manual de una línea en estado {self._status.value}"
+            )
+        self._clear_lock()
+
+    def send_to_maintenance(
+        self,
+        operator_id: Optional[str] = None,
+        reason: Optional[str] = None,
+    ) -> None:
+        self._set_lock(
+            status=FeedingLineStatus.MAINTENANCE,
+            locked_by=operator_id,
+            locked_reason=reason or "maintenance",
+        )
+
+    def mark_fault(
+        self,
+        operator_id: Optional[str] = None,
+        reason: Optional[str] = None,
+    ) -> None:
+        self._set_lock(
+            status=FeedingLineStatus.FAULT,
+            locked_by=operator_id,
+            locked_reason=reason or "fault",
+        )
+
+    def mark_available(self) -> None:
+        self._clear_lock()
+
+    def require_manual_control(self) -> None:
+        if self._status != FeedingLineStatus.MANUAL_CONTROL:
+            raise FeedingLineUnavailableException(
+                f"La línea {self._name.value} debe estar en MANUAL_CONTROL para control directo "
+                f"(estado actual: {self._status.value})"
+            )
+
+    def _assert_available(self, action: str) -> None:
+        if self._status != FeedingLineStatus.AVAILABLE:
+            lock_detail = f" por {self._locked_by}" if self._locked_by else ""
+            raise FeedingLineUnavailableException(
+                f"No se puede {action}: la línea {self._name.value} está en estado "
+                f"{self._status.value}{lock_detail}"
+            )
+
+    def _set_lock(
+        self,
+        status: FeedingLineStatus,
+        locked_by: Optional[str],
+        locked_reason: Optional[str],
+    ) -> None:
+        self._status = status
+        self._locked_by = locked_by
+        self._locked_reason = locked_reason
+        self._locked_at = datetime.now(timezone.utc)
+
+    def _clear_lock(self) -> None:
+        self._status = FeedingLineStatus.AVAILABLE
+        self._locked_by = None
+        self._locked_reason = None
+        self._locked_at = None
 
     def update_components(
         self,

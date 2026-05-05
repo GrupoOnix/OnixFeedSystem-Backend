@@ -19,6 +19,7 @@ class CoolerWithContext:
     cooler: Cooler
     line_id: UUID
     line_name: str
+    line_status: str
 
 
 class CoolerRepository:
@@ -53,6 +54,7 @@ class CoolerRepository:
             cooler=cooler_model.to_domain(),
             line_id=cooler_model.line_id,
             line_name=cooler_model.feeding_line.name,
+            line_status=cooler_model.feeding_line.status,
         )
 
     async def update(self, cooler_id: UUID, cooler: Cooler) -> None:

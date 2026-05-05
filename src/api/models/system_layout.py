@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -91,6 +92,10 @@ class FeedingLineConfigModel(BaseModel):
 
     id: str
     line_name: str = Field(min_length=1, max_length=100)
+    status: str = "AVAILABLE"
+    locked_by: Optional[str] = None
+    locked_reason: Optional[str] = None
+    locked_at: Optional[datetime] = None
     blower_config: BlowerConfigModel
     cooler_config: Optional[CoolerConfigModel] = None  # Componente opcional
     sensors_config: List[SensorConfigModel] = Field(default_factory=list)

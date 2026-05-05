@@ -5,6 +5,7 @@ from uuid import UUID
 from domain.dtos import DoserCommand
 from domain.interfaces import IFeedingMachine
 from domain.value_objects import DosingRate
+from application.use_cases.device_control.manual_control_guard import require_manual_control
 from infrastructure.persistence.repositories.doser_repository import DoserRepository
 
 
@@ -43,6 +44,7 @@ class SetDoserRateUseCase:
         if not result:
             raise ValueError(f"Doser {doser_id} no encontrado")
 
+        require_manual_control(result.line_name, result.line_status)
         doser = result.doser
 
         # Crear value object con validación

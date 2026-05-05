@@ -6,6 +6,7 @@ from sqlalchemy import Column, DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
 from domain.aggregates.feeding_line.feeding_line import FeedingLine
+from domain.enums import FeedingLineStatus
 from domain.value_objects import LineId, LineName
 
 if TYPE_CHECKING:
@@ -22,6 +23,13 @@ class FeedingLineModel(SQLModel, table=True):
 
     id: UUID = Field(primary_key=True)
     name: str = Field(unique=True, max_length=100)
+    status: str = Field(default=FeedingLineStatus.AVAILABLE.value, max_length=50)
+    locked_by: Optional[str] = Field(default=None, max_length=100)
+    locked_reason: Optional[str] = Field(default=None, max_length=255)
+    locked_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+    )
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
 
     blower: Optional["BlowerModel"] = Relationship(
@@ -64,6 +72,10 @@ class FeedingLineModel(SQLModel, table=True):
         line_model = FeedingLineModel(
             id=line.id.value,
             name=str(line.name),
+            status=line.status.value,
+            locked_by=line.locked_by,
+            locked_reason=line.locked_reason,
+            locked_at=line.locked_at,
             created_at=line._created_at,
         )
 
@@ -107,6 +119,10 @@ class FeedingLineModel(SQLModel, table=True):
         )
 
         line._id = LineId(self.id)
+        line._status = FeedingLineStatus(self.status)
+        line._locked_by = self.locked_by
+        line._locked_reason = self.locked_reason
+        line._locked_at = self.locked_at
         line._created_at = self.created_at
 
         # Nota: Las asignaciones de cages se consultan por CageRepository si es necesario

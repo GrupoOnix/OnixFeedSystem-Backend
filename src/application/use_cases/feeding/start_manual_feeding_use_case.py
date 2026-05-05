@@ -54,6 +54,9 @@ class StartManualFeedingUseCase:
     async def execute(self, request: ManualFeedingRequest) -> ManualFeedingResponse:
         # Paso 1: VALIDACIÓN — retorna entidades ya cargadas para reutilizar
         line, cage, assignment = await self._validate_request(request)
+        line.reserve_for_feeding(operator_id=request.operator_id)
+        await self.line_repo.save(line)
+
         selected_doser = line.get_doser_by_id(DoserId.from_string(request.doser_id))
         assert selected_doser is not None
 
@@ -209,5 +212,4 @@ class StartManualFeedingUseCase:
             )
 
         return line, cage, assignment
-
 

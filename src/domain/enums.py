@@ -32,6 +32,16 @@ class DoserType(Enum):
     SCREW_DOSER = "SCREW_DOSER"
 
 
+class FeedingLineStatus(Enum):
+    """Estado operativo de la línea física."""
+
+    AVAILABLE = "AVAILABLE"
+    FEEDING = "FEEDING"
+    MANUAL_CONTROL = "MANUAL_CONTROL"
+    MAINTENANCE = "MAINTENANCE"
+    FAULT = "FAULT"
+
+
 class SessionStatus(Enum):
     """Estado de la sesión diaria (contenedor)."""
 

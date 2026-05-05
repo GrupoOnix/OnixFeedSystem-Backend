@@ -19,6 +19,7 @@ class BlowerWithContext:
     blower: Blower
     line_id: UUID
     line_name: str
+    line_status: str
 
 
 class BlowerRepository:
@@ -53,6 +54,7 @@ class BlowerRepository:
             blower=blower_model.to_domain(),
             line_id=blower_model.line_id,
             line_name=blower_model.feeding_line.name,
+            line_status=blower_model.feeding_line.status,
         )
 
     async def update(self, blower_id: UUID, blower: Blower) -> None:

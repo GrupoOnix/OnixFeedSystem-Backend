@@ -60,6 +60,10 @@ class ResponseMapper:
         return FeedingLineConfigModel(
             id=str(line.id),
             line_name=str(line.name),
+            status=line.status.value,
+            locked_by=line.locked_by,
+            locked_reason=line.locked_reason,
+            locked_at=line.locked_at,
             blower_config=ResponseMapper._to_blower_model(line.blower),
             cooler_config=ResponseMapper._to_cooler_model(line.cooler) if line.cooler else None,
             sensors_config=[ResponseMapper._to_sensor_model(s) for s in line._sensors],

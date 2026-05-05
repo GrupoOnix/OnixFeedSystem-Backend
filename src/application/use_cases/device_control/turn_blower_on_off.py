@@ -5,6 +5,7 @@ from uuid import UUID
 from domain.dtos import BlowerCommand
 from domain.interfaces import IFeedingMachine
 from domain.value_objects import BlowerPowerPercentage
+from application.use_cases.device_control.manual_control_guard import require_manual_control
 from infrastructure.persistence.repositories.blower_repository import BlowerRepository
 
 
@@ -35,6 +36,7 @@ class TurnBlowerOnUseCase:
         if not result:
             raise ValueError(f"Blower {blower_id} no encontrado")
 
+        require_manual_control(result.line_name, result.line_status)
         blower = result.blower
 
         # Encender a la potencia configurada
@@ -83,6 +85,7 @@ class TurnBlowerOffUseCase:
         if not result:
             raise ValueError(f"Blower {blower_id} no encontrado")
 
+        require_manual_control(result.line_name, result.line_status)
         blower = result.blower
 
         # Apagar (potencia a 0)

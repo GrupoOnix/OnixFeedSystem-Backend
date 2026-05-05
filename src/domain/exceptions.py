@@ -47,6 +47,12 @@ class FeedingLineNotFoundException(DomainException):
     pass
 
 
+class FeedingLineUnavailableException(DomainException):
+    """Raised when a physical feeding line is reserved or unavailable."""
+
+    pass
+
+
 class InvalidComponentSequenceException(DomainException):
     """Raised when components are not arranged in the correct linear sequence.
 

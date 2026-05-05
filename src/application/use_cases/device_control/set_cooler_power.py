@@ -5,6 +5,7 @@ from uuid import UUID
 from domain.dtos import CoolerCommand
 from domain.interfaces import IFeedingMachine
 from domain.value_objects import CoolerPowerPercentage
+from application.use_cases.device_control.manual_control_guard import require_manual_control
 from infrastructure.persistence.repositories.cooler_repository import CoolerRepository
 
 
@@ -43,6 +44,7 @@ class SetCoolerPowerUseCase:
         if not result:
             raise ValueError(f"Cooler {cooler_id} no encontrado")
 
+        require_manual_control(result.line_name, result.line_status)
         cooler = result.cooler
 
         # Crear value object con validación

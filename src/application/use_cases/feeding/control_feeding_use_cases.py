@@ -69,6 +69,69 @@ class UpdateFeedingRateUseCase:
         return new_rate
 
 
+class UpdateFeedingAmountUseCase:
+
+    def __init__(
+        self,
+        session_repo: IFeedingSessionRepository,
+        cage_feeding_repo: ICageFeedingRepository,
+        event_repo: IFeedingEventRepository,
+        machine: IMachine,
+    ):
+        self._session_repo = session_repo
+        self._cage_feeding_repo = cage_feeding_repo
+        self._event_repo = event_repo
+        self._machine = machine
+
+    async def execute(self, session_id: str, new_amount_kg: float) -> float:
+        session = await self._session_repo.find_by_id(session_id)
+        if not session:
+            raise ValueError(f"Sesión {session_id} no encontrada")
+        if session.status.value not in ("IN_PROGRESS", "PAUSED"):
+            raise ValueError(f"La sesión no está activa (estado: {session.status.value})")
+        if new_amount_kg <= 0:
+            raise ValueError("La cantidad debe ser mayor a 0")
+
+        cage_feedings = await self._cage_feeding_repo.find_by_session(session_id)
+        current = next((cf for cf in cage_feedings if cf.status.value == "IN_PROGRESS"), None)
+        if not current:
+            raise ValueError("No hay alimentación de jaula activa en esta sesión")
+
+        line_id = LineId.from_string(session.line_id)
+        machine_status = await self._machine.get_status(line_id)
+        live_dispensed_kg = machine_status.dispensed_kg
+        if new_amount_kg < live_dispensed_kg:
+            raise ValueError(
+                f"La nueva cantidad ({new_amount_kg} kg) no puede ser menor a lo ya "
+                f"dispensado en la visita actual ({live_dispensed_kg} kg)"
+            )
+
+        previous_amount_kg = current.programmed_kg
+        current.set_programmed_kg(new_amount_kg)
+
+        await self._machine.set_target_amount(line_id, new_amount_kg)
+        await self._cage_feeding_repo.save(current)
+
+        total_programmed_kg = sum(
+            cf.programmed_kg * cf.programmed_visits
+            for cf in cage_feedings
+        )
+        session.set_total_programmed_kg(total_programmed_kg)
+        await self._session_repo.save(session)
+
+        event = FeedingEvent.amount_changed(
+            feeding_session_id=session_id,
+            cage_id=current.cage_id,
+            previous_amount_kg=previous_amount_kg,
+            new_amount_kg=new_amount_kg,
+            live_dispensed_kg=live_dispensed_kg,
+            applied_immediately=session.status.value == "IN_PROGRESS",
+        )
+        await self._event_repo.save(event)
+
+        return new_amount_kg
+
+
 class PauseFeedingUseCase:
 
     def __init__(
@@ -188,6 +251,7 @@ class CancelFeedingUseCase:
         session.cancel()
         await self._machine.stop(line_id)
         await self._turn_off_persisted_blower(line_id)
+        await self._release_feeding_line(line_id)
         await self._session_repo.save(session)
 
         event = FeedingEvent.session_cancelled(
@@ -217,6 +281,14 @@ class CancelFeedingUseCase:
             return
 
         line.blower.current_power = BlowerPowerPercentage(0.0)
+        await self._line_repo.save(line)
+
+    async def _release_feeding_line(self, line_id: LineId) -> None:
+        line = await self._line_repo.find_by_id(line_id)
+        if not line:
+            return
+
+        line.release_from_feeding()
         await self._line_repo.save(line)
 
 

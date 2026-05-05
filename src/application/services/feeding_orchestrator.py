@@ -135,6 +135,7 @@ class FeedingOrchestrator:
                         f"[Orchestrator] Session {session.id}: detected external stop "
                         f"(status={session.status.value}), skipping completion"
                     )
+                    await self._release_feeding_line(line_id)
                     return
 
         # Verificar una última vez antes de marcar como completada
@@ -145,6 +146,7 @@ class FeedingOrchestrator:
                     f"[Orchestrator] Session {session.id}: externally stopped before completion "
                     f"(status={refreshed_session.status.value}), aborting"
                 )
+                await self._release_feeding_line(line_id)
                 return
             if refreshed_session:
                 session = refreshed_session
@@ -167,6 +169,7 @@ class FeedingOrchestrator:
         await self._save(_persist_completion)
         await self._machine.stop(line_id)
         await self._turn_off_persisted_blower(line_id)
+        await self._release_feeding_line(line_id)
         logger.info(f"[Orchestrator] Session {session.id}: COMPLETED")
 
     async def _execute_pause(
@@ -308,6 +311,10 @@ class FeedingOrchestrator:
                 await self._save(_persist_interrupt)
                 await self._machine.stop(line_id)
                 await self._turn_off_persisted_blower(line_id)
+                await self._mark_feeding_line_fault(
+                    line_id,
+                    reason=f"Machine error code={status.error_code}",
+                )
                 return
 
             if status.current_stage == VisitStage.COMPLETED:
@@ -356,3 +363,25 @@ class FeedingOrchestrator:
             await FeedingLineRepository(db).save(line)
 
         await self._save(_persist_blower_off)
+
+    async def _release_feeding_line(self, line_id: LineId) -> None:
+        async def _persist_release(db: AsyncSession):
+            line = await FeedingLineRepository(db).find_by_id(line_id)
+            if not line:
+                return
+
+            line.release_from_feeding()
+            await FeedingLineRepository(db).save(line)
+
+        await self._save(_persist_release)
+
+    async def _mark_feeding_line_fault(self, line_id: LineId, reason: str) -> None:
+        async def _persist_fault(db: AsyncSession):
+            line = await FeedingLineRepository(db).find_by_id(line_id)
+            if not line:
+                return
+
+            line.mark_fault(reason=reason)
+            await FeedingLineRepository(db).save(line)
+
+        await self._save(_persist_fault)

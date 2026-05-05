@@ -57,6 +57,10 @@ class FeedingLineDTO:
 
     id: str
     name: str
+    status: str
+    locked_by: Optional[str]
+    locked_reason: Optional[str]
+    locked_at: Optional[datetime]
     created_at: datetime
     blower: BlowerDTO
     dosers: List[DoserDTO]
@@ -70,6 +74,25 @@ class ListFeedingLinesResponse:
     """Response con lista de líneas de alimentación."""
 
     feeding_lines: List[FeedingLineDTO]
+
+
+@dataclass
+class AcquireManualControlRequest:
+    """Request para bloquear una línea en modo control manual."""
+
+    operator_id: Optional[str] = None
+    reason: Optional[str] = None
+
+
+@dataclass
+class FeedingLineStatusResponse:
+    """Respuesta con el estado operativo de una línea física."""
+
+    line_id: str
+    status: str
+    locked_by: Optional[str]
+    locked_reason: Optional[str]
+    locked_at: Optional[datetime]
 
 
 # ============================================================================

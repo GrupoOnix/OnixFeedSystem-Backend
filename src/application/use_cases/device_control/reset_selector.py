@@ -4,6 +4,7 @@ from uuid import UUID
 
 from domain.dtos import SelectorCommand
 from domain.interfaces import IFeedingMachine
+from application.use_cases.device_control.manual_control_guard import require_manual_control
 from infrastructure.persistence.repositories.selector_repository import (
     SelectorRepository,
 )
@@ -44,6 +45,7 @@ class ResetSelectorDirectUseCase:
         if not result:
             raise ValueError(f"Selector {selector_id} no encontrado")
 
+        require_manual_control(result.line_name, result.line_status)
         selector = result.selector
 
         # Resetear selector

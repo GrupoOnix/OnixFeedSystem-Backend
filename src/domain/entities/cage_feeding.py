@@ -1,6 +1,4 @@
 import uuid
-from datetime import datetime, timezone
-from typing import Optional
 from enum import Enum
 
 
@@ -118,6 +116,11 @@ class CageFeeding:
         if rate_kg_per_min <= 0:
             raise ValueError("La tasa debe ser mayor a 0")
         self._rate_kg_per_min = rate_kg_per_min
+
+    def set_programmed_kg(self, programmed_kg: float):
+        if self._mode != CageFeedingMode.FASTING and programmed_kg <= 0:
+            raise ValueError("La cantidad programada debe ser mayor a 0")
+        self._programmed_kg = programmed_kg
 
     def start(self):
         if self._status != CageFeedingStatus.PENDING:

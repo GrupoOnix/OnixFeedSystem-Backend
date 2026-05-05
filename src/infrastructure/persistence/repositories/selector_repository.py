@@ -19,6 +19,7 @@ class SelectorWithContext:
     selector: Selector
     line_id: UUID
     line_name: str
+    line_status: str
 
 
 class SelectorRepository:
@@ -53,6 +54,7 @@ class SelectorRepository:
             selector=selector_model.to_domain(),
             line_id=selector_model.line_id,
             line_name=selector_model.feeding_line.name,
+            line_status=selector_model.feeding_line.status,
         )
 
     async def update(self, selector_id: UUID, selector: Selector) -> None:

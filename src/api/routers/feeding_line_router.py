@@ -5,22 +5,30 @@ from typing import Dict
 from fastapi import APIRouter, HTTPException, status
 
 from api.dependencies import (
+    AcquireManualControlUseCaseDep,
     GetFeedingLineUseCaseDep,
     ListFeedingLinesUseCaseDep,
     MoveSelectorToSlotUseCaseDep,
+    ReleaseManualControlUseCaseDep,
     ResetSelectorPositionUseCaseDep,
     UpdateBlowerUseCaseDep,
     UpdateDoserUseCaseDep,
     UpdateSelectorUseCaseDep,
 )
 from application.dtos.feeding_line_dtos import (
+    AcquireManualControlRequest,
     FeedingLineDTO,
+    FeedingLineStatusResponse,
     ListFeedingLinesResponse,
     UpdateBlowerRequest,
     UpdateDoserRequest,
     UpdateSelectorRequest,
 )
-from domain.exceptions import DomainException, FeedingLineNotFoundException
+from domain.exceptions import (
+    DomainException,
+    FeedingLineNotFoundException,
+    FeedingLineUnavailableException,
+)
 
 router = APIRouter(prefix="/feeding-lines", tags=["Feeding Lines"])
 
@@ -41,6 +49,73 @@ async def list_feeding_lines(
     """
     try:
         return await use_case.execute()
+
+    except DomainException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}",
+        )
+
+
+@router.post(
+    "/{line_id}/manual-control/acquire",
+    status_code=status.HTTP_200_OK,
+    response_model=FeedingLineStatusResponse,
+)
+async def acquire_manual_control(
+    line_id: str,
+    request: AcquireManualControlRequest,
+    use_case: AcquireManualControlUseCaseDep,
+) -> FeedingLineStatusResponse:
+    """
+    Bloquea una línea física para control manual directo de dispositivos.
+    """
+    try:
+        return await use_case.execute(
+            line_id=line_id,
+            operator_id=request.operator_id,
+            reason=request.reason,
+        )
+
+    except FeedingLineNotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+    except FeedingLineUnavailableException as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+
+    except DomainException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}",
+        )
+
+
+@router.post(
+    "/{line_id}/manual-control/release",
+    status_code=status.HTTP_200_OK,
+    response_model=FeedingLineStatusResponse,
+)
+async def release_manual_control(
+    line_id: str,
+    use_case: ReleaseManualControlUseCaseDep,
+) -> FeedingLineStatusResponse:
+    """
+    Libera una línea física previamente bloqueada para control manual.
+    """
+    try:
+        return await use_case.execute(line_id)
+
+    except FeedingLineNotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+    except FeedingLineUnavailableException as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
     except DomainException as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

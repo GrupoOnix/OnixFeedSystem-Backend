@@ -20,6 +20,7 @@ class DoserWithContext:
     doser: Doser
     line_id: UUID
     line_name: str
+    line_status: str
 
 
 class DoserRepository:
@@ -48,6 +49,7 @@ class DoserRepository:
             doser=doser_model.to_domain(),
             line_id=doser_model.line_id,
             line_name=doser_model.feeding_line.name,
+            line_status=doser_model.feeding_line.status,
         )
 
     async def update(self, doser_id: UUID, doser: Doser) -> None:

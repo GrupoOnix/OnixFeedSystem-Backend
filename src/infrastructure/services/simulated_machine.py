@@ -184,6 +184,20 @@ class SimulatedMachine(IMachine):
 
         logger.info(f"[SimMachine] Line {line_id}: DOSER RATE -> {rate_kg_per_min}kg/min (slot {state.slot_number})")
 
+    async def set_target_amount(self, line_id: LineId, target_kg: float) -> None:
+        if target_kg <= 0:
+            raise ValueError("target_kg debe ser mayor a 0")
+
+        await asyncio.sleep(0.02)
+        state = self._get_or_create(line_id)
+        state.target_kg = target_kg
+
+        if state.is_running and state.dispensed_kg >= state.target_kg:
+            state.is_running = False
+            state.dispensing_completed_time = datetime.now(timezone.utc)
+
+        logger.info(f"[SimMachine] Line {line_id}: TARGET -> {target_kg}kg")
+
     async def set_blower_power(self, line_id: LineId, power_percentage: float) -> None:
         await asyncio.sleep(0.02)
         state = self._get_or_create(line_id)

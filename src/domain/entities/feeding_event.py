@@ -21,6 +21,7 @@ class FeedingEventType(Enum):
 
     # Eventos de configuración
     RATE_CHANGED = "rate_changed"
+    AMOUNT_CHANGED = "amount_changed"
     CAGE_MODE_CHANGED = "cage_mode_changed"
 
     # Eventos de alarma y PLC
@@ -213,6 +214,29 @@ class FeedingEvent:
                 "cage_id": cage_id,
                 "previous_rate": previous_rate,
                 "new_rate": new_rate,
+                "applied_immediately": applied_immediately
+            }
+        )
+
+    @classmethod
+    def amount_changed(
+        cls,
+        feeding_session_id: str,
+        cage_id: str,
+        previous_amount_kg: float,
+        new_amount_kg: float,
+        live_dispensed_kg: float,
+        applied_immediately: bool
+    ):
+        """Evento de cambio de cantidad objetivo de alimentación."""
+        return cls(
+            feeding_session_id=feeding_session_id,
+            event_type=FeedingEventType.AMOUNT_CHANGED,
+            data={
+                "cage_id": cage_id,
+                "previous_amount_kg": previous_amount_kg,
+                "new_amount_kg": new_amount_kg,
+                "live_dispensed_kg": live_dispensed_kg,
                 "applied_immediately": applied_immediately
             }
         )

@@ -494,6 +494,9 @@ class IMachine(ABC):
     async def set_doser_rate(self, line_id: LineId, rate_kg_per_min: float) -> None: ...
 
     @abstractmethod
+    async def set_target_amount(self, line_id: LineId, target_kg: float) -> None: ...
+
+    @abstractmethod
     async def set_blower_power(self, line_id: LineId, power_percentage: float) -> None: ...
 
     @abstractmethod

@@ -12,6 +12,7 @@ from .feeding_line_repository import FeedingLineRepository
 from .feedback_repository import FeedbackRepository
 from .feeding_session_repository import FeedingSessionRepository
 from .food_repository import FoodRepository
+from .last_valid_manual_feeding_config_repository import LastValidManualFeedingConfigRepository
 from .mortality_log_repository import MortalityLogRepository
 from .population_event_repository import PopulationEventRepository
 from .scheduled_alert_repository import ScheduledAlertRepository
@@ -32,6 +33,7 @@ __all__ = [
     "FeedingEventRepository",
     "FeedbackRepository",
     "FoodRepository",
+    "LastValidManualFeedingConfigRepository",
     "AlertRepository",
     "ScheduledAlertRepository",
     "BiometryLogRepository",

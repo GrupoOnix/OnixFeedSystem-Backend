@@ -93,8 +93,14 @@ from application.use_cases.feeding.control_feeding_use_cases import (
     CancelFeedingUseCase,
     PauseFeedingUseCase,
     ResumeFeedingUseCase,
+    UpdateFeedingAmountUseCase,
     UpdateBlowerPowerUseCase,
     UpdateFeedingRateUseCase,
+)
+from application.use_cases.feeding.manual_feeding_config_use_cases import (
+    GetLastValidManualFeedingConfigUseCase,
+    ListLastValidManualFeedingConfigsUseCase,
+    UpsertLastValidManualFeedingConfigUseCase,
 )
 from application.use_cases.feeding.start_manual_feeding_use_case import (
     StartManualFeedingUseCase,
@@ -103,9 +109,11 @@ from application.use_cases.feeding.start_cyclic_feeding_use_case import (
     StartCyclicFeedingUseCase,
 )
 from application.use_cases.feeding_line import (
+    AcquireManualControlUseCase,
     GetFeedingLineUseCase,
     ListFeedingLinesUseCase,
     MoveSelectorToSlotUseCase,
+    ReleaseManualControlUseCase,
     ResetSelectorPositionUseCase,
     UpdateBlowerUseCase,
     UpdateDoserUseCase,
@@ -149,6 +157,7 @@ from infrastructure.persistence.repositories import (
     FeedingEventRepository,
     FeedingLineRepository,
     FoodRepository,
+    LastValidManualFeedingConfigRepository,
     MortalityLogRepository,
     ScheduledAlertRepository,
     SiloRepository,
@@ -296,6 +305,13 @@ async def get_system_config_repo(
     return SystemConfigRepository(session)
 
 
+async def get_last_valid_manual_feeding_config_repo(
+    session: AsyncSession = Depends(get_session),
+) -> LastValidManualFeedingConfigRepository:
+    """Crea instancia del repositorio de últimas configuraciones manuales válidas."""
+    return LastValidManualFeedingConfigRepository(session)
+
+
 # ============================================================================
 # Servicios de Infraestructura
 # ============================================================================
@@ -358,6 +374,20 @@ async def get_get_feeding_line_use_case(
 ) -> GetFeedingLineUseCase:
     """Crea instancia del caso de uso de obtención de línea de alimentación."""
     return GetFeedingLineUseCase(feeding_line_repository=line_repo, session=session)
+
+
+async def get_acquire_manual_control_use_case(
+    line_repo: FeedingLineRepository = Depends(get_line_repo),
+) -> AcquireManualControlUseCase:
+    """Crea instancia del caso de uso para tomar control manual de línea."""
+    return AcquireManualControlUseCase(feeding_line_repository=line_repo)
+
+
+async def get_release_manual_control_use_case(
+    line_repo: FeedingLineRepository = Depends(get_line_repo),
+) -> ReleaseManualControlUseCase:
+    """Crea instancia del caso de uso para liberar control manual de línea."""
+    return ReleaseManualControlUseCase(feeding_line_repository=line_repo)
 
 
 async def get_update_selector_use_case(
@@ -653,6 +683,54 @@ async def get_start_manual_feeding_use_case(
     )
 
 
+async def get_list_last_valid_manual_feeding_configs_use_case(
+    config_repo: LastValidManualFeedingConfigRepository = Depends(get_last_valid_manual_feeding_config_repo),
+    line_repo: FeedingLineRepository = Depends(get_line_repo),
+    cage_repo: CageRepository = Depends(get_cage_repo),
+    silo_repo: SiloRepository = Depends(get_silo_repo),
+    slot_assignment_repo: SlotAssignmentRepository = Depends(get_slot_assignment_repo),
+) -> ListLastValidManualFeedingConfigsUseCase:
+    return ListLastValidManualFeedingConfigsUseCase(
+        config_repository=config_repo,
+        line_repository=line_repo,
+        cage_repository=cage_repo,
+        silo_repository=silo_repo,
+        slot_assignment_repository=slot_assignment_repo,
+    )
+
+
+async def get_get_last_valid_manual_feeding_config_use_case(
+    config_repo: LastValidManualFeedingConfigRepository = Depends(get_last_valid_manual_feeding_config_repo),
+    line_repo: FeedingLineRepository = Depends(get_line_repo),
+    cage_repo: CageRepository = Depends(get_cage_repo),
+    silo_repo: SiloRepository = Depends(get_silo_repo),
+    slot_assignment_repo: SlotAssignmentRepository = Depends(get_slot_assignment_repo),
+) -> GetLastValidManualFeedingConfigUseCase:
+    return GetLastValidManualFeedingConfigUseCase(
+        config_repository=config_repo,
+        line_repository=line_repo,
+        cage_repository=cage_repo,
+        silo_repository=silo_repo,
+        slot_assignment_repository=slot_assignment_repo,
+    )
+
+
+async def get_upsert_last_valid_manual_feeding_config_use_case(
+    config_repo: LastValidManualFeedingConfigRepository = Depends(get_last_valid_manual_feeding_config_repo),
+    line_repo: FeedingLineRepository = Depends(get_line_repo),
+    cage_repo: CageRepository = Depends(get_cage_repo),
+    silo_repo: SiloRepository = Depends(get_silo_repo),
+    slot_assignment_repo: SlotAssignmentRepository = Depends(get_slot_assignment_repo),
+) -> UpsertLastValidManualFeedingConfigUseCase:
+    return UpsertLastValidManualFeedingConfigUseCase(
+        config_repository=config_repo,
+        line_repository=line_repo,
+        cage_repository=cage_repo,
+        silo_repository=silo_repo,
+        slot_assignment_repository=slot_assignment_repo,
+    )
+
+
 async def get_start_cyclic_feeding_use_case(
     session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
     cage_feeding_repo: CageFeedingRepository = Depends(get_cage_feeding_repo),
@@ -700,6 +778,20 @@ async def get_update_feeding_rate_use_case(
         event_repo=event_repo,
         machine=machine,
         line_repo=line_repo,
+    )
+
+
+async def get_update_feeding_amount_use_case(
+    session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
+    cage_feeding_repo: CageFeedingRepository = Depends(get_cage_feeding_repo),
+    event_repo: FeedingEventRepository = Depends(get_feeding_event_repo),
+    machine: SimulatedMachine = Depends(get_simulated_machine),
+) -> UpdateFeedingAmountUseCase:
+    return UpdateFeedingAmountUseCase(
+        session_repo=session_repo,
+        cage_feeding_repo=cage_feeding_repo,
+        event_repo=event_repo,
+        machine=machine,
     )
 
 
@@ -1194,6 +1286,10 @@ ListFeedingLinesUseCaseDep = Annotated[ListFeedingLinesUseCase, Depends(get_list
 
 GetFeedingLineUseCaseDep = Annotated[GetFeedingLineUseCase, Depends(get_get_feeding_line_use_case)]
 
+AcquireManualControlUseCaseDep = Annotated[AcquireManualControlUseCase, Depends(get_acquire_manual_control_use_case)]
+
+ReleaseManualControlUseCaseDep = Annotated[ReleaseManualControlUseCase, Depends(get_release_manual_control_use_case)]
+
 UpdateSelectorUseCaseDep = Annotated[UpdateSelectorUseCase, Depends(get_update_selector_use_case)]
 
 MoveSelectorToSlotUseCaseDep = Annotated[MoveSelectorToSlotUseCase, Depends(get_move_selector_to_slot_use_case)]
@@ -1306,9 +1402,26 @@ CheckScheduleUseCaseDep = Annotated[CheckScheduleUseCase, Depends(get_check_sche
 
 StartManualFeedingUseCaseDep = Annotated[StartManualFeedingUseCase, Depends(get_start_manual_feeding_use_case)]
 
+ListLastValidManualFeedingConfigsUseCaseDep = Annotated[
+    ListLastValidManualFeedingConfigsUseCase,
+    Depends(get_list_last_valid_manual_feeding_configs_use_case),
+]
+
+GetLastValidManualFeedingConfigUseCaseDep = Annotated[
+    GetLastValidManualFeedingConfigUseCase,
+    Depends(get_get_last_valid_manual_feeding_config_use_case),
+]
+
+UpsertLastValidManualFeedingConfigUseCaseDep = Annotated[
+    UpsertLastValidManualFeedingConfigUseCase,
+    Depends(get_upsert_last_valid_manual_feeding_config_use_case),
+]
+
 StartCyclicFeedingUseCaseDep = Annotated[StartCyclicFeedingUseCase, Depends(get_start_cyclic_feeding_use_case)]
 
 UpdateFeedingRateUseCaseDep = Annotated[UpdateFeedingRateUseCase, Depends(get_update_feeding_rate_use_case)]
+
+UpdateFeedingAmountUseCaseDep = Annotated[UpdateFeedingAmountUseCase, Depends(get_update_feeding_amount_use_case)]
 
 PauseFeedingUseCaseDep = Annotated[PauseFeedingUseCase, Depends(get_pause_feeding_use_case)]
 

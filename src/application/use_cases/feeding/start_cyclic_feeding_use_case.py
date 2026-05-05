@@ -60,6 +60,8 @@ class StartCyclicFeedingUseCase:
         # Paso 1: Validar y cargar todas las entidades necesarias
         line, group, doser, cage_data = await self._validate_request(request)
         # cage_data: List[Tuple[CageConfigInput, cage, slot_assignment]]
+        line.reserve_for_feeding(operator_id=request.operator_id)
+        await self.line_repo.save(line)
 
         selected_doser = doser
         silo_id = selected_doser.assigned_silo_id

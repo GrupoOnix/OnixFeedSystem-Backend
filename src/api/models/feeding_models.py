@@ -83,6 +83,15 @@ class UpdateRateResponse(BaseModel):
     new_rate_kg_per_min: float
 
 
+class UpdateAmountRequest(BaseModel):
+    amount_kg: float = Field(gt=0, description="Nueva cantidad objetivo en kg")
+
+
+class UpdateAmountResponse(BaseModel):
+    message: str
+    new_amount_kg: float
+
+
 class PauseFeedingRequest(BaseModel):
     operator_id: str = Field(description="ID del operador (UUID)")
     reason: str = Field(description="Motivo de la pausa")
