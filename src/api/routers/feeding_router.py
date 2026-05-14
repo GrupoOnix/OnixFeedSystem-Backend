@@ -10,8 +10,12 @@ from api.dependencies import (
     get_cage_repo,
     get_feeding_event_repo,
     get_feeding_session_repo,
+    get_get_last_selected_feeding_mode_use_case,
+    get_get_last_valid_cyclic_feeding_config_use_case,
     get_get_last_valid_manual_feeding_config_use_case,
     get_line_repo,
+    get_list_last_selected_feeding_modes_use_case,
+    get_list_last_valid_cyclic_feeding_configs_use_case,
     get_list_last_valid_manual_feeding_configs_use_case,
     get_pause_feeding_use_case,
     get_resume_feeding_use_case,
@@ -22,9 +26,15 @@ from api.dependencies import (
     get_update_blower_power_use_case,
     get_update_feeding_amount_use_case,
     get_update_feeding_rate_use_case,
+    get_upsert_last_selected_feeding_mode_use_case,
+    get_upsert_last_valid_cyclic_feeding_config_use_case,
     get_upsert_last_valid_manual_feeding_config_use_case,
 )
 from application.dtos.manual_feeding_config_dtos import (
+    LastSelectedFeedingModePayload,
+    LastSelectedFeedingModeResponse,
+    LastValidCyclicFeedingConfigPayload,
+    LastValidCyclicFeedingConfigResponse,
     LastValidManualFeedingConfigPayload,
     LastValidManualFeedingConfigResponse,
 )
@@ -74,8 +84,14 @@ from application.use_cases.feeding.start_manual_feeding_use_case import (
     StartManualFeedingUseCase,
 )
 from application.use_cases.feeding.manual_feeding_config_use_cases import (
+    GetLastSelectedFeedingModeUseCase,
+    GetLastValidCyclicFeedingConfigUseCase,
     GetLastValidManualFeedingConfigUseCase,
+    ListLastSelectedFeedingModesUseCase,
+    ListLastValidCyclicFeedingConfigsUseCase,
     ListLastValidManualFeedingConfigsUseCase,
+    UpsertLastSelectedFeedingModeUseCase,
+    UpsertLastValidCyclicFeedingConfigUseCase,
     UpsertLastValidManualFeedingConfigUseCase,
 )
 from domain.entities.feeding_event import FeedingEventType
@@ -110,6 +126,14 @@ async def start_manual_feeding(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error inesperado al iniciar alimentación manual: {str(e)}",
         )
+
+
+@router.post("/start", status_code=status.HTTP_201_CREATED)
+async def start_feeding(
+    request: ManualFeedingRequest,
+    use_case: Annotated[StartManualFeedingUseCase, Depends(get_start_manual_feeding_use_case)],
+) -> ManualFeedingResponse:
+    return await start_manual_feeding(request, use_case)
 
 
 @router.get("/manual/last-valid-configs")
@@ -147,6 +171,88 @@ async def upsert_last_valid_manual_feeding_config(
         Depends(get_upsert_last_valid_manual_feeding_config_use_case),
     ],
 ) -> LastValidManualFeedingConfigResponse:
+    try:
+        return await use_case.execute(line_id, request)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.get("/line-mode-preferences")
+async def list_last_selected_feeding_modes(
+    use_case: Annotated[
+        ListLastSelectedFeedingModesUseCase,
+        Depends(get_list_last_selected_feeding_modes_use_case),
+    ],
+) -> dict[str, LastSelectedFeedingModeResponse]:
+    return await use_case.execute()
+
+
+@router.get("/lines/{line_id}/mode-preference")
+async def get_last_selected_feeding_mode(
+    line_id: str,
+    use_case: Annotated[
+        GetLastSelectedFeedingModeUseCase,
+        Depends(get_get_last_selected_feeding_mode_use_case),
+    ],
+) -> LastSelectedFeedingModeResponse:
+    try:
+        return await use_case.execute(line_id)
+    except LookupError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.put("/lines/{line_id}/mode-preference")
+async def upsert_last_selected_feeding_mode(
+    line_id: str,
+    request: LastSelectedFeedingModePayload,
+    use_case: Annotated[
+        UpsertLastSelectedFeedingModeUseCase,
+        Depends(get_upsert_last_selected_feeding_mode_use_case),
+    ],
+) -> LastSelectedFeedingModeResponse:
+    try:
+        return await use_case.execute(line_id, request)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.get("/cyclic/last-valid-configs")
+async def list_last_valid_cyclic_feeding_configs(
+    use_case: Annotated[
+        ListLastValidCyclicFeedingConfigsUseCase,
+        Depends(get_list_last_valid_cyclic_feeding_configs_use_case),
+    ],
+) -> dict[str, LastValidCyclicFeedingConfigResponse]:
+    return await use_case.execute()
+
+
+@router.get("/cyclic/lines/{line_id}/last-valid-config")
+async def get_last_valid_cyclic_feeding_config(
+    line_id: str,
+    use_case: Annotated[
+        GetLastValidCyclicFeedingConfigUseCase,
+        Depends(get_get_last_valid_cyclic_feeding_config_use_case),
+    ],
+) -> LastValidCyclicFeedingConfigResponse:
+    try:
+        return await use_case.execute(line_id)
+    except LookupError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.put("/cyclic/lines/{line_id}/last-valid-config")
+async def upsert_last_valid_cyclic_feeding_config(
+    line_id: str,
+    request: LastValidCyclicFeedingConfigPayload,
+    use_case: Annotated[
+        UpsertLastValidCyclicFeedingConfigUseCase,
+        Depends(get_upsert_last_valid_cyclic_feeding_config_use_case),
+    ],
+) -> LastValidCyclicFeedingConfigResponse:
     try:
         return await use_case.execute(line_id, request)
     except ValueError as e:

@@ -12,6 +12,8 @@ from .feeding_line_repository import FeedingLineRepository
 from .feedback_repository import FeedbackRepository
 from .feeding_session_repository import FeedingSessionRepository
 from .food_repository import FoodRepository
+from .last_selected_feeding_mode_repository import LastSelectedFeedingModeRepository
+from .last_valid_cyclic_feeding_config_repository import LastValidCyclicFeedingConfigRepository
 from .last_valid_manual_feeding_config_repository import LastValidManualFeedingConfigRepository
 from .mortality_log_repository import MortalityLogRepository
 from .population_event_repository import PopulationEventRepository
@@ -34,6 +36,8 @@ __all__ = [
     "FeedbackRepository",
     "FoodRepository",
     "LastValidManualFeedingConfigRepository",
+    "LastValidCyclicFeedingConfigRepository",
+    "LastSelectedFeedingModeRepository",
     "AlertRepository",
     "ScheduledAlertRepository",
     "BiometryLogRepository",

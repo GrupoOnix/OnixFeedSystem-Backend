@@ -1,10 +1,13 @@
 from datetime import datetime
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
+from uuid import UUID
 
 
 AllowedManualDosingUnit = Literal["KG_PER_MINUTE"]
+AllowedFeedingPageMode = Literal["MANUAL", "CYCLIC"]
+AllowedCyclicCageMode = Literal["NORMAL", "PAUSE", "FASTING"]
 
 
 class LastValidManualFeedingConfigPayload(BaseModel):
@@ -29,6 +32,76 @@ class LastValidManualFeedingConfigResponse(BaseModel):
     dosing_rate_kg_per_min: float
     dosing_unit: AllowedManualDosingUnit
     blower_power_percentage: float
+    updated_by: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    is_valid_against_current_layout: bool
+
+
+class LastSelectedFeedingModePayload(BaseModel):
+    selected_mode: AllowedFeedingPageMode = Field(description="Última opción seleccionada en la línea")
+
+
+class LastSelectedFeedingModeResponse(BaseModel):
+    id: str
+    line_id: str
+    selected_mode: AllowedFeedingPageMode
+    updated_by: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class LastValidCyclicCageConfigPayload(BaseModel):
+    cage_id: str = Field(description="ID de la jaula")
+    quantity_kg: float = Field(ge=0, description="Cantidad total para esta jaula")
+    rate_kg_per_min: float = Field(ge=0, description="Tasa de dosificación en kg/min")
+    mode: AllowedCyclicCageMode = Field(description="Modo de la jaula")
+
+    @field_validator("cage_id")
+    @classmethod
+    def validate_cage_id(cls, value: str) -> str:
+        UUID(value)
+        return value
+
+    @model_validator(mode="after")
+    def validate_quantity_and_rate_by_mode(self) -> "LastValidCyclicCageConfigPayload":
+        if self.mode != "FASTING":
+            if self.quantity_kg <= 0:
+                raise ValueError(f"quantity_kg debe ser > 0 para el modo '{self.mode}'")
+            if self.rate_kg_per_min <= 0:
+                raise ValueError(f"rate_kg_per_min debe ser > 0 para el modo '{self.mode}'")
+        return self
+
+
+class LastValidCyclicFeedingConfigPayload(BaseModel):
+    group_id: str = Field(description="ID del grupo de jaulas")
+    doser_id: str = Field(description="ID del doser objetivo")
+    visits: int = Field(ge=1, description="Cantidad de visitas por jaula")
+    blower_power_percentage: float = Field(
+        ge=30,
+        le=100,
+        description="Potencia del blower en porcentaje",
+    )
+    cage_configs: list[LastValidCyclicCageConfigPayload] = Field(
+        min_length=1,
+        description="Configuración por jaula",
+    )
+
+    @field_validator("group_id", "doser_id")
+    @classmethod
+    def validate_uuid(cls, value: str) -> str:
+        UUID(value)
+        return value
+
+
+class LastValidCyclicFeedingConfigResponse(BaseModel):
+    id: str
+    line_id: str
+    group_id: str
+    doser_id: str
+    visits: int
+    blower_power_percentage: float
+    cage_configs: list[LastValidCyclicCageConfigPayload]
     updated_by: Optional[str] = None
     created_at: datetime
     updated_at: datetime

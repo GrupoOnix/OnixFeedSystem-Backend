@@ -10,7 +10,7 @@ from application.dtos.feeding_line_dtos import (
     SensorDTO,
 )
 from domain.repositories import IFeedingLineRepository
-from infrastructure.persistence.models import CageModel
+from infrastructure.persistence.models import SlotAssignmentModel
 
 
 class ListFeedingLinesUseCase:
@@ -46,9 +46,8 @@ class ListFeedingLinesUseCase:
     async def _get_cage_counts_by_line(self) -> dict[str, int]:
         """Obtiene el conteo de jaulas por línea."""
         stmt = (
-            select(CageModel.line_id, func.count(CageModel.id))
-            .where(CageModel.line_id.is_not(None))
-            .group_by(CageModel.line_id)
+            select(SlotAssignmentModel.line_id, func.count(SlotAssignmentModel.cage_id))
+            .group_by(SlotAssignmentModel.line_id)
         )
 
         result = await self._session.execute(stmt)

@@ -141,6 +141,8 @@ async def update_cage(
         result = await use_case.execute(cage_id, dto)
         return CageResponseModel.from_dto(result)
     except ValueError as e:
+        if "No existe una jaula" in str(e):
+            raise HTTPException(status_code=404, detail=str(e))
         raise HTTPException(status_code=400, detail=str(e))
 
 

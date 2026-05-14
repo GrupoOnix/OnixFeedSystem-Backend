@@ -14,6 +14,8 @@ from .feeding_event_model import FeedingEventModel
 from .feeding_line_model import FeedingLineModel
 from .feeding_session_model import FeedingSessionModel
 from .food_model import FoodModel
+from .last_selected_feeding_mode_model import LastSelectedFeedingModeModel
+from .last_valid_cyclic_feeding_config_model import LastValidCyclicFeedingConfigModel
 from .last_valid_manual_feeding_config_model import LastValidManualFeedingConfigModel
 
 # from .operation_event_model import OperationEventModel  # REMOVED - Old feeding system
@@ -43,6 +45,8 @@ __all__ = [
     "FeedingSessionModel",
     "FeedingEventModel",
     "LastValidManualFeedingConfigModel",
+    "LastValidCyclicFeedingConfigModel",
+    "LastSelectedFeedingModeModel",
     "FeedbackModel",
     # "OperationEventModel",  # REMOVED - Old feeding system
     "FoodModel",

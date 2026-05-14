@@ -98,8 +98,14 @@ from application.use_cases.feeding.control_feeding_use_cases import (
     UpdateFeedingRateUseCase,
 )
 from application.use_cases.feeding.manual_feeding_config_use_cases import (
+    GetLastSelectedFeedingModeUseCase,
+    GetLastValidCyclicFeedingConfigUseCase,
     GetLastValidManualFeedingConfigUseCase,
+    ListLastSelectedFeedingModesUseCase,
+    ListLastValidCyclicFeedingConfigsUseCase,
     ListLastValidManualFeedingConfigsUseCase,
+    UpsertLastSelectedFeedingModeUseCase,
+    UpsertLastValidCyclicFeedingConfigUseCase,
     UpsertLastValidManualFeedingConfigUseCase,
 )
 from application.use_cases.feeding.start_manual_feeding_use_case import (
@@ -157,6 +163,8 @@ from infrastructure.persistence.repositories import (
     FeedingEventRepository,
     FeedingLineRepository,
     FoodRepository,
+    LastSelectedFeedingModeRepository,
+    LastValidCyclicFeedingConfigRepository,
     LastValidManualFeedingConfigRepository,
     MortalityLogRepository,
     ScheduledAlertRepository,
@@ -310,6 +318,20 @@ async def get_last_valid_manual_feeding_config_repo(
 ) -> LastValidManualFeedingConfigRepository:
     """Crea instancia del repositorio de últimas configuraciones manuales válidas."""
     return LastValidManualFeedingConfigRepository(session)
+
+
+async def get_last_valid_cyclic_feeding_config_repo(
+    session: AsyncSession = Depends(get_session),
+) -> LastValidCyclicFeedingConfigRepository:
+    """Crea instancia del repositorio de últimas configuraciones cíclicas válidas."""
+    return LastValidCyclicFeedingConfigRepository(session)
+
+
+async def get_last_selected_feeding_mode_repo(
+    session: AsyncSession = Depends(get_session),
+) -> LastSelectedFeedingModeRepository:
+    """Crea instancia del repositorio de última opción de alimentación por línea."""
+    return LastSelectedFeedingModeRepository(session)
 
 
 # ============================================================================
@@ -726,6 +748,90 @@ async def get_upsert_last_valid_manual_feeding_config_use_case(
         config_repository=config_repo,
         line_repository=line_repo,
         cage_repository=cage_repo,
+        silo_repository=silo_repo,
+        slot_assignment_repository=slot_assignment_repo,
+    )
+
+
+async def get_list_last_selected_feeding_modes_use_case(
+    mode_repo: LastSelectedFeedingModeRepository = Depends(get_last_selected_feeding_mode_repo),
+    line_repo: FeedingLineRepository = Depends(get_line_repo),
+) -> ListLastSelectedFeedingModesUseCase:
+    return ListLastSelectedFeedingModesUseCase(
+        mode_repository=mode_repo,
+        line_repository=line_repo,
+    )
+
+
+async def get_get_last_selected_feeding_mode_use_case(
+    mode_repo: LastSelectedFeedingModeRepository = Depends(get_last_selected_feeding_mode_repo),
+    line_repo: FeedingLineRepository = Depends(get_line_repo),
+) -> GetLastSelectedFeedingModeUseCase:
+    return GetLastSelectedFeedingModeUseCase(
+        mode_repository=mode_repo,
+        line_repository=line_repo,
+    )
+
+
+async def get_upsert_last_selected_feeding_mode_use_case(
+    mode_repo: LastSelectedFeedingModeRepository = Depends(get_last_selected_feeding_mode_repo),
+    line_repo: FeedingLineRepository = Depends(get_line_repo),
+) -> UpsertLastSelectedFeedingModeUseCase:
+    return UpsertLastSelectedFeedingModeUseCase(
+        mode_repository=mode_repo,
+        line_repository=line_repo,
+    )
+
+
+async def get_list_last_valid_cyclic_feeding_configs_use_case(
+    config_repo: LastValidCyclicFeedingConfigRepository = Depends(get_last_valid_cyclic_feeding_config_repo),
+    line_repo: FeedingLineRepository = Depends(get_line_repo),
+    cage_repo: CageRepository = Depends(get_cage_repo),
+    cage_group_repo: CageGroupRepository = Depends(get_cage_group_repo),
+    silo_repo: SiloRepository = Depends(get_silo_repo),
+    slot_assignment_repo: SlotAssignmentRepository = Depends(get_slot_assignment_repo),
+) -> ListLastValidCyclicFeedingConfigsUseCase:
+    return ListLastValidCyclicFeedingConfigsUseCase(
+        config_repository=config_repo,
+        line_repository=line_repo,
+        cage_repository=cage_repo,
+        cage_group_repository=cage_group_repo,
+        silo_repository=silo_repo,
+        slot_assignment_repository=slot_assignment_repo,
+    )
+
+
+async def get_get_last_valid_cyclic_feeding_config_use_case(
+    config_repo: LastValidCyclicFeedingConfigRepository = Depends(get_last_valid_cyclic_feeding_config_repo),
+    line_repo: FeedingLineRepository = Depends(get_line_repo),
+    cage_repo: CageRepository = Depends(get_cage_repo),
+    cage_group_repo: CageGroupRepository = Depends(get_cage_group_repo),
+    silo_repo: SiloRepository = Depends(get_silo_repo),
+    slot_assignment_repo: SlotAssignmentRepository = Depends(get_slot_assignment_repo),
+) -> GetLastValidCyclicFeedingConfigUseCase:
+    return GetLastValidCyclicFeedingConfigUseCase(
+        config_repository=config_repo,
+        line_repository=line_repo,
+        cage_repository=cage_repo,
+        cage_group_repository=cage_group_repo,
+        silo_repository=silo_repo,
+        slot_assignment_repository=slot_assignment_repo,
+    )
+
+
+async def get_upsert_last_valid_cyclic_feeding_config_use_case(
+    config_repo: LastValidCyclicFeedingConfigRepository = Depends(get_last_valid_cyclic_feeding_config_repo),
+    line_repo: FeedingLineRepository = Depends(get_line_repo),
+    cage_repo: CageRepository = Depends(get_cage_repo),
+    cage_group_repo: CageGroupRepository = Depends(get_cage_group_repo),
+    silo_repo: SiloRepository = Depends(get_silo_repo),
+    slot_assignment_repo: SlotAssignmentRepository = Depends(get_slot_assignment_repo),
+) -> UpsertLastValidCyclicFeedingConfigUseCase:
+    return UpsertLastValidCyclicFeedingConfigUseCase(
+        config_repository=config_repo,
+        line_repository=line_repo,
+        cage_repository=cage_repo,
+        cage_group_repository=cage_group_repo,
         silo_repository=silo_repo,
         slot_assignment_repository=slot_assignment_repo,
     )

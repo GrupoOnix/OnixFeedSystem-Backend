@@ -2,18 +2,36 @@ from typing import Dict
 from uuid import UUID
 
 from application.dtos.manual_feeding_config_dtos import (
+    LastSelectedFeedingModePayload,
+    LastSelectedFeedingModeResponse,
+    LastValidCyclicFeedingConfigPayload,
+    LastValidCyclicFeedingConfigResponse,
     LastValidManualFeedingConfigPayload,
     LastValidManualFeedingConfigResponse,
 )
 from domain.repositories import (
+    ICageGroupRepository,
     ICageRepository,
     IFeedingLineRepository,
     ISiloRepository,
     ISlotAssignmentRepository,
 )
 from domain.value_objects import CageId, LineId, SiloId
+from domain.value_objects.identifiers import CageGroupId, DoserId
+from infrastructure.persistence.models.last_selected_feeding_mode_model import (
+    LastSelectedFeedingModeModel,
+)
+from infrastructure.persistence.models.last_valid_cyclic_feeding_config_model import (
+    LastValidCyclicFeedingConfigModel,
+)
 from infrastructure.persistence.models.last_valid_manual_feeding_config_model import (
     LastValidManualFeedingConfigModel,
+)
+from infrastructure.persistence.repositories.last_selected_feeding_mode_repository import (
+    LastSelectedFeedingModeRepository,
+)
+from infrastructure.persistence.repositories.last_valid_cyclic_feeding_config_repository import (
+    LastValidCyclicFeedingConfigRepository,
 )
 from infrastructure.persistence.repositories.last_valid_manual_feeding_config_repository import (
     LastValidManualFeedingConfigRepository,
@@ -113,6 +131,166 @@ class UpsertLastValidManualFeedingConfigUseCase:
         return await _to_response(config, self)
 
 
+class ListLastSelectedFeedingModesUseCase:
+    def __init__(
+        self,
+        mode_repository: LastSelectedFeedingModeRepository,
+        line_repository: IFeedingLineRepository,
+    ):
+        self.mode_repo = mode_repository
+        self.line_repo = line_repository
+
+    async def execute(self) -> Dict[str, LastSelectedFeedingModeResponse]:
+        modes = await self.mode_repo.list()
+        responses = [_mode_to_response(mode) for mode in modes]
+        return {response.line_id: response for response in responses}
+
+
+class GetLastSelectedFeedingModeUseCase:
+    def __init__(
+        self,
+        mode_repository: LastSelectedFeedingModeRepository,
+        line_repository: IFeedingLineRepository,
+    ):
+        self.mode_repo = mode_repository
+        self.line_repo = line_repository
+
+    async def execute(self, line_id: str) -> LastSelectedFeedingModeResponse:
+        line_uuid = UUID(line_id)
+        mode = await self.mode_repo.find_by_line_id(line_uuid)
+        if not mode:
+            raise LookupError(f"No existe opción seleccionada para la línea {line_id}")
+        return _mode_to_response(mode)
+
+
+class UpsertLastSelectedFeedingModeUseCase:
+    def __init__(
+        self,
+        mode_repository: LastSelectedFeedingModeRepository,
+        line_repository: IFeedingLineRepository,
+    ):
+        self.mode_repo = mode_repository
+        self.line_repo = line_repository
+
+    async def execute(
+        self,
+        line_id: str,
+        request: LastSelectedFeedingModePayload,
+        updated_by: str | None = None,
+    ) -> LastSelectedFeedingModeResponse:
+        line_uuid = UUID(line_id)
+        line = await self.line_repo.find_by_id(LineId(line_uuid))
+        if not line:
+            raise ValueError(f"Línea con ID {line_id} no encontrada")
+
+        mode = await self.mode_repo.upsert_by_line_id(
+            line_id=line_uuid,
+            selected_mode=request.selected_mode,
+            updated_by=updated_by,
+        )
+        return _mode_to_response(mode)
+
+
+class ListLastValidCyclicFeedingConfigsUseCase:
+    def __init__(
+        self,
+        config_repository: LastValidCyclicFeedingConfigRepository,
+        line_repository: IFeedingLineRepository,
+        cage_repository: ICageRepository,
+        cage_group_repository: ICageGroupRepository,
+        silo_repository: ISiloRepository,
+        slot_assignment_repository: ISlotAssignmentRepository,
+    ):
+        self.config_repo = config_repository
+        self.line_repo = line_repository
+        self.cage_repo = cage_repository
+        self.cage_group_repo = cage_group_repository
+        self.silo_repo = silo_repository
+        self.slot_assignment_repo = slot_assignment_repository
+
+    async def execute(self) -> Dict[str, LastValidCyclicFeedingConfigResponse]:
+        configs = await self.config_repo.list()
+        responses = [await _cyclic_to_response(config, self) for config in configs]
+        return {response.line_id: response for response in responses}
+
+
+class GetLastValidCyclicFeedingConfigUseCase:
+    def __init__(
+        self,
+        config_repository: LastValidCyclicFeedingConfigRepository,
+        line_repository: IFeedingLineRepository,
+        cage_repository: ICageRepository,
+        cage_group_repository: ICageGroupRepository,
+        silo_repository: ISiloRepository,
+        slot_assignment_repository: ISlotAssignmentRepository,
+    ):
+        self.config_repo = config_repository
+        self.line_repo = line_repository
+        self.cage_repo = cage_repository
+        self.cage_group_repo = cage_group_repository
+        self.silo_repo = silo_repository
+        self.slot_assignment_repo = slot_assignment_repository
+
+    async def execute(self, line_id: str) -> LastValidCyclicFeedingConfigResponse:
+        line_uuid = UUID(line_id)
+        config = await self.config_repo.find_by_line_id(line_uuid)
+        if not config:
+            raise LookupError(f"No existe configuración cíclica válida para la línea {line_id}")
+        return await _cyclic_to_response(config, self)
+
+
+class UpsertLastValidCyclicFeedingConfigUseCase:
+    def __init__(
+        self,
+        config_repository: LastValidCyclicFeedingConfigRepository,
+        line_repository: IFeedingLineRepository,
+        cage_repository: ICageRepository,
+        cage_group_repository: ICageGroupRepository,
+        silo_repository: ISiloRepository,
+        slot_assignment_repository: ISlotAssignmentRepository,
+    ):
+        self.config_repo = config_repository
+        self.line_repo = line_repository
+        self.cage_repo = cage_repository
+        self.cage_group_repo = cage_group_repository
+        self.silo_repo = silo_repository
+        self.slot_assignment_repo = slot_assignment_repository
+
+    async def execute(
+        self,
+        line_id: str,
+        request: LastValidCyclicFeedingConfigPayload,
+        updated_by: str | None = None,
+    ) -> LastValidCyclicFeedingConfigResponse:
+        line_uuid = UUID(line_id)
+        group_uuid = UUID(request.group_id)
+        doser_uuid = UUID(request.doser_id)
+
+        await _assert_cyclic_valid_for_save(
+            line_id=line_id,
+            line_uuid=line_uuid,
+            group_uuid=group_uuid,
+            doser_uuid=doser_uuid,
+            cage_configs=request.cage_configs,
+            line_repo=self.line_repo,
+            cage_repo=self.cage_repo,
+            cage_group_repo=self.cage_group_repo,
+            silo_repo=self.silo_repo,
+            slot_assignment_repo=self.slot_assignment_repo,
+        )
+
+        config = await self.config_repo.upsert_by_line_id(
+            line_id=line_uuid,
+            group_id=group_uuid,
+            doser_id=doser_uuid,
+            visits=request.visits,
+            blower_power_percentage=request.blower_power_percentage,
+            cage_configs=[cage_config.model_dump() for cage_config in request.cage_configs],
+            updated_by=updated_by,
+        )
+        return await _cyclic_to_response(config, self)
+
+
 async def _assert_valid_for_save(
     *,
     line_id: str,
@@ -142,6 +320,69 @@ async def _assert_valid_for_save(
     assignment = await slot_assignment_repo.find_by_cage(CageId(cage_uuid))
     if not assignment or assignment.line_id.value != line_uuid:
         raise ValueError(f"La jaula {cage_uuid} no pertenece a la línea {line_id}")
+
+
+async def _assert_cyclic_valid_for_save(
+    *,
+    line_id: str,
+    line_uuid: UUID,
+    group_uuid: UUID,
+    doser_uuid: UUID,
+    cage_configs,
+    line_repo: IFeedingLineRepository,
+    cage_repo: ICageRepository,
+    cage_group_repo: ICageGroupRepository,
+    silo_repo: ISiloRepository,
+    slot_assignment_repo: ISlotAssignmentRepository,
+) -> None:
+    line = await line_repo.find_by_id(LineId(line_uuid))
+    if not line:
+        raise ValueError(f"Línea con ID {line_id} no encontrada")
+
+    selected_doser = line.get_doser_by_id(DoserId(doser_uuid))
+    if not selected_doser:
+        raise ValueError(f"El doser {doser_uuid} no existe en la línea {line_id}")
+
+    silo = await silo_repo.find_by_id(selected_doser.assigned_silo_id)
+    if not silo:
+        raise ValueError(f"El doser {doser_uuid} no tiene un silo asignado")
+
+    group = await cage_group_repo.find_by_id(CageGroupId(group_uuid))
+    if not group:
+        raise ValueError(f"Grupo con ID {group_uuid} no encontrado")
+
+    group_cage_ids = {cage_id.value for cage_id in group.cage_ids}
+    request_cage_ids = {UUID(config.cage_id) for config in cage_configs}
+
+    missing_in_request = group_cage_ids - request_cage_ids
+    if missing_in_request:
+        raise ValueError(
+            "Las siguientes jaulas del grupo no están en la configuración: "
+            f"{', '.join(str(cage_id) for cage_id in missing_in_request)}"
+        )
+
+    extra_in_request = request_cage_ids - group_cage_ids
+    if extra_in_request:
+        raise ValueError(
+            "Las siguientes jaulas no pertenecen al grupo: "
+            f"{', '.join(str(cage_id) for cage_id in extra_in_request)}"
+        )
+
+    for cage_config in cage_configs:
+        cage_uuid = UUID(cage_config.cage_id)
+        cage = await cage_repo.find_by_id(CageId(cage_uuid))
+        if not cage:
+            raise ValueError(f"Jaula con ID {cage_uuid} no encontrada")
+
+        assignment = await slot_assignment_repo.find_by_cage(CageId(cage_uuid))
+        if not assignment or assignment.line_id.value != line_uuid:
+            raise ValueError(f"La jaula {cage_uuid} no pertenece a la línea {line_id}")
+
+        if cage_config.mode != "FASTING" and cage_config.rate_kg_per_min > selected_doser.max_rate_kg_per_min:
+            raise ValueError(
+                f"La tasa de la jaula {cage_uuid} ({cage_config.rate_kg_per_min} kg/min) "
+                f"excede la capacidad máxima del doser ({selected_doser.max_rate_kg_per_min} kg/min)"
+            )
 
 
 async def _is_valid_against_current_layout(
@@ -184,4 +425,66 @@ async def _to_response(
         created_at=config.created_at,
         updated_at=config.updated_at,
         is_valid_against_current_layout=await _is_valid_against_current_layout(config, use_case),
+    )
+
+
+def _mode_to_response(mode: LastSelectedFeedingModeModel) -> LastSelectedFeedingModeResponse:
+    return LastSelectedFeedingModeResponse(
+        id=str(mode.id),
+        line_id=str(mode.line_id),
+        selected_mode=mode.selected_mode,  # type: ignore[arg-type]
+        updated_by=mode.updated_by,
+        created_at=mode.created_at,
+        updated_at=mode.updated_at,
+    )
+
+
+async def _is_cyclic_valid_against_current_layout(
+    config: LastValidCyclicFeedingConfigModel,
+    use_case,
+) -> bool:
+    try:
+        payload = LastValidCyclicFeedingConfigPayload(
+            group_id=str(config.group_id),
+            doser_id=str(config.doser_id),
+            visits=config.visits,
+            blower_power_percentage=config.blower_power_percentage,
+            cage_configs=config.cage_configs,
+        )
+        await _assert_cyclic_valid_for_save(
+            line_id=str(config.line_id),
+            line_uuid=config.line_id,
+            group_uuid=config.group_id,
+            doser_uuid=config.doser_id,
+            cage_configs=payload.cage_configs,
+            line_repo=use_case.line_repo,
+            cage_repo=use_case.cage_repo,
+            cage_group_repo=use_case.cage_group_repo,
+            silo_repo=use_case.silo_repo,
+            slot_assignment_repo=use_case.slot_assignment_repo,
+        )
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
+async def _cyclic_to_response(
+    config: LastValidCyclicFeedingConfigModel,
+    use_case,
+) -> LastValidCyclicFeedingConfigResponse:
+    return LastValidCyclicFeedingConfigResponse(
+        id=str(config.id),
+        line_id=str(config.line_id),
+        group_id=str(config.group_id),
+        doser_id=str(config.doser_id),
+        visits=config.visits,
+        blower_power_percentage=config.blower_power_percentage,
+        cage_configs=[
+            LastValidCyclicCageConfigPayload(**cage_config)
+            for cage_config in config.cage_configs
+        ],
+        updated_by=config.updated_by,
+        created_at=config.created_at,
+        updated_at=config.updated_at,
+        is_valid_against_current_layout=await _is_cyclic_valid_against_current_layout(config, use_case),
     )

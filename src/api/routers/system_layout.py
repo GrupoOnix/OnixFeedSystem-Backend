@@ -28,9 +28,18 @@ async def save_system_layout(
         )
 
 
-@router.get("/export", response_model=SystemLayoutModel)
-async def export_system(use_case: GetUseCaseDep) -> SystemLayoutModel:
+async def _export_system_layout(use_case: GetUseCaseDep) -> SystemLayoutModel:
     silos, cages, lines, slot_assignments_by_line = await use_case.execute()
     return ResponseMapper.to_system_layout_model(
         silos, cages, lines, slot_assignments_by_line
     )
+
+
+@router.get("", response_model=SystemLayoutModel)
+async def get_system_layout(use_case: GetUseCaseDep) -> SystemLayoutModel:
+    return await _export_system_layout(use_case)
+
+
+@router.get("/export", response_model=SystemLayoutModel)
+async def export_system(use_case: GetUseCaseDep) -> SystemLayoutModel:
+    return await _export_system_layout(use_case)
