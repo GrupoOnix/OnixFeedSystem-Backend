@@ -1,8 +1,7 @@
 import asyncio
-from datetime import datetime, timezone
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
-from api.models.feeding_models import CageConfigInput, CyclicFeedingRequest, CyclicFeedingResponse
+from api.models.feeding_models import CyclicFeedingRequest, CyclicFeedingResponse
 from application.services.feeding_orchestrator import FeedingOrchestrator
 from domain.entities.cage_feeding import CageFeeding, CageFeedingMode
 from domain.entities.feeding_event import FeedingEvent
@@ -59,9 +58,9 @@ class StartCyclicFeedingUseCase:
     async def execute(self, request: CyclicFeedingRequest) -> CyclicFeedingResponse:
         # Paso 1: Validar y cargar todas las entidades necesarias
         line, group, doser, cage_data = await self._validate_request(request)
-        # cage_data: List[Tuple[CageConfigInput, cage, slot_assignment]]
+        # cage_data: configuración de jaula, jaula y asignación de slot
         line.reserve_for_feeding(operator_id=request.operator_id)
-        await self.line_repo.save(line)
+        await self.line_repo.save_available_status_transition(line)
 
         selected_doser = doser
         silo_id = selected_doser.assigned_silo_id

@@ -28,3 +28,20 @@ class FeedingHistoryPaginationDTO:
 class CageFeedingHistoryDTO:
     items: List[FeedingHistoryItemDTO]
     pagination: FeedingHistoryPaginationDTO
+
+
+@dataclass
+class DailyFeedingSummaryPointDTO:
+    date: str
+    total_dispensed_kg: float
+    total_programmed_kg: float
+    sessions_completed: int
+    sessions_cancelled: int
+    sessions_interrupted: int
+
+
+@dataclass
+class DailyFeedingSummaryDTO:
+    start_date: str
+    end_date: str
+    points: List[DailyFeedingSummaryPointDTO]

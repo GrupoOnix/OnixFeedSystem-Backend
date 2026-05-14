@@ -2,6 +2,7 @@ from typing import Dict
 from uuid import UUID
 
 from application.dtos.manual_feeding_config_dtos import (
+    LastValidCyclicCageConfigPayload,
     LastSelectedFeedingModePayload,
     LastSelectedFeedingModeResponse,
     LastValidCyclicFeedingConfigPayload,
@@ -351,7 +352,15 @@ async def _assert_cyclic_valid_for_save(
     if not group:
         raise ValueError(f"Grupo con ID {group_uuid} no encontrado")
 
-    group_cage_ids = {cage_id.value for cage_id in group.cage_ids}
+    group_cage_ids = await _get_existing_group_cage_ids_for_line(
+        group_cage_ids={cage_id.value for cage_id in group.cage_ids},
+        line_uuid=line_uuid,
+        cage_repo=cage_repo,
+        slot_assignment_repo=slot_assignment_repo,
+    )
+    if not group_cage_ids:
+        raise ValueError(f"El grupo {group_uuid} no contiene jaulas válidas para la línea {line_id}")
+
     request_cage_ids = {UUID(config.cage_id) for config in cage_configs}
 
     missing_in_request = group_cage_ids - request_cage_ids
@@ -383,6 +392,26 @@ async def _assert_cyclic_valid_for_save(
                 f"La tasa de la jaula {cage_uuid} ({cage_config.rate_kg_per_min} kg/min) "
                 f"excede la capacidad máxima del doser ({selected_doser.max_rate_kg_per_min} kg/min)"
             )
+
+
+async def _get_existing_group_cage_ids_for_line(
+    *,
+    group_cage_ids: set[UUID],
+    line_uuid: UUID,
+    cage_repo: ICageRepository,
+    slot_assignment_repo: ISlotAssignmentRepository,
+) -> set[UUID]:
+    valid_cage_ids: set[UUID] = set()
+    for cage_uuid in group_cage_ids:
+        cage = await cage_repo.find_by_id(CageId(cage_uuid))
+        if not cage:
+            continue
+
+        assignment = await slot_assignment_repo.find_by_cage(CageId(cage_uuid))
+        if assignment and assignment.line_id.value == line_uuid:
+            valid_cage_ids.add(cage_uuid)
+
+    return valid_cage_ids
 
 
 async def _is_valid_against_current_layout(

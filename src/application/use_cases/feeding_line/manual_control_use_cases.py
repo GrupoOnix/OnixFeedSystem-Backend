@@ -23,7 +23,7 @@ class AcquireManualControlUseCase:
             )
 
         feeding_line.acquire_manual_control(operator_id=operator_id, reason=reason)
-        await self._feeding_line_repository.save(feeding_line)
+        await self._feeding_line_repository.save_available_status_transition(feeding_line)
         return _to_status_response(feeding_line)
 
 

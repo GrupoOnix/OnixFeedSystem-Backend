@@ -1,5 +1,6 @@
 from datetime import date, datetime, time, timezone
-from typing import Annotated, List, Optional
+from typing import Annotated, List, Literal, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from zoneinfo import ZoneInfo
@@ -8,6 +9,7 @@ from api.dependencies import (
     get_cancel_feeding_use_case,
     get_cage_feeding_repo,
     get_cage_repo,
+    get_daily_feeding_summary_use_case,
     get_feeding_event_repo,
     get_feeding_session_repo,
     get_get_last_selected_feeding_mode_use_case,
@@ -49,6 +51,7 @@ from api.models.feeding_models import (
     CyclicFeedingRequest,
     CyclicFeedingResponse,
     CyclicSessionStatusResponse,
+    DailyFeedingSummaryResponse,
     DailyFeedingStatsResponse,
     FeedingActionResponse,
     FeedingSessionStatusResponse,
@@ -93,6 +96,9 @@ from application.use_cases.feeding.manual_feeding_config_use_cases import (
     UpsertLastSelectedFeedingModeUseCase,
     UpsertLastValidCyclicFeedingConfigUseCase,
     UpsertLastValidManualFeedingConfigUseCase,
+)
+from application.use_cases.feeding.get_daily_feeding_summary_use_case import (
+    GetDailyFeedingSummaryUseCase,
 )
 from domain.entities.feeding_event import FeedingEventType
 from domain.entities.feeding_session import SessionStatus
@@ -459,6 +465,27 @@ async def get_daily_feeding_stats(
             sessions_completed=sessions_completed,
             sessions_in_progress=sessions_in_progress,
         )
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.get("/stats/daily-summary")
+async def get_daily_feeding_summary(
+    use_case: Annotated[GetDailyFeedingSummaryUseCase, Depends(get_daily_feeding_summary_use_case)],
+    start_date: date = Query(description="Fecha inicial YYYY-MM-DD"),
+    end_date: date = Query(description="Fecha final YYYY-MM-DD"),
+    line_id: Optional[UUID] = Query(default=None, description="Filtrar por línea"),
+    type: Optional[Literal["MANUAL", "CYCLIC"]] = Query(default=None, description="Filtrar por tipo"),
+) -> DailyFeedingSummaryResponse:
+    try:
+        return await use_case.execute(
+            start_date=start_date,
+            end_date=end_date,
+            line_id=str(line_id) if line_id else None,
+            feeding_type=type,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 

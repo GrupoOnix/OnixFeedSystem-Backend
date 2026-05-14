@@ -15,7 +15,14 @@ from domain.entities.feeding_event import FeedingEvent, FeedingEventType
 from domain.entities.feeding_session import FeedingSession as FeedingSessionEntity
 from domain.entities.population_event import PopulationEvent
 from domain.entities.slot_assignment import SlotAssignment
-from domain.enums import ActivityLogCategory, ActivityLogEventType, AlertCategory, AlertStatus, AlertType, PopulationEventType
+from domain.enums import (
+    ActivityLogCategory,
+    ActivityLogEventType,
+    AlertCategory,
+    AlertStatus,
+    AlertType,
+    PopulationEventType,
+)
 
 from .aggregates.feeding_line.feeding_line import FeedingLine
 from .value_objects import (
@@ -33,7 +40,6 @@ from .value_objects import (
     LineName,
     MortalityLogEntry,
     ScheduledAlertId,
-    SessionId,
     SiloId,
     SiloName,
 )
@@ -42,6 +48,9 @@ from .value_objects import (
 class IFeedingLineRepository(ABC):
     @abstractmethod
     async def save(self, feeding_line: FeedingLine) -> None: ...
+
+    @abstractmethod
+    async def save_available_status_transition(self, feeding_line: FeedingLine) -> None: ...
 
     @abstractmethod
     async def find_by_id(self, line_id: LineId) -> Optional[FeedingLine]: ...

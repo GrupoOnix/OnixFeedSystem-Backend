@@ -6,11 +6,14 @@ import pytest
 from pydantic import ValidationError
 
 from application.dtos.manual_feeding_config_dtos import (
+    LastValidCyclicCageConfigPayload,
+    LastValidCyclicFeedingConfigPayload,
     LastValidManualFeedingConfigPayload,
 )
 from application.use_cases.feeding.manual_feeding_config_use_cases import (
     GetLastValidManualFeedingConfigUseCase,
     ListLastValidManualFeedingConfigsUseCase,
+    UpsertLastValidCyclicFeedingConfigUseCase,
     UpsertLastValidManualFeedingConfigUseCase,
 )
 from infrastructure.persistence.models.last_valid_manual_feeding_config_model import (
@@ -43,6 +46,25 @@ class FakeConfigRepository:
 
         config = LastValidManualFeedingConfigModel(**kwargs)
         self.configs[line_id] = config
+        return config
+
+
+class FakeCyclicConfigRepository:
+    def __init__(self):
+        self.configs = {}
+
+    async def find_by_line_id(self, line_id):
+        return self.configs.get(line_id)
+
+    async def upsert_by_line_id(self, **kwargs):
+        now = datetime.now(timezone.utc)
+        config = SimpleNamespace(
+            id=uuid4(),
+            updated_at=now,
+            created_at=now,
+            **kwargs,
+        )
+        self.configs[kwargs["line_id"]] = config
         return config
 
 
@@ -81,9 +103,36 @@ class FakeSlotAssignmentRepository:
         return SimpleNamespace(line_id=SimpleNamespace(value=line_id))
 
 
+class FakeCageGroupRepository:
+    def __init__(self, groups):
+        self.groups = groups
+
+    async def find_by_id(self, group_id):
+        cage_ids = self.groups.get(group_id.value)
+        if cage_ids is None:
+            return None
+        return SimpleNamespace(
+            id=group_id,
+            cage_ids=[SimpleNamespace(value=cage_id) for cage_id in cage_ids],
+        )
+
+
 def make_line(*silo_ids):
     return SimpleNamespace(
         dosers=[SimpleNamespace(assigned_silo_id=SimpleNamespace(value=silo_id)) for silo_id in silo_ids]
+    )
+
+
+def make_cyclic_line(doser_id, silo_id):
+    selected_doser = SimpleNamespace(
+        id=SimpleNamespace(value=doser_id),
+        assigned_silo_id=SimpleNamespace(value=silo_id),
+        max_rate_kg_per_min=30,
+    )
+
+    return SimpleNamespace(
+        dosers=[selected_doser],
+        get_doser_by_id=lambda value: selected_doser if value.value == doser_id else None,
     )
 
 
@@ -218,6 +267,61 @@ def test_rejects_unsupported_dosing_unit():
             dosing_unit="GRAMS_PER_SECOND",
             blower_power_percentage=70,
         )
+
+
+@pytest.mark.asyncio
+async def test_cyclic_config_ignores_stale_group_cages_when_saving():
+    line_id = uuid4()
+    group_id = uuid4()
+    doser_id = uuid4()
+    silo_id = uuid4()
+    cage_id = uuid4()
+    second_cage_id = uuid4()
+    stale_cage_id = uuid4()
+    config_repo = FakeCyclicConfigRepository()
+
+    use_case = UpsertLastValidCyclicFeedingConfigUseCase(
+        config_repo,
+        FakeLineRepository({line_id: make_cyclic_line(doser_id, silo_id)}),
+        FakeCageRepository({cage_id, second_cage_id}),
+        FakeCageGroupRepository({group_id: {cage_id, second_cage_id, stale_cage_id}}),
+        FakeSiloRepository({silo_id}),
+        FakeSlotAssignmentRepository({
+            cage_id: line_id,
+            second_cage_id: line_id,
+        }),
+    )
+
+    response = await use_case.execute(
+        str(line_id),
+        LastValidCyclicFeedingConfigPayload(
+            group_id=str(group_id),
+            doser_id=str(doser_id),
+            visits=10,
+            blower_power_percentage=70,
+            cage_configs=[
+                LastValidCyclicCageConfigPayload(
+                    cage_id=str(cage_id),
+                    quantity_kg=10,
+                    rate_kg_per_min=10,
+                    mode="NORMAL",
+                ),
+                LastValidCyclicCageConfigPayload(
+                    cage_id=str(second_cage_id),
+                    quantity_kg=10,
+                    rate_kg_per_min=10,
+                    mode="NORMAL",
+                ),
+            ],
+        ),
+    )
+
+    assert response.line_id == str(line_id)
+    assert response.is_valid_against_current_layout is True
+    assert {config.cage_id for config in response.cage_configs} == {
+        str(cage_id),
+        str(second_cage_id),
+    }
 
 
 @pytest.mark.asyncio

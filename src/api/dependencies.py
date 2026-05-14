@@ -97,6 +97,9 @@ from application.use_cases.feeding.control_feeding_use_cases import (
     UpdateBlowerPowerUseCase,
     UpdateFeedingRateUseCase,
 )
+from application.use_cases.feeding.get_daily_feeding_summary_use_case import (
+    GetDailyFeedingSummaryUseCase,
+)
 from application.use_cases.feeding.manual_feeding_config_use_cases import (
     GetLastSelectedFeedingModeUseCase,
     GetLastValidCyclicFeedingConfigUseCase,
@@ -866,6 +869,16 @@ async def get_start_cyclic_feeding_use_case(
     )
 
 
+async def get_daily_feeding_summary_use_case(
+    session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
+    system_config_repo: SystemConfigRepository = Depends(get_system_config_repo),
+) -> GetDailyFeedingSummaryUseCase:
+    return GetDailyFeedingSummaryUseCase(
+        session_repository=session_repo,
+        system_config_repository=system_config_repo,
+    )
+
+
 # ============================================================================
 # Dependencias de Casos de Uso - Feeding (Control)
 # ============================================================================
@@ -1524,6 +1537,11 @@ UpsertLastValidManualFeedingConfigUseCaseDep = Annotated[
 ]
 
 StartCyclicFeedingUseCaseDep = Annotated[StartCyclicFeedingUseCase, Depends(get_start_cyclic_feeding_use_case)]
+
+GetDailyFeedingSummaryUseCaseDep = Annotated[
+    GetDailyFeedingSummaryUseCase,
+    Depends(get_daily_feeding_summary_use_case),
+]
 
 UpdateFeedingRateUseCaseDep = Annotated[UpdateFeedingRateUseCase, Depends(get_update_feeding_rate_use_case)]
 
