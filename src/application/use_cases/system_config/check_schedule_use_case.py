@@ -18,6 +18,15 @@ from domain.value_objects import CageId, LineId
 from domain.value_objects.identifiers import CageGroupId, DoserId
 
 
+def _visits_for_config(request: CyclicFeedingRequest, cfg) -> int:
+    visits = cfg.visits if cfg.visits is not None else request.visits
+    if visits is None:
+        raise ValueError(
+            "Cada jaula activa debe declarar visits o el request debe incluir visits global"
+        )
+    return visits
+
+
 class CheckScheduleUseCase:
 
     def __init__(
@@ -56,7 +65,11 @@ class CheckScheduleUseCase:
             remaining_minutes=round(remaining_seconds / 60, 2),
         )
 
-    async def _calculate_manual_duration(self, request: ManualFeedingRequest, selector_positioning_seconds: float) -> float:
+    async def _calculate_manual_duration(
+        self,
+        request: ManualFeedingRequest,
+        selector_positioning_seconds: float,
+    ) -> float:
         line = await self._line_repo.find_by_id(LineId.from_string(request.line_id))
         if not line:
             raise ValueError(f"Línea con ID {request.line_id} no encontrada")
@@ -119,7 +132,11 @@ class CheckScheduleUseCase:
 
         return estimated_seconds
 
-    async def _calculate_cyclic_duration(self, request: CyclicFeedingRequest, selector_positioning_seconds: float) -> float:
+    async def _calculate_cyclic_duration(
+        self,
+        request: CyclicFeedingRequest,
+        selector_positioning_seconds: float,
+    ) -> float:
         line = await self._line_repo.find_by_id(LineId.from_string(request.line_id))
         if not line:
             raise ValueError(f"Línea con ID {request.line_id} no encontrada")
@@ -165,7 +182,9 @@ class CheckScheduleUseCase:
                 f"El doser {request.doser_id} no existe en la línea {request.line_id}"
             )
 
-        estimated_seconds = 0.0
+        active_visit_counts: list[int] = []
+        per_cage_visit_seconds: dict[str, float] = {}
+        per_cage_empty_visit_seconds: dict[str, float] = {}
 
         for cfg in request.cage_configs:
             if cfg.mode == "FASTING":
@@ -204,7 +223,9 @@ class CheckScheduleUseCase:
                     f"({selected_doser.max_rate_kg_per_min} kg/min)"
                 )
 
-            kg_per_visit = round(cfg.quantity_kg / request.visits, 3)
+            visits = _visits_for_config(request, cfg)
+            active_visit_counts.append(visits)
+            kg_per_visit = round(cfg.quantity_kg / visits, 3)
             visit_seconds = calculate_visit_duration(
                 quantity_kg=kg_per_visit,
                 rate_kg_per_min=cfg.rate_kg_per_min,
@@ -214,7 +235,22 @@ class CheckScheduleUseCase:
                 include_blow_before=False,
                 include_blow_after=False,
             )
-            estimated_seconds += visit_seconds * request.visits
+            per_cage_visit_seconds[cfg.cage_id] = visit_seconds
+            per_cage_empty_visit_seconds[cfg.cage_id] = (
+                selector_positioning_seconds + float(cage.config.transport_time_seconds)
+            )
+
+        estimated_seconds = 0.0
+        total_rounds = max(active_visit_counts, default=0)
+        for round_number in range(total_rounds):
+            for cfg in request.cage_configs:
+                if cfg.mode == "FASTING":
+                    continue
+                visits = _visits_for_config(request, cfg)
+                if round_number < visits:
+                    estimated_seconds += per_cage_visit_seconds[cfg.cage_id]
+                else:
+                    estimated_seconds += per_cage_empty_visit_seconds[cfg.cage_id]
 
         # Soplido previo al inicio y posterior al final: una sola vez cada uno
         estimated_seconds += (

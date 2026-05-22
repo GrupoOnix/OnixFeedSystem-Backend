@@ -2,10 +2,11 @@ import pytest
 
 from application.use_cases.feeding.control_feeding_use_cases import (
     CancelFeedingUseCase,
+    UpdateCageModeUseCase,
     UpdateFeedingAmountUseCase,
 )
 from domain.dtos.machine_io import MachineVisitStatus
-from domain.entities.cage_feeding import CageFeeding
+from domain.entities.cage_feeding import CageFeeding, CageFeedingMode
 from domain.entities.feeding_event import FeedingEventType
 from domain.entities.feeding_session import FeedingSession, FeedingType, SessionStatus
 from domain.value_objects import BlowerPowerPercentage, LineId
@@ -222,3 +223,48 @@ async def test_update_feeding_amount_rejects_amount_below_live_dispensed():
 
     with pytest.raises(ValueError, match="no puede ser menor"):
         await use_case.execute(session.id, new_amount_kg=5.0)
+
+
+@pytest.mark.asyncio
+async def test_update_cage_mode_persists_pause_for_next_visit_without_touching_machine():
+    line_id = LineId.generate()
+    session = FeedingSession(
+        feeding_type=FeedingType.CYCLIC,
+        line_id=str(line_id),
+        operator_id="operator-1",
+        total_programmed_kg=150.0,
+    )
+    session.start()
+    cage_feeding = CageFeeding(
+        feeding_session_id=session.id,
+        cage_id="123e4567-e89b-12d3-a456-426614174001",
+        doser_id="123e4567-e89b-12d3-a456-426614174002",
+        silo_id="123e4567-e89b-12d3-a456-426614174003",
+        execution_order=1,
+        programmed_kg=10.0,
+        programmed_visits=15,
+        rate_kg_per_min=2.0,
+    )
+    cage_feeding.start()
+    cage_feeding.increment_completed_visits()
+    cage_feeding_repo = _CageFeedingRepo([cage_feeding])
+    event_repo = _EventRepo()
+
+    use_case = UpdateCageModeUseCase(
+        session_repo=_SessionRepo(session),
+        cage_feeding_repo=cage_feeding_repo,
+        event_repo=event_repo,
+    )
+
+    previous_mode, new_mode = await use_case.execute(
+        session_id=session.id,
+        cage_id=cage_feeding.cage_id,
+        new_mode="PAUSE",
+        operator_id="123e4567-e89b-12d3-a456-426614174099",
+    )
+
+    assert previous_mode == "NORMAL"
+    assert new_mode == "PAUSE"
+    assert cage_feeding_repo.saved.mode == CageFeedingMode.PAUSE
+    assert event_repo.saved[0].event_type == FeedingEventType.CAGE_MODE_CHANGED
+    assert event_repo.saved[0].data["applied_immediately"] is False

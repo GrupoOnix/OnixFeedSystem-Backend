@@ -138,7 +138,8 @@ class FeedingEvent:
         feeding_session_id: str,
         cage_id: str,
         visit_number: int,
-        cycle_number: int
+        cycle_number: int,
+        is_empty_visit: bool = False,
     ):
         """Evento de inicio de visita a una jaula."""
         return cls(
@@ -147,7 +148,8 @@ class FeedingEvent:
             data={
                 "cage_id": cage_id,
                 "visit_number": visit_number,
-                "cycle_number": cycle_number
+                "cycle_number": cycle_number,
+                "is_empty_visit": is_empty_visit,
             }
         )
 
@@ -159,7 +161,8 @@ class FeedingEvent:
         visit_number: int,
         cycle_number: int,
         dispensed_grams: float,
-        duration_seconds: float
+        duration_seconds: float,
+        is_empty_visit: bool = False,
     ):
         """Evento de visita completada."""
         return cls(
@@ -170,7 +173,8 @@ class FeedingEvent:
                 "visit_number": visit_number,
                 "cycle_number": cycle_number,
                 "dispensed_grams": dispensed_grams,
-                "duration_seconds": duration_seconds
+                "duration_seconds": duration_seconds,
+                "is_empty_visit": is_empty_visit,
             }
         )
 
@@ -247,7 +251,9 @@ class FeedingEvent:
         feeding_session_id: str,
         cage_id: str,
         previous_mode: str,
-        new_mode: str
+        new_mode: str,
+        operator_id: str | None = None,
+        applied_immediately: bool = False,
     ):
         """Evento de cambio de modo de jaula (NORMAL/PAUSE/FASTING)."""
         return cls(
@@ -256,7 +262,9 @@ class FeedingEvent:
             data={
                 "cage_id": cage_id,
                 "previous_mode": previous_mode,
-                "new_mode": new_mode
+                "new_mode": new_mode,
+                "operator_id": operator_id,
+                "applied_immediately": applied_immediately,
             }
         )
 

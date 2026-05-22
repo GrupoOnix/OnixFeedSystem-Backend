@@ -93,6 +93,7 @@ from application.use_cases.feeding.control_feeding_use_cases import (
     CancelFeedingUseCase,
     PauseFeedingUseCase,
     ResumeFeedingUseCase,
+    UpdateCageModeUseCase,
     UpdateFeedingAmountUseCase,
     UpdateBlowerPowerUseCase,
     UpdateFeedingRateUseCase,
@@ -914,6 +915,18 @@ async def get_update_feeding_amount_use_case(
     )
 
 
+async def get_update_cage_mode_use_case(
+    session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
+    cage_feeding_repo: CageFeedingRepository = Depends(get_cage_feeding_repo),
+    event_repo: FeedingEventRepository = Depends(get_feeding_event_repo),
+) -> UpdateCageModeUseCase:
+    return UpdateCageModeUseCase(
+        session_repo=session_repo,
+        cage_feeding_repo=cage_feeding_repo,
+        event_repo=event_repo,
+    )
+
+
 async def get_pause_feeding_use_case(
     session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
     cage_feeding_repo: CageFeedingRepository = Depends(get_cage_feeding_repo),
@@ -1546,6 +1559,8 @@ GetDailyFeedingSummaryUseCaseDep = Annotated[
 UpdateFeedingRateUseCaseDep = Annotated[UpdateFeedingRateUseCase, Depends(get_update_feeding_rate_use_case)]
 
 UpdateFeedingAmountUseCaseDep = Annotated[UpdateFeedingAmountUseCase, Depends(get_update_feeding_amount_use_case)]
+
+UpdateCageModeUseCaseDep = Annotated[UpdateCageModeUseCase, Depends(get_update_cage_mode_use_case)]
 
 PauseFeedingUseCaseDep = Annotated[PauseFeedingUseCase, Depends(get_pause_feeding_use_case)]
 

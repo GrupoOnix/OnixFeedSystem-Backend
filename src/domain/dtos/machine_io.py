@@ -26,10 +26,12 @@ class MachineCommand:
     def __post_init__(self):
         if self.slot_number < 0:
             raise ValueError("slot_number no puede ser negativo")
-        if self.target_kg <= 0:
-            raise ValueError("target_kg debe ser mayor a 0")
-        if self.doser_rate_kg_per_min <= 0:
-            raise ValueError("doser_rate_kg_per_min debe ser mayor a 0")
+        if self.target_kg < 0:
+            raise ValueError("target_kg no puede ser negativo")
+        if self.target_kg > 0 and self.doser_rate_kg_per_min <= 0:
+            raise ValueError("doser_rate_kg_per_min debe ser mayor a 0 cuando target_kg es mayor a 0")
+        if self.target_kg == 0 and self.doser_rate_kg_per_min < 0:
+            raise ValueError("doser_rate_kg_per_min no puede ser negativa")
         if not (0.0 <= self.blower_power_percentage <= 100.0):
             raise ValueError("blower_power_percentage debe estar entre 0 y 100")
 

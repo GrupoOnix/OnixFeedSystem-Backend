@@ -27,6 +27,23 @@ from domain.value_objects.identifiers import CageGroupId, DoserId
 from domain.value_objects.measurements import Weight
 
 
+def _visits_for_config(request: CyclicFeedingRequest, cfg) -> int:
+    visits = cfg.visits if cfg.visits is not None else request.visits
+    if visits is None:
+        raise ValueError(
+            "Cada jaula activa debe declarar visits o el request debe incluir visits global"
+        )
+    return visits
+
+
+def _empty_visit_duration_seconds(
+    *,
+    transport_time_seconds: float,
+    selector_positioning_seconds: float,
+) -> float:
+    return selector_positioning_seconds + transport_time_seconds
+
+
 class StartCyclicFeedingUseCase:
 
     def __init__(
@@ -92,12 +109,16 @@ class StartCyclicFeedingUseCase:
         config = await self.system_config_repo.get()
         selector_positioning_seconds = float(config.selector_positioning_time_seconds)
 
-        estimated_total_seconds = 0.0
+        active_visit_counts: List[int] = []
+        per_cage_visit_seconds: Dict[str, float] = {}
+        per_cage_empty_visit_seconds: Dict[str, float] = {}
         for cfg, cage, _assignment in cage_data:
             if cfg.mode == "FASTING":
                 continue
+            visits = _visits_for_config(request, cfg)
+            active_visit_counts.append(visits)
             transport_time = float(cage.config.transport_time_seconds)
-            kg_per_visit = round(cfg.quantity_kg / request.visits, 3)
+            kg_per_visit = round(cfg.quantity_kg / visits, 3)
             visit_seconds = calculate_visit_duration(
                 quantity_kg=kg_per_visit,
                 rate_kg_per_min=cfg.rate_kg_per_min,
@@ -107,7 +128,22 @@ class StartCyclicFeedingUseCase:
                 include_blow_before=False,
                 include_blow_after=False,
             )
-            estimated_total_seconds += visit_seconds * request.visits
+            per_cage_visit_seconds[cfg.cage_id] = visit_seconds
+            per_cage_empty_visit_seconds[cfg.cage_id] = _empty_visit_duration_seconds(
+                transport_time_seconds=transport_time,
+                selector_positioning_seconds=selector_positioning_seconds,
+            )
+        estimated_total_seconds = 0.0
+        total_rounds = max(active_visit_counts, default=0)
+        for round_number in range(total_rounds):
+            for cfg, _cage, _assignment in cage_data:
+                if cfg.mode == "FASTING":
+                    continue
+                visits = _visits_for_config(request, cfg)
+                if round_number < visits:
+                    estimated_total_seconds += per_cage_visit_seconds[cfg.cage_id]
+                else:
+                    estimated_total_seconds += per_cage_empty_visit_seconds[cfg.cage_id]
         # Soplido previo al inicio y posterior al final: una sola vez cada uno
         estimated_total_seconds += blow_before + blow_after
 
@@ -133,10 +169,10 @@ class StartCyclicFeedingUseCase:
             mode = CageFeedingMode(cfg.mode)
 
             # FASTING: programmed_visits=0 → el orquestador la saltará
-            programmed_visits = 0 if mode == CageFeedingMode.FASTING else request.visits
+            programmed_visits = 0 if mode == CageFeedingMode.FASTING else _visits_for_config(request, cfg)
 
             # Calcular kg por visita (quantity_kg del request es el total para la jaula)
-            kg_per_visit = round(cfg.quantity_kg / request.visits, 3) if programmed_visits > 0 else 0.0
+            kg_per_visit = round(cfg.quantity_kg / programmed_visits, 3) if programmed_visits > 0 else 0.0
 
             cage_feeding = CageFeeding(
                 feeding_session_id=session.id,
@@ -176,7 +212,10 @@ class StartCyclicFeedingUseCase:
                     event_type=ActivityLogEventType.INFO,
                     category=ActivityLogCategory.FEEDING,
                     message="Inicio de operación de alimentación",
-                    details=f"{cf.quantity_kg} kg a {cf.rate_kg_per_min} kg/min ({request.visits} visitas)",
+                    details=(
+                        f"{cf.quantity_kg} kg a {cf.rate_kg_per_min} kg/min "
+                        f"({_visits_for_config(request, cf)} visitas)"
+                    ),
                     source_entity_type="feeding_session",
                     source_entity_id=session.id,
                 )

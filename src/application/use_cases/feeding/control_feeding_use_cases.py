@@ -1,3 +1,4 @@
+from domain.entities.cage_feeding import CageFeedingMode
 from domain.entities.feeding_event import FeedingEvent
 from domain.enums import ActivityLogCategory, ActivityLogEventType
 from domain.interfaces import IMachine
@@ -130,6 +131,68 @@ class UpdateFeedingAmountUseCase:
         await self._event_repo.save(event)
 
         return new_amount_kg
+
+
+class UpdateCageModeUseCase:
+    def __init__(
+        self,
+        session_repo: IFeedingSessionRepository,
+        cage_feeding_repo: ICageFeedingRepository,
+        event_repo: IFeedingEventRepository,
+    ):
+        self._session_repo = session_repo
+        self._cage_feeding_repo = cage_feeding_repo
+        self._event_repo = event_repo
+
+    async def execute(
+        self,
+        session_id: str,
+        cage_id: str,
+        new_mode: str,
+        operator_id: str,
+    ) -> tuple[str, str]:
+        session = await self._session_repo.find_by_id(session_id)
+        if not session:
+            raise ValueError(f"Sesión {session_id} no encontrada")
+        if session.type.value != "CYCLIC":
+            raise ValueError("El cambio de modo por jaula solo aplica a sesiones cíclicas")
+        if session.status.value not in ("IN_PROGRESS", "PAUSED"):
+            raise ValueError(f"La sesión no está activa (estado: {session.status.value})")
+
+        try:
+            mode = CageFeedingMode(new_mode)
+        except ValueError:
+            raise ValueError("mode debe ser 'NORMAL' o 'PAUSE'") from None
+        if mode == CageFeedingMode.FASTING:
+            raise ValueError("No se permite cambiar a FASTING durante una sesión activa")
+
+        cage_feedings = await self._cage_feeding_repo.find_by_session(session_id)
+        cage_feeding = next((cf for cf in cage_feedings if cf.cage_id == cage_id), None)
+        if not cage_feeding:
+            raise ValueError(f"La jaula {cage_id} no pertenece a la sesión {session_id}")
+        if cage_feeding.mode == CageFeedingMode.FASTING:
+            raise ValueError("No se puede cambiar el modo de una jaula en FASTING")
+        if cage_feeding.completed_visits >= cage_feeding.programmed_visits:
+            raise ValueError("La jaula ya completó sus visitas programadas")
+
+        previous_mode = cage_feeding.mode.value
+        if previous_mode == mode.value:
+            return previous_mode, mode.value
+
+        cage_feeding.set_mode(mode)
+        await self._cage_feeding_repo.save(cage_feeding)
+
+        event = FeedingEvent.cage_mode_changed(
+            feeding_session_id=session_id,
+            cage_id=cage_id,
+            previous_mode=previous_mode,
+            new_mode=mode.value,
+            operator_id=operator_id,
+            applied_immediately=False,
+        )
+        await self._event_repo.save(event)
+
+        return previous_mode, mode.value
 
 
 class PauseFeedingUseCase:

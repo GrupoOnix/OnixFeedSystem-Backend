@@ -106,20 +106,24 @@ async def build_cyclic_status(
     active_cfs = [cf for cf in cf_list if cf.mode != CageFeedingMode.FASTING]
     total_rounds = max((cf.programmed_visits for cf in active_cfs), default=0)
     total_cages = len(active_cfs)
-
-    if session.status.value == "COMPLETED":
-        current_round = total_rounds
-    elif active_cfs:
-        current_round = min(cf.completed_visits for cf in active_cfs) + 1
-    else:
-        current_round = 0
-
     active_cf = next(
         (cf for cf in cf_list
          if cf.mode != CageFeedingMode.FASTING
-         and cf.completed_visits < current_round),
+         and cf.status.value == "IN_PROGRESS"),
         None,
     ) if session.status.value == "IN_PROGRESS" else None
+
+    if session.status.value == "COMPLETED":
+        current_round = total_rounds
+    elif active_cf:
+        current_round = min(active_cf.completed_visits + 1, total_rounds)
+    elif active_cfs:
+        current_round = min(
+            max((cf.completed_visits for cf in active_cfs), default=0) + 1,
+            total_rounds,
+        )
+    else:
+        current_round = 0
 
     total_dispensed_kg = sum(cf.dispensed_kg for cf in cf_list)
     if active_cf:

@@ -9,10 +9,16 @@ from application.dtos.manual_feeding_config_dtos import (
     LastValidCyclicCageConfigPayload,
     LastValidCyclicFeedingConfigPayload,
     LastValidManualFeedingConfigPayload,
+    LastSelectedFeedingModePayload,
 )
 from application.use_cases.feeding.manual_feeding_config_use_cases import (
+    GetLastSelectedFeedingModeUseCase,
+    GetLastValidCyclicFeedingConfigUseCase,
     GetLastValidManualFeedingConfigUseCase,
+    ListLastSelectedFeedingModesUseCase,
+    ListLastValidCyclicFeedingConfigsUseCase,
     ListLastValidManualFeedingConfigsUseCase,
+    UpsertLastSelectedFeedingModeUseCase,
     UpsertLastValidCyclicFeedingConfigUseCase,
     UpsertLastValidManualFeedingConfigUseCase,
 )
@@ -53,10 +59,24 @@ class FakeCyclicConfigRepository:
     def __init__(self):
         self.configs = {}
 
+    async def list(self):
+        return list(self.configs.values())
+
     async def find_by_line_id(self, line_id):
         return self.configs.get(line_id)
 
     async def upsert_by_line_id(self, **kwargs):
+        existing = self.configs.get(kwargs["line_id"])
+        if existing:
+            same_payload = all(getattr(existing, key) == value for key, value in kwargs.items() if key != "line_id")
+            if same_payload:
+                return existing
+
+            for key, value in kwargs.items():
+                setattr(existing, key, value)
+            existing.updated_at = datetime.now(timezone.utc)
+            return existing
+
         now = datetime.now(timezone.utc)
         config = SimpleNamespace(
             id=uuid4(),
@@ -66,6 +86,39 @@ class FakeCyclicConfigRepository:
         )
         self.configs[kwargs["line_id"]] = config
         return config
+
+
+class FakeSelectedModeRepository:
+    def __init__(self):
+        self.modes = {}
+
+    async def list(self):
+        return list(self.modes.values())
+
+    async def find_by_line_id(self, line_id):
+        return self.modes.get(line_id)
+
+    async def upsert_by_line_id(self, **kwargs):
+        existing = self.modes.get(kwargs["line_id"])
+        if existing:
+            same_payload = all(getattr(existing, key) == value for key, value in kwargs.items() if key != "line_id")
+            if same_payload:
+                return existing
+
+            for key, value in kwargs.items():
+                setattr(existing, key, value)
+            existing.updated_at = datetime.now(timezone.utc)
+            return existing
+
+        now = datetime.now(timezone.utc)
+        mode = SimpleNamespace(
+            id=uuid4(),
+            created_at=now,
+            updated_at=now,
+            **kwargs,
+        )
+        self.modes[kwargs["line_id"]] = mode
+        return mode
 
 
 class FakeLineRepository:
@@ -302,12 +355,14 @@ async def test_cyclic_config_ignores_stale_group_cages_when_saving():
             cage_configs=[
                 LastValidCyclicCageConfigPayload(
                     cage_id=str(cage_id),
+                    visits=15,
                     quantity_kg=10,
                     rate_kg_per_min=10,
                     mode="NORMAL",
                 ),
                 LastValidCyclicCageConfigPayload(
                     cage_id=str(second_cage_id),
+                    visits=10,
                     quantity_kg=10,
                     rate_kg_per_min=10,
                     mode="NORMAL",
@@ -322,6 +377,154 @@ async def test_cyclic_config_ignores_stale_group_cages_when_saving():
         str(cage_id),
         str(second_cage_id),
     }
+    assert {
+        config.cage_id: config.visits
+        for config in response.cage_configs
+    } == {
+        str(cage_id): 15,
+        str(second_cage_id): 10,
+    }
+
+
+@pytest.mark.asyncio
+async def test_cyclic_config_updates_existing_record_for_same_line_and_preserves_fasting_visits():
+    line_id = uuid4()
+    group_id = uuid4()
+    doser_id = uuid4()
+    silo_id = uuid4()
+    cage_id = uuid4()
+    fasting_cage_id = uuid4()
+    config_repo = FakeCyclicConfigRepository()
+
+    line_repo = FakeLineRepository({line_id: make_cyclic_line(doser_id, silo_id)})
+    cage_repo = FakeCageRepository({cage_id, fasting_cage_id})
+    cage_group_repo = FakeCageGroupRepository({group_id: {cage_id, fasting_cage_id}})
+    silo_repo = FakeSiloRepository({silo_id})
+    slot_repo = FakeSlotAssignmentRepository({
+        cage_id: line_id,
+        fasting_cage_id: line_id,
+    })
+    upsert_use_case = UpsertLastValidCyclicFeedingConfigUseCase(
+        config_repo,
+        line_repo,
+        cage_repo,
+        cage_group_repo,
+        silo_repo,
+        slot_repo,
+    )
+    get_use_case = GetLastValidCyclicFeedingConfigUseCase(
+        config_repo,
+        line_repo,
+        cage_repo,
+        cage_group_repo,
+        silo_repo,
+        slot_repo,
+    )
+    list_use_case = ListLastValidCyclicFeedingConfigsUseCase(
+        config_repo,
+        line_repo,
+        cage_repo,
+        cage_group_repo,
+        silo_repo,
+        slot_repo,
+    )
+
+    first = await upsert_use_case.execute(
+        str(line_id),
+        LastValidCyclicFeedingConfigPayload(
+            group_id=str(group_id),
+            doser_id=str(doser_id),
+            visits=10,
+            blower_power_percentage=70,
+            cage_configs=[
+                LastValidCyclicCageConfigPayload(
+                    cage_id=str(cage_id),
+                    quantity_kg=10,
+                    rate_kg_per_min=10,
+                    mode="NORMAL",
+                ),
+                LastValidCyclicCageConfigPayload(
+                    cage_id=str(fasting_cage_id),
+                    quantity_kg=0,
+                    rate_kg_per_min=0,
+                    mode="FASTING",
+                ),
+            ],
+        ),
+    )
+    second = await upsert_use_case.execute(
+        str(line_id),
+        LastValidCyclicFeedingConfigPayload(
+            group_id=str(group_id),
+            doser_id=str(doser_id),
+            visits=12,
+            blower_power_percentage=80,
+            cage_configs=[
+                LastValidCyclicCageConfigPayload(
+                    cage_id=str(cage_id),
+                    quantity_kg=12,
+                    rate_kg_per_min=10,
+                    mode="NORMAL",
+                ),
+                LastValidCyclicCageConfigPayload(
+                    cage_id=str(fasting_cage_id),
+                    quantity_kg=0,
+                    rate_kg_per_min=0,
+                    mode="FASTING",
+                ),
+            ],
+        ),
+    )
+
+    fetched = await get_use_case.execute(str(line_id))
+    listed = await list_use_case.execute()
+
+    assert second.id == first.id
+    assert len(config_repo.configs) == 1
+    assert fetched.blower_power_percentage == 80
+    assert listed[str(line_id)].visits == 12
+    assert {config.cage_id: config.visits for config in fetched.cage_configs} == {
+        str(cage_id): 12,
+        str(fasting_cage_id): None,
+    }
+
+
+def test_cyclic_config_uses_global_visits_as_legacy_fallback():
+    cage_id = uuid4()
+
+    payload = LastValidCyclicFeedingConfigPayload(
+        group_id=str(uuid4()),
+        doser_id=str(uuid4()),
+        visits=10,
+        blower_power_percentage=70,
+        cage_configs=[
+            LastValidCyclicCageConfigPayload(
+                cage_id=str(cage_id),
+                quantity_kg=10,
+                rate_kg_per_min=10,
+                mode="NORMAL",
+            ),
+        ],
+    )
+
+    assert payload.cage_configs[0].visits is None
+
+
+def test_cyclic_config_requires_visits_per_active_cage_without_global_fallback():
+    with pytest.raises(ValidationError, match="visits"):
+        LastValidCyclicFeedingConfigPayload(
+            group_id=str(uuid4()),
+            doser_id=str(uuid4()),
+            blower_power_percentage=70,
+            cage_configs=[
+                LastValidCyclicCageConfigPayload(
+                    cage_id=str(uuid4()),
+                    quantity_kg=10,
+                    rate_kg_per_min=10,
+                    mode="NORMAL",
+                ),
+            ],
+        )
 
 
 @pytest.mark.asyncio
@@ -373,3 +576,44 @@ async def test_invalid_saved_config_after_topology_change_is_reported_as_invalid
     response = await get_use_case.execute(str(line_id))
 
     assert response.is_valid_against_current_layout is False
+
+
+@pytest.mark.asyncio
+async def test_selected_feeding_mode_is_saved_per_line_and_listed_by_line_id():
+    line_id = uuid4()
+    mode_repo = FakeSelectedModeRepository()
+    line_repo = FakeLineRepository({line_id: make_line(uuid4())})
+    upsert_use_case = UpsertLastSelectedFeedingModeUseCase(mode_repo, line_repo)
+    get_use_case = GetLastSelectedFeedingModeUseCase(mode_repo, line_repo)
+    list_use_case = ListLastSelectedFeedingModesUseCase(mode_repo, line_repo)
+
+    first = await upsert_use_case.execute(
+        str(line_id),
+        LastSelectedFeedingModePayload(selected_mode="MANUAL"),
+    )
+    second = await upsert_use_case.execute(
+        str(line_id),
+        LastSelectedFeedingModePayload(selected_mode="CYCLIC"),
+    )
+    fetched = await get_use_case.execute(str(line_id))
+    listed = await list_use_case.execute()
+
+    assert second.id == first.id
+    assert len(mode_repo.modes) == 1
+    assert fetched.selected_mode == "CYCLIC"
+    assert listed[str(line_id)].selected_mode == "CYCLIC"
+
+
+@pytest.mark.asyncio
+async def test_selected_feeding_mode_rejects_unknown_line():
+    line_id = uuid4()
+    use_case = UpsertLastSelectedFeedingModeUseCase(
+        FakeSelectedModeRepository(),
+        FakeLineRepository({}),
+    )
+
+    with pytest.raises(ValueError, match="no encontrada"):
+        await use_case.execute(
+            str(line_id),
+            LastSelectedFeedingModePayload(selected_mode="MANUAL"),
+        )

@@ -53,6 +53,11 @@ class LastSelectedFeedingModeResponse(BaseModel):
 
 class LastValidCyclicCageConfigPayload(BaseModel):
     cage_id: str = Field(description="ID de la jaula")
+    visits: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description="Cantidad de visitas para esta jaula",
+    )
     quantity_kg: float = Field(ge=0, description="Cantidad total para esta jaula")
     rate_kg_per_min: float = Field(ge=0, description="Tasa de dosificación en kg/min")
     mode: AllowedCyclicCageMode = Field(description="Modo de la jaula")
@@ -76,7 +81,11 @@ class LastValidCyclicCageConfigPayload(BaseModel):
 class LastValidCyclicFeedingConfigPayload(BaseModel):
     group_id: str = Field(description="ID del grupo de jaulas")
     doser_id: str = Field(description="ID del doser objetivo")
-    visits: int = Field(ge=1, description="Cantidad de visitas por jaula")
+    visits: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description="Cantidad global de visitas por jaula (deprecated; fallback)",
+    )
     blower_power_percentage: float = Field(
         ge=30,
         le=100,
@@ -93,13 +102,22 @@ class LastValidCyclicFeedingConfigPayload(BaseModel):
         UUID(value)
         return value
 
+    @model_validator(mode="after")
+    def validate_visits_fallback(self) -> "LastValidCyclicFeedingConfigPayload":
+        for cage_config in self.cage_configs:
+            if cage_config.mode != "FASTING" and cage_config.visits is None and self.visits is None:
+                raise ValueError(
+                    "Cada jaula activa debe declarar visits o la configuración debe incluir visits global"
+                )
+        return self
+
 
 class LastValidCyclicFeedingConfigResponse(BaseModel):
     id: str
     line_id: str
     group_id: str
     doser_id: str
-    visits: int
+    visits: Optional[int]
     blower_power_percentage: float
     cage_configs: list[LastValidCyclicCageConfigPayload]
     updated_by: Optional[str] = None

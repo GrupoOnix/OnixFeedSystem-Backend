@@ -92,6 +92,35 @@ class UpdateAmountResponse(BaseModel):
     new_amount_kg: float
 
 
+class UpdateCageModeRequest(BaseModel):
+    mode: str = Field(description="Nuevo modo para próximas visitas: 'NORMAL' o 'PAUSE'")
+    operator_id: str = Field(description="ID del operador (UUID)")
+
+    @field_validator("mode")
+    @classmethod
+    def validate_mode(cls, v: str) -> str:
+        if v not in ("NORMAL", "PAUSE"):
+            raise ValueError("mode debe ser 'NORMAL' o 'PAUSE'")
+        return v
+
+    @field_validator("operator_id")
+    @classmethod
+    def validate_operator_uuid(cls, v: str) -> str:
+        try:
+            uuid.UUID(v)
+            return v
+        except ValueError:
+            raise ValueError(f"'{v}' no es un UUID válido")
+
+
+class UpdateCageModeResponse(BaseModel):
+    message: str
+    cage_id: str
+    previous_mode: str
+    new_mode: str
+    applied_immediately: bool
+
+
 class PauseFeedingRequest(BaseModel):
     operator_id: str = Field(description="ID del operador (UUID)")
     reason: str = Field(description="Motivo de la pausa")
@@ -169,6 +198,14 @@ class CageConfigInput(BaseModel):
     """Configuración de una jaula dentro de una alimentación cíclica."""
 
     cage_id: str = Field(description="ID de la jaula (UUID)")
+    visits: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Número de visitas para esta jaula. Si se omite, se usa el valor global "
+            "deprecated de CyclicFeedingRequest.visits."
+        ),
+    )
     quantity_kg: float = Field(
         ge=0,
         description=(
@@ -224,7 +261,14 @@ class CyclicFeedingRequest(BaseModel):
     line_id: str = Field(description="ID de la línea de alimentación (UUID)")
     group_id: str = Field(description="ID del grupo de jaulas (UUID)")
     doser_id: str = Field(description="ID del doser a usar (UUID)")
-    visits: int = Field(ge=1, description="Número de veces que la línea visitará cada jaula")
+    visits: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Número global de visitas por jaula (deprecated). Se usa como fallback "
+            "si una jaula no declara cage_configs[].visits."
+        ),
+    )
     blower_power_percentage: float = Field(
         ge=30, le=100, description="Potencia del blower en porcentaje (30-100%)"
     )
@@ -246,6 +290,15 @@ class CyclicFeedingRequest(BaseModel):
             return v
         except ValueError:
             raise ValueError(f"'{v}' no es un UUID válido")
+
+    @model_validator(mode="after")
+    def validate_visits_fallback(self) -> "CyclicFeedingRequest":
+        for cage_config in self.cage_configs:
+            if cage_config.mode != "FASTING" and cage_config.visits is None and self.visits is None:
+                raise ValueError(
+                    "Cada jaula activa debe declarar visits o el request debe incluir visits global"
+                )
+        return self
 
 
 class CyclicFeedingResponse(BaseModel):
@@ -434,6 +487,7 @@ class VisitHistoryItem(BaseModel):
     dispensed_grams: float
     duration_seconds: float
     completed_at: datetime
+    is_empty_visit: bool = False
 
 
 class CageVisitHistory(BaseModel):

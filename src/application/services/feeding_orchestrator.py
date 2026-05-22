@@ -84,13 +84,15 @@ class FeedingOrchestrator:
         for round_number in range(total_rounds):
             visit_number_in_round = round_number + 1
 
-            for cage_feeding in cage_feedings:
+            for cage_feeding_index, cage_feeding in enumerate(cage_feedings):
+                async with self._session_factory() as db:
+                    refreshed_feeding = await CageFeedingRepository(db).find_by_id(cage_feeding.id)
+                    if refreshed_feeding:
+                        cage_feeding = refreshed_feeding
+                        cage_feedings[cage_feeding_index] = cage_feeding
+
                 # FASTING: programmed_visits=0 → saltar completamente
                 if cage_feeding.mode == CageFeedingMode.FASTING:
-                    continue
-
-                # Solo ejecutar si esta jaula aún tiene visitas en esta ronda
-                if round_number >= cage_feeding.programmed_visits:
                     continue
 
                 transport_time = transport_time_map.get(cage_feeding.cage_id, 0.0)
@@ -99,10 +101,27 @@ class FeedingOrchestrator:
                 actual_blow_before = blow_before_seconds if is_first_visit else 0.0
                 actual_blow_after = blow_after_seconds if is_last_visit else 0.0
 
-                if cage_feeding.mode == CageFeedingMode.PAUSE:
+                is_empty_visit = round_number >= cage_feeding.programmed_visits
+
+                if is_empty_visit:
+                    slot_number = slot_map[cage_feeding.cage_id]
+                    await self._execute_empty_visit(
+                        session=session,
+                        cage_feeding=cage_feeding,
+                        line_id=line_id,
+                        slot_number=slot_number,
+                        blower_power_percentage=blower_power_percentage,
+                        visit_number=visit_number_in_round,
+                        transport_time_seconds=transport_time,
+                        blow_before_seconds=actual_blow_before,
+                        blow_after_seconds=actual_blow_after,
+                        selector_positioning_seconds=selector_positioning_seconds,
+                    )
+                elif cage_feeding.mode == CageFeedingMode.PAUSE:
                     await self._execute_pause(
                         session=session,
                         cage_feeding=cage_feeding,
+                        visit_number=visit_number_in_round,
                         blow_before_seconds=actual_blow_before,
                         blow_after_seconds=actual_blow_after,
                         transport_time_seconds=transport_time,
@@ -176,6 +195,7 @@ class FeedingOrchestrator:
         self,
         session: FeedingSession,
         cage_feeding: CageFeeding,
+        visit_number: int,
         blow_before_seconds: float,
         blow_after_seconds: float,
         transport_time_seconds: float,
@@ -200,6 +220,56 @@ class FeedingOrchestrator:
             f"PAUSE — simulando visita por {estimated_seconds:.1f}s"
         )
         await asyncio.sleep(estimated_seconds)
+        cage_feeding.increment_completed_visits()
+        if cage_feeding.status.value == "PENDING":
+            cage_feeding.start()
+        if cage_feeding.completed_visits >= cage_feeding.programmed_visits:
+            cage_feeding.complete()
+
+        event = FeedingEvent.visit_simulated(
+            feeding_session_id=session.id,
+            cage_id=cage_feeding.cage_id,
+            visit_number=visit_number,
+            cycle_number=1,
+            simulated_duration_seconds=estimated_seconds,
+        )
+
+        async def _persist_pause(db: AsyncSession):
+            await CageFeedingRepository(db).save(cage_feeding)
+            await FeedingEventRepository(db).save(event)
+
+        await self._save(_persist_pause)
+
+    async def _execute_empty_visit(
+        self,
+        session: FeedingSession,
+        cage_feeding: CageFeeding,
+        line_id: LineId,
+        slot_number: int,
+        blower_power_percentage: float,
+        visit_number: int,
+        transport_time_seconds: float = 0.0,
+        blow_before_seconds: float = 0.0,
+        blow_after_seconds: float = 0.0,
+        selector_positioning_seconds: float = 5.0,
+    ) -> None:
+        await self._execute_visit(
+            session=session,
+            cage_feeding=cage_feeding,
+            line_id=line_id,
+            slot_number=slot_number,
+            silo_id=SiloId.from_string(cage_feeding.silo_id),
+            blower_power_percentage=blower_power_percentage,
+            visit_number=visit_number,
+            transport_time_seconds=transport_time_seconds,
+            blow_before_seconds=blow_before_seconds,
+            blow_after_seconds=blow_after_seconds,
+            selector_positioning_seconds=selector_positioning_seconds,
+            target_kg=0.0,
+            doser_rate_kg_per_min=0.0,
+            count_completed_visit=False,
+            is_empty_visit=True,
+        )
 
     async def _execute_visit(
         self,
@@ -214,6 +284,10 @@ class FeedingOrchestrator:
         blow_before_seconds: float = 0.0,
         blow_after_seconds: float = 0.0,
         selector_positioning_seconds: float = 5.0,
+        target_kg: float | None = None,
+        doser_rate_kg_per_min: float | None = None,
+        count_completed_visit: bool = True,
+        is_empty_visit: bool = False,
     ) -> None:
         visit_start = datetime.now(timezone.utc)
 
@@ -221,11 +295,13 @@ class FeedingOrchestrator:
         async with self._session_factory() as db:
             refreshed = await CageFeedingRepository(db).find_by_id(cage_feeding.id)
             current_rate = refreshed.rate_kg_per_min if refreshed else cage_feeding.rate_kg_per_min
+        command_target_kg = cage_feeding.programmed_kg if target_kg is None else target_kg
+        command_rate = current_rate if doser_rate_kg_per_min is None else doser_rate_kg_per_min
 
         command = MachineCommand(
             slot_number=slot_number,
-            target_kg=cage_feeding.programmed_kg,
-            doser_rate_kg_per_min=current_rate,
+            target_kg=command_target_kg,
+            doser_rate_kg_per_min=command_rate,
             blower_power_percentage=blower_power_percentage,
             transport_time_seconds=transport_time_seconds,
             blow_before_seconds=blow_before_seconds,
@@ -243,6 +319,7 @@ class FeedingOrchestrator:
             cage_id=cage_feeding.cage_id,
             visit_number=visit_number,
             cycle_number=1,
+            is_empty_visit=is_empty_visit,
         )
 
         async def _persist_visit_start(db: AsyncSession):
@@ -253,7 +330,7 @@ class FeedingOrchestrator:
 
         logger.info(
             f"[Orchestrator] Session {session.id}: visit {visit_number} started "
-            f"slot={slot_number} target={cage_feeding.programmed_kg}kg"
+            f"slot={slot_number} target={command_target_kg}kg"
         )
 
         while True:
@@ -289,7 +366,7 @@ class FeedingOrchestrator:
 
             logger.info(
                 f"[Orchestrator] Session {session.id}: poll — "
-                f"dispensed={status.dispensed_kg:.3f}/{cage_feeding.programmed_kg}kg "
+                f"dispensed={status.dispensed_kg:.3f}/{command_target_kg}kg "
                 f"running={status.is_running} paused={status.is_paused}"
             )
 
@@ -322,10 +399,14 @@ class FeedingOrchestrator:
                     datetime.now(timezone.utc) - visit_start
                 ).total_seconds()
 
-                cage_feeding.add_dispensed_amount(status.dispensed_kg)
-                cage_feeding.increment_completed_visits()
+                if count_completed_visit:
+                    cage_feeding.add_dispensed_amount(status.dispensed_kg)
+                    cage_feeding.increment_completed_visits()
                 # Marcar COMPLETED solo cuando se terminaron todas las visitas programadas
-                if cage_feeding.completed_visits >= cage_feeding.programmed_visits:
+                if (
+                    count_completed_visit
+                    and cage_feeding.completed_visits >= cage_feeding.programmed_visits
+                ):
                     cage_feeding.complete()
 
                 visit_completed_event = FeedingEvent.visit_completed(
@@ -335,14 +416,16 @@ class FeedingOrchestrator:
                     cycle_number=1,
                     dispensed_grams=status.dispensed_kg * 1000,
                     duration_seconds=duration_seconds,
+                    is_empty_visit=is_empty_visit,
                 )
 
                 async def _persist_visit_end(db: AsyncSession):
                     await CageFeedingRepository(db).save(cage_feeding)
-                    silo = await SiloRepository(db).find_by_id(silo_id)
-                    if silo:
-                        silo.stock_level = silo.stock_level - Weight.from_kg(status.dispensed_kg)
-                        await SiloRepository(db).save(silo)
+                    if count_completed_visit:
+                        silo = await SiloRepository(db).find_by_id(silo_id)
+                        if silo:
+                            silo.stock_level = silo.stock_level - Weight.from_kg(status.dispensed_kg)
+                            await SiloRepository(db).save(silo)
                     await FeedingEventRepository(db).save(visit_completed_event)
 
                 await self._save(_persist_visit_end)

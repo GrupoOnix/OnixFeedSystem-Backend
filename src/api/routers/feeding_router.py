@@ -24,6 +24,7 @@ from api.dependencies import (
     get_simulated_machine,
     get_start_cyclic_feeding_use_case,
     get_start_manual_feeding_use_case,
+    get_update_cage_mode_use_case,
     get_system_config_repo,
     get_update_blower_power_use_case,
     get_update_feeding_amount_use_case,
@@ -63,6 +64,8 @@ from api.models.feeding_models import (
     SessionHistoryDetail,
     SessionHistoryItem,
     TimelineEvent,
+    UpdateCageModeRequest,
+    UpdateCageModeResponse,
     UpdateAmountRequest,
     UpdateAmountResponse,
     UpdateBlowerRequest,
@@ -76,6 +79,7 @@ from application.use_cases.feeding.control_feeding_use_cases import (
     CancelFeedingUseCase,
     PauseFeedingUseCase,
     ResumeFeedingUseCase,
+    UpdateCageModeUseCase,
     UpdateBlowerPowerUseCase,
     UpdateFeedingAmountUseCase,
     UpdateFeedingRateUseCase,
@@ -312,6 +316,33 @@ async def update_feeding_amount(
         return UpdateAmountResponse(
             message="Cantidad de alimentación actualizada",
             new_amount_kg=new_amount,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.patch("/sessions/{session_id}/cages/{cage_id}/mode")
+async def update_cage_mode(
+    session_id: str,
+    cage_id: str,
+    request: UpdateCageModeRequest,
+    use_case: Annotated[UpdateCageModeUseCase, Depends(get_update_cage_mode_use_case)],
+) -> UpdateCageModeResponse:
+    try:
+        previous_mode, new_mode = await use_case.execute(
+            session_id=session_id,
+            cage_id=cage_id,
+            new_mode=request.mode,
+            operator_id=request.operator_id,
+        )
+        return UpdateCageModeResponse(
+            message="Modo de jaula actualizado para próximas visitas",
+            cage_id=cage_id,
+            previous_mode=previous_mode,
+            new_mode=new_mode,
+            applied_immediately=False,
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -578,6 +609,7 @@ async def get_session_history_detail(
             FeedingEventType.SESSION_INTERRUPTED,
             FeedingEventType.SESSION_COMPLETED,
             FeedingEventType.RATE_CHANGED,
+            FeedingEventType.CAGE_MODE_CHANGED,
         }
 
         timeline = [
@@ -686,6 +718,7 @@ async def get_cage_visit_history(
                 dispensed_grams=dispensed_grams,
                 duration_seconds=e.data.get("duration_seconds", 0.0),
                 completed_at=e.timestamp,
+                is_empty_visit=e.data.get("is_empty_visit", False),
             ))
 
         total_dispensed = sum(v.dispensed_kg for v in visits)

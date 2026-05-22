@@ -7,11 +7,26 @@ from dotenv import load_dotenv
 load_dotenv()
 sys.path.insert(0, str(Path(__file__).parent))
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%H:%M:%S",
-)
+
+def configure_app_logging() -> None:
+    """Configure application logs without overriding Uvicorn/FastAPI logging."""
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        logging.Formatter(
+            fmt="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+            datefmt="%H:%M:%S",
+        )
+    )
+
+    for logger_name in ("api", "application", "domain", "infrastructure"):
+        logger = logging.getLogger(logger_name)
+        logger.setLevel(logging.INFO)
+        logger.handlers.clear()
+        logger.addHandler(handler)
+        logger.propagate = False
+
+
+configure_app_logging()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

@@ -284,9 +284,12 @@ class UpsertLastValidCyclicFeedingConfigUseCase:
             line_id=line_uuid,
             group_id=group_uuid,
             doser_id=doser_uuid,
-            visits=request.visits,
+            visits=_resolve_global_cyclic_visits(request),
             blower_power_percentage=request.blower_power_percentage,
-            cage_configs=[cage_config.model_dump() for cage_config in request.cage_configs],
+            cage_configs=[
+                _cyclic_cage_config_dump_with_visits(cage_config, request.visits)
+                for cage_config in request.cage_configs
+            ],
             updated_by=updated_by,
         )
         return await _cyclic_to_response(config, self)
@@ -468,17 +471,44 @@ def _mode_to_response(mode: LastSelectedFeedingModeModel) -> LastSelectedFeeding
     )
 
 
+def _resolve_global_cyclic_visits(request: LastValidCyclicFeedingConfigPayload) -> int:
+    if request.visits is not None:
+        return request.visits
+    return max(
+        (
+            cage_config.visits or 0
+            for cage_config in request.cage_configs
+            if cage_config.mode != "FASTING"
+        ),
+        default=1,
+    )
+
+
+def _cyclic_cage_config_dump_with_visits(
+    cage_config: LastValidCyclicCageConfigPayload,
+    fallback_visits: int | None,
+) -> dict:
+    data = cage_config.model_dump()
+    if data["mode"] != "FASTING" and data.get("visits") is None:
+        data["visits"] = fallback_visits
+    return data
+
+
 async def _is_cyclic_valid_against_current_layout(
     config: LastValidCyclicFeedingConfigModel,
     use_case,
 ) -> bool:
     try:
+        cage_configs = [
+            _cyclic_cage_config_with_legacy_visits(cage_config, config.visits)
+            for cage_config in config.cage_configs
+        ]
         payload = LastValidCyclicFeedingConfigPayload(
             group_id=str(config.group_id),
             doser_id=str(config.doser_id),
             visits=config.visits,
             blower_power_percentage=config.blower_power_percentage,
-            cage_configs=config.cage_configs,
+            cage_configs=cage_configs,
         )
         await _assert_cyclic_valid_for_save(
             line_id=str(config.line_id),
@@ -497,6 +527,15 @@ async def _is_cyclic_valid_against_current_layout(
     return True
 
 
+def _cyclic_cage_config_with_legacy_visits(
+    cage_config: dict,
+    fallback_visits: int,
+) -> dict:
+    if cage_config.get("mode") == "FASTING":
+        return dict(cage_config)
+    return {**cage_config, "visits": cage_config.get("visits", fallback_visits)}
+
+
 async def _cyclic_to_response(
     config: LastValidCyclicFeedingConfigModel,
     use_case,
@@ -509,7 +548,7 @@ async def _cyclic_to_response(
         visits=config.visits,
         blower_power_percentage=config.blower_power_percentage,
         cage_configs=[
-            LastValidCyclicCageConfigPayload(**cage_config)
+            LastValidCyclicCageConfigPayload(**_cyclic_cage_config_with_legacy_visits(cage_config, config.visits))
             for cage_config in config.cage_configs
         ],
         updated_by=config.updated_by,
