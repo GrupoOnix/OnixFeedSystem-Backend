@@ -73,13 +73,14 @@ class FeedingOrchestrator:
         )
 
         # Primera y última jaula activa: determinan dónde van blow_before y blow_after.
-        first_active_feeding = None
-        last_active_feeding = None
+        # Usar IDs porque cada visita puede recargar instancias nuevas desde BD.
+        first_active_feeding_id = None
+        last_active_feeding_id = None
         for cf in cage_feedings:
             if cf.mode != CageFeedingMode.FASTING:
-                if first_active_feeding is None:
-                    first_active_feeding = cf
-                last_active_feeding = cf
+                if first_active_feeding_id is None:
+                    first_active_feeding_id = cf.id
+                last_active_feeding_id = cf.id
 
         for round_number in range(total_rounds):
             visit_number_in_round = round_number + 1
@@ -96,8 +97,8 @@ class FeedingOrchestrator:
                     continue
 
                 transport_time = transport_time_map.get(cage_feeding.cage_id, 0.0)
-                is_first_visit = round_number == 0 and cage_feeding is first_active_feeding
-                is_last_visit = round_number == total_rounds - 1 and cage_feeding is last_active_feeding
+                is_first_visit = round_number == 0 and cage_feeding.id == first_active_feeding_id
+                is_last_visit = round_number == total_rounds - 1 and cage_feeding.id == last_active_feeding_id
                 actual_blow_before = blow_before_seconds if is_first_visit else 0.0
                 actual_blow_after = blow_after_seconds if is_last_visit else 0.0
 

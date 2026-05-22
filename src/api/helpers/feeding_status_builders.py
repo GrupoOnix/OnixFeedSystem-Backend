@@ -12,6 +12,9 @@ from infrastructure.persistence.repositories.cage_repository import CageReposito
 from infrastructure.services.simulated_machine import SimulatedMachine
 
 
+LIVE_SESSION_STATUSES = {"IN_PROGRESS", "PAUSED"}
+
+
 def _calculate_pulse_metrics(
     programmed_kg_per_visit: float,
     programmed_visits: int,
@@ -61,7 +64,11 @@ async def build_manual_status(
 
     machine_status = await machine.get_status(LineId.from_string(session.line_id))
 
-    live_dispensed = machine_status.dispensed_kg if session.status.value == "IN_PROGRESS" else current_cf.dispensed_kg
+    live_dispensed = (
+        machine_status.dispensed_kg
+        if session.status.value in LIVE_SESSION_STATUSES and current_cf.status.value == "IN_PROGRESS"
+        else current_cf.dispensed_kg
+    )
     programmed = current_cf.programmed_kg
     completion = (live_dispensed / programmed * 100) if programmed > 0 else 0.0
 
@@ -111,7 +118,7 @@ async def build_cyclic_status(
          if cf.mode != CageFeedingMode.FASTING
          and cf.status.value == "IN_PROGRESS"),
         None,
-    ) if session.status.value == "IN_PROGRESS" else None
+    ) if session.status.value in LIVE_SESSION_STATUSES else None
 
     if session.status.value == "COMPLETED":
         current_round = total_rounds
@@ -178,8 +185,12 @@ async def build_cyclic_status(
 
         programmed_kg_per_visit = cf.programmed_kg
         total_programmed_kg_for_cage = programmed_kg_per_visit * cf.programmed_visits
+        total_dispensed_kg_for_cage = cf.dispensed_kg
+        if active_cf and cf.id == active_cf.id:
+            total_dispensed_kg_for_cage += machine_status.dispensed_kg
+
         overall_completion_percentage_cage = (
-            (cf.dispensed_kg / total_programmed_kg_for_cage * 100)
+            (total_dispensed_kg_for_cage / total_programmed_kg_for_cage * 100)
             if total_programmed_kg_for_cage > 0
             else 0.0
         )
@@ -197,7 +208,7 @@ async def build_cyclic_status(
             "execution_order": cf.execution_order,
             "programmed_kg_per_visit": programmed_kg_per_visit,
             "total_programmed_kg": total_programmed_kg_for_cage,
-            "total_dispensed_kg": round(cf.dispensed_kg, 3),
+            "total_dispensed_kg": round(total_dispensed_kg_for_cage, 3),
             "programmed_visits": cf.programmed_visits,
             "completed_visits": cf.completed_visits,
             "overall_completion_percentage": round(overall_completion_percentage_cage, 2),
