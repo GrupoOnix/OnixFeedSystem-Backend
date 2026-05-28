@@ -101,6 +101,9 @@ from application.use_cases.feeding.control_feeding_use_cases import (
 from application.use_cases.feeding.get_daily_feeding_summary_use_case import (
     GetDailyFeedingSummaryUseCase,
 )
+from application.use_cases.feeding.get_feeding_rate_timeline_use_case import (
+    GetFeedingRateTimelineUseCase,
+)
 from application.use_cases.feeding.manual_feeding_config_use_cases import (
     GetLastSelectedFeedingModeUseCase,
     GetLastValidCyclicFeedingConfigUseCase,
@@ -877,6 +880,20 @@ async def get_daily_feeding_summary_use_case(
     return GetDailyFeedingSummaryUseCase(
         session_repository=session_repo,
         system_config_repository=system_config_repo,
+    )
+
+
+async def get_feeding_rate_timeline_use_case(
+    event_repo: FeedingEventRepository = Depends(get_feeding_event_repo),
+    system_config_repo: SystemConfigRepository = Depends(get_system_config_repo),
+    line_repo: FeedingLineRepository = Depends(get_line_repo),
+    cage_repo: CageRepository = Depends(get_cage_repo),
+) -> GetFeedingRateTimelineUseCase:
+    return GetFeedingRateTimelineUseCase(
+        event_repository=event_repo,
+        system_config_repository=system_config_repo,
+        line_repository=line_repo,
+        cage_repository=cage_repo,
     )
 
 

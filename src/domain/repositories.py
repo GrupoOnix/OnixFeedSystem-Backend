@@ -13,6 +13,7 @@ from domain.aggregates.silo import Silo
 from domain.entities.cage_feeding import CageFeeding
 from domain.entities.feeding_event import FeedingEvent, FeedingEventType
 from domain.entities.feeding_session import FeedingSession as FeedingSessionEntity
+from domain.dtos.feeding_rate_timeline import FeedingRateTimelineVisit
 from domain.entities.population_event import PopulationEvent
 from domain.entities.slot_assignment import SlotAssignment
 from domain.enums import (
@@ -319,6 +320,16 @@ class IFeedingEventRepository(ABC):
 
     @abstractmethod
     async def find_by_type(self, session_id: str, event_type: FeedingEventType) -> List[FeedingEvent]: ...
+
+    @abstractmethod
+    async def list_rate_timeline_visits(
+        self,
+        start: datetime,
+        end: datetime,
+        line_id: str | None = None,
+        cage_id: str | None = None,
+        feeding_type: str | None = None,
+    ) -> List[FeedingRateTimelineVisit]: ...
 
 
 class IBiometryLogRepository(ABC):

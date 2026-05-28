@@ -10,6 +10,7 @@ from api.dependencies import (
     get_cage_feeding_repo,
     get_cage_repo,
     get_daily_feeding_summary_use_case,
+    get_feeding_rate_timeline_use_case,
     get_feeding_event_repo,
     get_feeding_session_repo,
     get_get_last_selected_feeding_mode_use_case,
@@ -55,6 +56,7 @@ from api.models.feeding_models import (
     DailyFeedingSummaryResponse,
     DailyFeedingStatsResponse,
     FeedingActionResponse,
+    FeedingRateTimelineResponse,
     FeedingSessionStatusResponse,
     ManualFeedingRequest,
     ManualFeedingResponse,
@@ -103,6 +105,9 @@ from application.use_cases.feeding.manual_feeding_config_use_cases import (
 )
 from application.use_cases.feeding.get_daily_feeding_summary_use_case import (
     GetDailyFeedingSummaryUseCase,
+)
+from application.use_cases.feeding.get_feeding_rate_timeline_use_case import (
+    GetFeedingRateTimelineUseCase,
 )
 from domain.entities.feeding_event import FeedingEventType
 from domain.entities.feeding_session import SessionStatus
@@ -514,6 +519,33 @@ async def get_daily_feeding_summary(
             end_date=end_date,
             line_id=str(line_id) if line_id else None,
             feeding_type=type,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.get("/stats/rate-timeline")
+async def get_feeding_rate_timeline(
+    use_case: Annotated[GetFeedingRateTimelineUseCase, Depends(get_feeding_rate_timeline_use_case)],
+    start_at: datetime = Query(description="Inicio del rango en ISO UTC"),
+    end_at: datetime = Query(description="Fin del rango en ISO UTC"),
+    line_id: Optional[UUID] = Query(default=None, description="Filtrar por línea"),
+    cage_id: Optional[UUID] = Query(default=None, description="Filtrar por jaula"),
+    type: Optional[Literal["MANUAL", "CYCLIC"]] = Query(default=None, description="Filtrar por tipo"),
+    bucket_seconds: int = Query(default=60, ge=1, le=3600),
+    include_series: Literal["lines", "cages", "sessions"] = Query(default="lines"),
+) -> FeedingRateTimelineResponse:
+    try:
+        return await use_case.execute(
+            start_at=start_at,
+            end_at=end_at,
+            line_id=str(line_id) if line_id else None,
+            cage_id=str(cage_id) if cage_id else None,
+            feeding_type=type,
+            bucket_seconds=bucket_seconds,
+            include_series=include_series,
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

@@ -1,11 +1,15 @@
-from typing import List, Optional
+from datetime import datetime, timedelta
+from typing import List
+from uuid import UUID
 
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from domain.dtos.feeding_rate_timeline import FeedingRateTimelineVisit
 from domain.entities.feeding_event import FeedingEvent, FeedingEventType
 from domain.repositories import IFeedingEventRepository
 from infrastructure.persistence.models.feeding_event_model import FeedingEventModel
+from infrastructure.persistence.models.feeding_session_model import FeedingSessionModel
 
 
 class FeedingEventRepository(IFeedingEventRepository):
@@ -46,3 +50,64 @@ class FeedingEventRepository(IFeedingEventRepository):
         result = await self.session.execute(query)
         models = result.scalars().all()
         return [model.to_domain() for model in models]
+
+    async def list_rate_timeline_visits(
+        self,
+        start: datetime,
+        end: datetime,
+        line_id: str | None = None,
+        cage_id: str | None = None,
+        feeding_type: str | None = None,
+    ) -> List[FeedingRateTimelineVisit]:
+        lookback_start = start - timedelta(days=1)
+        conditions = [
+            FeedingEventModel.event_type == FeedingEventType.VISIT_COMPLETED.value,
+            FeedingEventModel.timestamp >= lookback_start,
+            FeedingEventModel.timestamp <= end,
+        ]
+
+        if line_id:
+            conditions.append(FeedingSessionModel.line_id == UUID(line_id))
+        if feeding_type:
+            conditions.append(FeedingSessionModel.type == feeding_type)
+
+        query = (
+            select(
+                FeedingEventModel,
+                FeedingSessionModel.id,
+                FeedingSessionModel.type,
+                FeedingSessionModel.line_id,
+            )
+            .join(
+                FeedingSessionModel,
+                FeedingEventModel.feeding_session_id == FeedingSessionModel.id,
+            )
+            .where(and_(*conditions))
+            .order_by(FeedingEventModel.timestamp.asc())
+        )
+        result = await self.session.execute(query)
+
+        visits: list[FeedingRateTimelineVisit] = []
+        for event, session_id, session_type, session_line_id in result.all():
+            event_cage_id = event.data.get("cage_id") if event.data else None
+            if not event_cage_id or (cage_id and event_cage_id != cage_id):
+                continue
+
+            duration_seconds = float(event.data.get("duration_seconds") or 0)
+            dispensed_grams = float(event.data.get("dispensed_grams") or 0)
+            if duration_seconds <= 0 or dispensed_grams <= 0:
+                continue
+
+            visits.append(
+                FeedingRateTimelineVisit(
+                    session_id=session_id,
+                    feeding_type=session_type,
+                    line_id=str(session_line_id),
+                    cage_id=event_cage_id,
+                    completed_at=event.timestamp,
+                    duration_seconds=duration_seconds,
+                    dispensed_kg=dispensed_grams / 1000,
+                )
+            )
+
+        return visits

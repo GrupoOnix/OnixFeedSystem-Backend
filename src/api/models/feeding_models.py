@@ -520,3 +520,43 @@ class DailyFeedingSummaryResponse(BaseModel):
     start_date: str
     end_date: str
     points: List[DailyFeedingSummaryPoint]
+
+
+class RateTimelineSummary(BaseModel):
+    total_dispensed_kg: float
+    active_minutes: int
+    avg_active_rate_kg_per_min: float
+    peak_total_rate_kg_per_min: float
+    peak_total_rate_at: Optional[datetime]
+    max_overlapping_sessions: int
+
+
+class TotalRateTimelinePoint(BaseModel):
+    timestamp: datetime
+    rate_kg_per_min: float
+    active_sessions: int
+
+
+class RateTimelinePoint(BaseModel):
+    timestamp: datetime
+    rate_kg_per_min: float
+    dispensed_kg: float
+    active_sessions: int
+
+
+class RateTimelineSeries(BaseModel):
+    id: str
+    name: str
+    kind: str
+    color_hint: str
+    points: List[RateTimelinePoint]
+
+
+class FeedingRateTimelineResponse(BaseModel):
+    start_at: datetime
+    end_at: datetime
+    bucket_seconds: int
+    timezone: str
+    summary: RateTimelineSummary
+    total_series: List[TotalRateTimelinePoint]
+    series: List[RateTimelineSeries]
