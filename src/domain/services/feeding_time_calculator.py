@@ -47,3 +47,14 @@ def calculate_visit_duration(
         + transport_time_seconds
         + blow_after
     )
+
+
+def calculate_cyclic_wait_duration(
+    *,
+    total_rounds: int,
+    active_cage_count: int,
+    wait_after_visit_seconds: float,
+) -> float:
+    total_visit_executions = total_rounds * active_cage_count
+    waits_between_visits = max(total_visit_executions - 1, 0)
+    return waits_between_visits * wait_after_visit_seconds

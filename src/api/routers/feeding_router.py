@@ -26,6 +26,8 @@ from api.dependencies import (
     get_start_cyclic_feeding_use_case,
     get_start_manual_feeding_use_case,
     get_update_cage_mode_use_case,
+    get_update_cyclic_cage_amount_use_case,
+    get_update_cyclic_cage_rate_use_case,
     get_system_config_repo,
     get_update_blower_power_use_case,
     get_update_feeding_amount_use_case,
@@ -82,6 +84,8 @@ from application.use_cases.feeding.control_feeding_use_cases import (
     PauseFeedingUseCase,
     ResumeFeedingUseCase,
     UpdateCageModeUseCase,
+    UpdateCyclicCageAmountUseCase,
+    UpdateCyclicCageRateUseCase,
     UpdateBlowerPowerUseCase,
     UpdateFeedingAmountUseCase,
     UpdateFeedingRateUseCase,
@@ -348,6 +352,50 @@ async def update_cage_mode(
             previous_mode=previous_mode,
             new_mode=new_mode,
             applied_immediately=False,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.patch("/sessions/{session_id}/cages/{cage_id}/amount")
+async def update_cyclic_cage_amount(
+    session_id: str,
+    cage_id: str,
+    request: UpdateAmountRequest,
+    use_case: Annotated[
+        UpdateCyclicCageAmountUseCase,
+        Depends(get_update_cyclic_cage_amount_use_case),
+    ],
+) -> UpdateAmountResponse:
+    try:
+        new_amount = await use_case.execute(session_id, cage_id, request.amount_kg)
+        return UpdateAmountResponse(
+            message="Cantidad de alimentación de jaula actualizada",
+            new_amount_kg=new_amount,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.patch("/sessions/{session_id}/cages/{cage_id}/rate")
+async def update_cyclic_cage_rate(
+    session_id: str,
+    cage_id: str,
+    request: UpdateRateRequest,
+    use_case: Annotated[
+        UpdateCyclicCageRateUseCase,
+        Depends(get_update_cyclic_cage_rate_use_case),
+    ],
+) -> UpdateRateResponse:
+    try:
+        new_rate = await use_case.execute(session_id, cage_id, request.rate_kg_per_min)
+        return UpdateRateResponse(
+            message="Tasa de alimentación de jaula actualizada",
+            new_rate_kg_per_min=new_rate,
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

@@ -12,7 +12,10 @@ from domain.repositories import (
     ISlotAssignmentRepository,
     ISystemConfigRepository,
 )
-from domain.services.feeding_time_calculator import calculate_visit_duration
+from domain.services.feeding_time_calculator import (
+    calculate_cyclic_wait_duration,
+    calculate_visit_duration,
+)
 from domain.services.operating_schedule_service import OperatingScheduleService
 from domain.value_objects import CageId, LineId
 from domain.value_objects.identifiers import CageGroupId, DoserId
@@ -242,6 +245,7 @@ class CheckScheduleUseCase:
 
         estimated_seconds = 0.0
         total_rounds = max(active_visit_counts, default=0)
+        active_cage_count = len(active_visit_counts)
         for round_number in range(total_rounds):
             for cfg in request.cage_configs:
                 if cfg.mode == "FASTING":
@@ -251,6 +255,11 @@ class CheckScheduleUseCase:
                     estimated_seconds += per_cage_visit_seconds[cfg.cage_id]
                 else:
                     estimated_seconds += per_cage_empty_visit_seconds[cfg.cage_id]
+        estimated_seconds += calculate_cyclic_wait_duration(
+            total_rounds=total_rounds,
+            active_cage_count=active_cage_count,
+            wait_after_visit_seconds=request.wait_after_visit_seconds,
+        )
 
         # Soplido previo al inicio y posterior al final: una sola vez cada uno
         estimated_seconds += (

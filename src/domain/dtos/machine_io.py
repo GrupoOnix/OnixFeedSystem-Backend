@@ -22,6 +22,10 @@ class MachineCommand:
     blow_before_seconds: float
     blow_after_seconds: float
     selector_positioning_seconds: float = 5.0
+    cage_id: Optional[str] = None
+    cage_feeding_id: Optional[str] = None
+    visit_number: Optional[int] = None
+    is_empty_visit: bool = False
 
     def __post_init__(self):
         if self.slot_number < 0:
@@ -45,3 +49,8 @@ class MachineVisitStatus:
     has_error: bool
     current_stage: VisitStage = VisitStage.POSITIONING_SELECTOR
     error_code: Optional[int] = None
+    slot_number: Optional[int] = None
+    cage_id: Optional[str] = None
+    cage_feeding_id: Optional[str] = None
+    visit_number: Optional[int] = None
+    is_empty_visit: bool = False

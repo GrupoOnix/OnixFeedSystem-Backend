@@ -20,6 +20,7 @@ class LastValidCyclicFeedingConfigModel(SQLModel, table=True):
     doser_id: UUID = Field(nullable=False)
     visits: int = Field(nullable=False)
     blower_power_percentage: float = Field(nullable=False)
+    wait_after_visit_seconds: float = Field(default=0.0, nullable=False)
     cage_configs: list[dict[str, Any]] = Field(sa_column=Column(JSON, nullable=False))
     updated_by: Optional[str] = Field(default=None, max_length=100)
     created_at: datetime = Field(

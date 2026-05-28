@@ -3,6 +3,8 @@ import pytest
 from application.use_cases.feeding.control_feeding_use_cases import (
     CancelFeedingUseCase,
     UpdateCageModeUseCase,
+    UpdateCyclicCageAmountUseCase,
+    UpdateCyclicCageRateUseCase,
     UpdateFeedingAmountUseCase,
 )
 from domain.dtos.machine_io import MachineVisitStatus
@@ -45,12 +47,16 @@ class _EventRepo:
 
 
 class _Line:
-    def __init__(self):
+    def __init__(self, max_rate_kg_per_min=10.0):
         self.blower = _Blower()
         self.released = False
+        self.doser = type("_Doser", (), {"max_rate_kg_per_min": max_rate_kg_per_min})()
 
     def release_from_feeding(self):
         self.released = True
+
+    def get_doser_by_id(self, doser_id):
+        return self.doser
 
 
 class _Blower:
@@ -74,6 +80,7 @@ class _Machine:
     def __init__(self):
         self.stopped_line_id = None
         self.target_amount = None
+        self.doser_rate = None
         self.status = MachineVisitStatus(
             is_running=True,
             is_paused=False,
@@ -87,6 +94,9 @@ class _Machine:
 
     async def set_target_amount(self, line_id: LineId, target_kg: float):
         self.target_amount = target_kg
+
+    async def set_doser_rate(self, line_id: LineId, rate_kg_per_min: float):
+        self.doser_rate = rate_kg_per_min
 
     async def stop(self, line_id: LineId):
         self.stopped_line_id = line_id
@@ -268,3 +278,355 @@ async def test_update_cage_mode_persists_pause_for_next_visit_without_touching_m
     assert cage_feeding_repo.saved.mode == CageFeedingMode.PAUSE
     assert event_repo.saved[0].event_type == FeedingEventType.CAGE_MODE_CHANGED
     assert event_repo.saved[0].data["applied_immediately"] is False
+
+
+@pytest.mark.asyncio
+async def test_update_cyclic_cage_amount_active_repartitions_remaining_visits_and_updates_machine():
+    line_id = LineId.generate()
+    session = FeedingSession(
+        feeding_type=FeedingType.CYCLIC,
+        line_id=str(line_id),
+        operator_id="operator-1",
+        total_programmed_kg=40.0,
+    )
+    session.start()
+    cage_feeding = CageFeeding(
+        feeding_session_id=session.id,
+        cage_id="123e4567-e89b-12d3-a456-426614174001",
+        doser_id="123e4567-e89b-12d3-a456-426614174002",
+        silo_id="123e4567-e89b-12d3-a456-426614174003",
+        execution_order=1,
+        programmed_kg=10.0,
+        programmed_visits=4,
+        rate_kg_per_min=2.0,
+    )
+    cage_feeding.start()
+    cage_feeding.increment_completed_visits()
+    cage_feeding.add_dispensed_amount(10.0)
+    machine = _Machine()
+    machine.status = MachineVisitStatus(
+        is_running=True,
+        is_paused=False,
+        dispensed_kg=2.0,
+        current_flow_rate_kg_per_min=2.0,
+        has_error=False,
+        cage_id=cage_feeding.cage_id,
+        cage_feeding_id=cage_feeding.id,
+    )
+    session_repo = _SessionRepo(session)
+    cage_feeding_repo = _CageFeedingRepo([cage_feeding])
+    event_repo = _EventRepo()
+    use_case = UpdateCyclicCageAmountUseCase(
+        session_repo=session_repo,
+        cage_feeding_repo=cage_feeding_repo,
+        event_repo=event_repo,
+        machine=machine,
+    )
+
+    new_total = await use_case.execute(session.id, cage_feeding.cage_id, 52.0)
+
+    assert new_total == 52.0
+    assert cage_feeding_repo.saved.programmed_kg == pytest.approx(40.0 / 3)
+    assert machine.target_amount == pytest.approx(40.0 / 3)
+    assert session_repo.saved.total_programmed_kg == pytest.approx(52.0)
+    assert event_repo.saved[0].event_type == FeedingEventType.AMOUNT_CHANGED
+    assert event_repo.saved[0].data["applied_immediately"] is True
+    assert event_repo.saved[0].data["live_dispensed_kg"] == 2.0
+
+
+@pytest.mark.asyncio
+async def test_update_cyclic_cage_amount_pending_repartitions_without_touching_machine():
+    line_id = LineId.generate()
+    session = FeedingSession(
+        feeding_type=FeedingType.CYCLIC,
+        line_id=str(line_id),
+        operator_id="operator-1",
+        total_programmed_kg=40.0,
+    )
+    session.start()
+    cage_feeding = CageFeeding(
+        feeding_session_id=session.id,
+        cage_id="123e4567-e89b-12d3-a456-426614174001",
+        doser_id="123e4567-e89b-12d3-a456-426614174002",
+        silo_id="123e4567-e89b-12d3-a456-426614174003",
+        execution_order=1,
+        programmed_kg=10.0,
+        programmed_visits=4,
+        rate_kg_per_min=2.0,
+    )
+    machine = _Machine()
+    session_repo = _SessionRepo(session)
+    cage_feeding_repo = _CageFeedingRepo([cage_feeding])
+    event_repo = _EventRepo()
+    use_case = UpdateCyclicCageAmountUseCase(
+        session_repo=session_repo,
+        cage_feeding_repo=cage_feeding_repo,
+        event_repo=event_repo,
+        machine=machine,
+    )
+
+    await use_case.execute(session.id, cage_feeding.cage_id, 60.0)
+
+    assert cage_feeding_repo.saved.programmed_kg == 15.0
+    assert machine.target_amount is None
+    assert session_repo.saved.total_programmed_kg == 60.0
+    assert event_repo.saved[0].data["applied_immediately"] is False
+
+
+@pytest.mark.asyncio
+async def test_update_cyclic_cage_amount_rejects_total_below_already_dispensed():
+    line_id = LineId.generate()
+    session = FeedingSession(
+        feeding_type=FeedingType.CYCLIC,
+        line_id=str(line_id),
+        operator_id="operator-1",
+        total_programmed_kg=40.0,
+    )
+    session.start()
+    cage_feeding = CageFeeding(
+        feeding_session_id=session.id,
+        cage_id="123e4567-e89b-12d3-a456-426614174001",
+        doser_id="123e4567-e89b-12d3-a456-426614174002",
+        silo_id="123e4567-e89b-12d3-a456-426614174003",
+        execution_order=1,
+        programmed_kg=10.0,
+        programmed_visits=4,
+        rate_kg_per_min=2.0,
+    )
+    cage_feeding.start()
+    cage_feeding.increment_completed_visits()
+    cage_feeding.add_dispensed_amount(10.0)
+    machine = _Machine()
+    machine.status = MachineVisitStatus(
+        is_running=True,
+        is_paused=False,
+        dispensed_kg=5.0,
+        current_flow_rate_kg_per_min=2.0,
+        has_error=False,
+        cage_id=cage_feeding.cage_id,
+        cage_feeding_id=cage_feeding.id,
+    )
+    use_case = UpdateCyclicCageAmountUseCase(
+        session_repo=_SessionRepo(session),
+        cage_feeding_repo=_CageFeedingRepo([cage_feeding]),
+        event_repo=_EventRepo(),
+        machine=machine,
+    )
+
+    with pytest.raises(ValueError, match="no puede ser menor"):
+        await use_case.execute(session.id, cage_feeding.cage_id, 14.0)
+
+
+@pytest.mark.asyncio
+async def test_update_cyclic_cage_amount_rejects_fasting_cage():
+    line_id = LineId.generate()
+    session = FeedingSession(
+        feeding_type=FeedingType.CYCLIC,
+        line_id=str(line_id),
+        operator_id="operator-1",
+        total_programmed_kg=40.0,
+    )
+    session.start()
+    cage_feeding = CageFeeding(
+        feeding_session_id=session.id,
+        cage_id="123e4567-e89b-12d3-a456-426614174001",
+        doser_id="123e4567-e89b-12d3-a456-426614174002",
+        silo_id="123e4567-e89b-12d3-a456-426614174003",
+        execution_order=1,
+        programmed_kg=0.0,
+        programmed_visits=0,
+        rate_kg_per_min=0.0,
+        mode=CageFeedingMode.FASTING,
+    )
+    use_case = UpdateCyclicCageAmountUseCase(
+        session_repo=_SessionRepo(session),
+        cage_feeding_repo=_CageFeedingRepo([cage_feeding]),
+        event_repo=_EventRepo(),
+        machine=_Machine(),
+    )
+
+    with pytest.raises(ValueError, match="FASTING"):
+        await use_case.execute(session.id, cage_feeding.cage_id, 10.0)
+
+
+@pytest.mark.asyncio
+async def test_update_cyclic_cage_amount_rejects_non_cyclic_session():
+    line_id = LineId.generate()
+    session = FeedingSession(
+        feeding_type=FeedingType.MANUAL,
+        line_id=str(line_id),
+        operator_id="operator-1",
+        total_programmed_kg=40.0,
+    )
+    session.start()
+    cage_feeding = CageFeeding(
+        feeding_session_id=session.id,
+        cage_id="123e4567-e89b-12d3-a456-426614174001",
+        doser_id="123e4567-e89b-12d3-a456-426614174002",
+        silo_id="123e4567-e89b-12d3-a456-426614174003",
+        execution_order=1,
+        programmed_kg=10.0,
+        programmed_visits=4,
+        rate_kg_per_min=2.0,
+    )
+    use_case = UpdateCyclicCageAmountUseCase(
+        session_repo=_SessionRepo(session),
+        cage_feeding_repo=_CageFeedingRepo([cage_feeding]),
+        event_repo=_EventRepo(),
+        machine=_Machine(),
+    )
+
+    with pytest.raises(ValueError, match="solo aplica a sesiones cíclicas"):
+        await use_case.execute(session.id, cage_feeding.cage_id, 10.0)
+
+
+@pytest.mark.asyncio
+async def test_update_cyclic_cage_amount_rejects_completed_cage():
+    line_id = LineId.generate()
+    session = FeedingSession(
+        feeding_type=FeedingType.CYCLIC,
+        line_id=str(line_id),
+        operator_id="operator-1",
+        total_programmed_kg=40.0,
+    )
+    session.start()
+    cage_feeding = CageFeeding(
+        feeding_session_id=session.id,
+        cage_id="123e4567-e89b-12d3-a456-426614174001",
+        doser_id="123e4567-e89b-12d3-a456-426614174002",
+        silo_id="123e4567-e89b-12d3-a456-426614174003",
+        execution_order=1,
+        programmed_kg=10.0,
+        programmed_visits=1,
+        rate_kg_per_min=2.0,
+    )
+    cage_feeding.start()
+    cage_feeding.increment_completed_visits()
+    cage_feeding.complete()
+    use_case = UpdateCyclicCageAmountUseCase(
+        session_repo=_SessionRepo(session),
+        cage_feeding_repo=_CageFeedingRepo([cage_feeding]),
+        event_repo=_EventRepo(),
+        machine=_Machine(),
+    )
+
+    with pytest.raises(ValueError, match="COMPLETED"):
+        await use_case.execute(session.id, cage_feeding.cage_id, 10.0)
+
+
+@pytest.mark.asyncio
+async def test_update_cyclic_cage_rate_active_updates_machine_and_event():
+    line_id = LineId.generate()
+    session = FeedingSession(
+        feeding_type=FeedingType.CYCLIC,
+        line_id=str(line_id),
+        operator_id="operator-1",
+        total_programmed_kg=40.0,
+    )
+    session.start()
+    cage_feeding = CageFeeding(
+        feeding_session_id=session.id,
+        cage_id="123e4567-e89b-12d3-a456-426614174001",
+        doser_id="123e4567-e89b-12d3-a456-426614174002",
+        silo_id="123e4567-e89b-12d3-a456-426614174003",
+        execution_order=1,
+        programmed_kg=10.0,
+        programmed_visits=4,
+        rate_kg_per_min=2.0,
+    )
+    cage_feeding.start()
+    machine = _Machine()
+    machine.status = MachineVisitStatus(
+        is_running=True,
+        is_paused=False,
+        dispensed_kg=1.0,
+        current_flow_rate_kg_per_min=2.0,
+        has_error=False,
+        cage_id=cage_feeding.cage_id,
+        cage_feeding_id=cage_feeding.id,
+    )
+    event_repo = _EventRepo()
+    use_case = UpdateCyclicCageRateUseCase(
+        session_repo=_SessionRepo(session),
+        cage_feeding_repo=_CageFeedingRepo([cage_feeding]),
+        event_repo=event_repo,
+        machine=machine,
+        line_repo=_LineRepo(_Line(max_rate_kg_per_min=8.0)),
+    )
+
+    new_rate = await use_case.execute(session.id, cage_feeding.cage_id, 4.5)
+
+    assert new_rate == 4.5
+    assert machine.doser_rate == 4.5
+    assert event_repo.saved[0].event_type == FeedingEventType.RATE_CHANGED
+    assert event_repo.saved[0].data["applied_immediately"] is True
+
+
+@pytest.mark.asyncio
+async def test_update_cyclic_cage_rate_pending_persists_without_machine_update():
+    line_id = LineId.generate()
+    session = FeedingSession(
+        feeding_type=FeedingType.CYCLIC,
+        line_id=str(line_id),
+        operator_id="operator-1",
+        total_programmed_kg=40.0,
+    )
+    session.start()
+    cage_feeding = CageFeeding(
+        feeding_session_id=session.id,
+        cage_id="123e4567-e89b-12d3-a456-426614174001",
+        doser_id="123e4567-e89b-12d3-a456-426614174002",
+        silo_id="123e4567-e89b-12d3-a456-426614174003",
+        execution_order=1,
+        programmed_kg=10.0,
+        programmed_visits=4,
+        rate_kg_per_min=2.0,
+    )
+    machine = _Machine()
+    cage_feeding_repo = _CageFeedingRepo([cage_feeding])
+    event_repo = _EventRepo()
+    use_case = UpdateCyclicCageRateUseCase(
+        session_repo=_SessionRepo(session),
+        cage_feeding_repo=cage_feeding_repo,
+        event_repo=event_repo,
+        machine=machine,
+        line_repo=_LineRepo(_Line(max_rate_kg_per_min=8.0)),
+    )
+
+    await use_case.execute(session.id, cage_feeding.cage_id, 4.5)
+
+    assert cage_feeding_repo.saved.rate_kg_per_min == 4.5
+    assert machine.doser_rate is None
+    assert event_repo.saved[0].data["applied_immediately"] is False
+
+
+@pytest.mark.asyncio
+async def test_update_cyclic_cage_rate_rejects_doser_capacity():
+    line_id = LineId.generate()
+    session = FeedingSession(
+        feeding_type=FeedingType.CYCLIC,
+        line_id=str(line_id),
+        operator_id="operator-1",
+        total_programmed_kg=40.0,
+    )
+    session.start()
+    cage_feeding = CageFeeding(
+        feeding_session_id=session.id,
+        cage_id="123e4567-e89b-12d3-a456-426614174001",
+        doser_id="123e4567-e89b-12d3-a456-426614174002",
+        silo_id="123e4567-e89b-12d3-a456-426614174003",
+        execution_order=1,
+        programmed_kg=10.0,
+        programmed_visits=4,
+        rate_kg_per_min=2.0,
+    )
+    use_case = UpdateCyclicCageRateUseCase(
+        session_repo=_SessionRepo(session),
+        cage_feeding_repo=_CageFeedingRepo([cage_feeding]),
+        event_repo=_EventRepo(),
+        machine=_Machine(),
+        line_repo=_LineRepo(_Line(max_rate_kg_per_min=3.0)),
+    )
+
+    with pytest.raises(ValueError, match="supera la capacidad"):
+        await use_case.execute(session.id, cage_feeding.cage_id, 4.5)

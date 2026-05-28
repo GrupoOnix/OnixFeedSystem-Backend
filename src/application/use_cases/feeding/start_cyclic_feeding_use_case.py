@@ -19,7 +19,10 @@ from domain.repositories import (
     ISlotAssignmentRepository,
     ISystemConfigRepository,
 )
-from domain.services.feeding_time_calculator import calculate_visit_duration
+from domain.services.feeding_time_calculator import (
+    calculate_cyclic_wait_duration,
+    calculate_visit_duration,
+)
 from domain.services.operating_schedule_service import OperatingScheduleService
 from domain.value_objects import CageId, LineId
 from domain.value_objects.activity_log_entry import ActivityLogEntry
@@ -135,6 +138,7 @@ class StartCyclicFeedingUseCase:
             )
         estimated_total_seconds = 0.0
         total_rounds = max(active_visit_counts, default=0)
+        active_cage_count = len(active_visit_counts)
         for round_number in range(total_rounds):
             for cfg, _cage, _assignment in cage_data:
                 if cfg.mode == "FASTING":
@@ -144,6 +148,11 @@ class StartCyclicFeedingUseCase:
                     estimated_total_seconds += per_cage_visit_seconds[cfg.cage_id]
                 else:
                     estimated_total_seconds += per_cage_empty_visit_seconds[cfg.cage_id]
+        estimated_total_seconds += calculate_cyclic_wait_duration(
+            total_rounds=total_rounds,
+            active_cage_count=active_cage_count,
+            wait_after_visit_seconds=request.wait_after_visit_seconds,
+        )
         # Soplido previo al inicio y posterior al final: una sola vez cada uno
         estimated_total_seconds += blow_before + blow_after
 
@@ -234,6 +243,7 @@ class StartCyclicFeedingUseCase:
                 blow_before_seconds=blow_before,
                 blow_after_seconds=blow_after,
                 selector_positioning_seconds=selector_positioning_seconds,
+                wait_after_visit_seconds=request.wait_after_visit_seconds,
             )
         )
 

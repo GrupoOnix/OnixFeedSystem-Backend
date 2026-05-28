@@ -286,6 +286,7 @@ class UpsertLastValidCyclicFeedingConfigUseCase:
             doser_id=doser_uuid,
             visits=_resolve_global_cyclic_visits(request),
             blower_power_percentage=request.blower_power_percentage,
+            wait_after_visit_seconds=request.wait_after_visit_seconds,
             cage_configs=[
                 _cyclic_cage_config_dump_with_visits(cage_config, request.visits)
                 for cage_config in request.cage_configs
@@ -508,6 +509,7 @@ async def _is_cyclic_valid_against_current_layout(
             doser_id=str(config.doser_id),
             visits=config.visits,
             blower_power_percentage=config.blower_power_percentage,
+            wait_after_visit_seconds=getattr(config, "wait_after_visit_seconds", 0.0),
             cage_configs=cage_configs,
         )
         await _assert_cyclic_valid_for_save(
@@ -547,6 +549,7 @@ async def _cyclic_to_response(
         doser_id=str(config.doser_id),
         visits=config.visits,
         blower_power_percentage=config.blower_power_percentage,
+        wait_after_visit_seconds=getattr(config, "wait_after_visit_seconds", 0.0),
         cage_configs=[
             LastValidCyclicCageConfigPayload(**_cyclic_cage_config_with_legacy_visits(cage_config, config.visits))
             for cage_config in config.cage_configs

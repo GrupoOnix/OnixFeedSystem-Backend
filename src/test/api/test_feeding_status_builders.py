@@ -16,8 +16,11 @@ from domain.entities.feeding_session import FeedingSession, FeedingType
 
 
 class _MachineStub:
+    def __init__(self, status=None):
+        self._status = status
+
     async def get_status(self, line_id):
-        return MachineVisitStatus(
+        return self._status or MachineVisitStatus(
             is_running=True,
             is_paused=True,
             dispensed_kg=3.5,
@@ -139,6 +142,71 @@ async def test_cyclic_status_keeps_active_cage_live_values_when_session_is_pause
     assert status["cages_summary"][0]["overall_completion_percentage"] == 35.0
 
 
+@pytest.mark.asyncio
+async def test_cyclic_status_reports_empty_visit_for_completed_cage():
+    session = FeedingSession(
+        feeding_type=FeedingType.CYCLIC,
+        line_id=str(uuid4()),
+        operator_id=str(uuid4()),
+        total_programmed_kg=120.0,
+    )
+    session.start()
+    finished_cage = CageFeeding(
+        feeding_session_id=session.id,
+        cage_id=str(uuid4()),
+        doser_id=str(uuid4()),
+        silo_id=str(uuid4()),
+        execution_order=1,
+        programmed_kg=10.0,
+        programmed_visits=2,
+        rate_kg_per_min=2.0,
+    )
+    finished_cage.start()
+    finished_cage.increment_completed_visits()
+    finished_cage.increment_completed_visits()
+    finished_cage.complete()
+    running_cage = CageFeeding(
+        feeding_session_id=session.id,
+        cage_id=str(uuid4()),
+        doser_id=str(uuid4()),
+        silo_id=str(uuid4()),
+        execution_order=2,
+        programmed_kg=10.0,
+        programmed_visits=10,
+        rate_kg_per_min=2.0,
+    )
+    running_cage.start()
+
+    machine = _MachineStub(MachineVisitStatus(
+        is_running=True,
+        is_paused=False,
+        dispensed_kg=0.0,
+        current_flow_rate_kg_per_min=0.0,
+        has_error=False,
+        current_stage=VisitStage.POSITIONING_SELECTOR,
+        cage_id=finished_cage.cage_id,
+        cage_feeding_id=finished_cage.id,
+        visit_number=3,
+        is_empty_visit=True,
+    ))
+
+    status = await build_cyclic_status(
+        session,
+        _CageFeedingRepoStub([finished_cage, running_cage]),
+        _CageRepoStub(),
+        _LineRepoStub(),
+        machine,
+    )
+
+    assert status["current_round"] == 3
+    assert status["active_cage"]["cage_id"] == finished_cage.cage_id
+    assert status["active_cage"]["current_visit_number"] == 3
+    assert status["active_cage"]["total_visits"] == 2
+    assert status["active_cage"]["is_empty_visit"] is True
+    assert status["active_cage"]["current_visit_programmed_kg"] == 0.0
+    assert status["active_cage"]["programmed_kg_per_visit"] == 10.0
+
+
 def test_cyclic_request_accepts_visits_per_cage_without_global_visits():
     request = CyclicFeedingRequest(
         line_id=str(uuid4()),
@@ -158,7 +226,51 @@ def test_cyclic_request_accepts_visits_per_cage_without_global_visits():
     )
 
     assert request.visits is None
+    assert request.wait_after_visit_seconds == 0
     assert request.cage_configs[0].visits == 15
+
+
+def test_cyclic_request_accepts_positive_wait_after_visit_seconds():
+    request = CyclicFeedingRequest(
+        line_id=str(uuid4()),
+        group_id=str(uuid4()),
+        doser_id=str(uuid4()),
+        blower_power_percentage=70,
+        wait_after_visit_seconds=30,
+        operator_id=str(uuid4()),
+        cage_configs=[
+            CageConfigInput(
+                cage_id=str(uuid4()),
+                visits=15,
+                quantity_kg=150,
+                rate_kg_per_min=10,
+                mode="NORMAL",
+            ),
+        ],
+    )
+
+    assert request.wait_after_visit_seconds == 30
+
+
+def test_cyclic_request_rejects_negative_wait_after_visit_seconds():
+    with pytest.raises(ValidationError, match="wait_after_visit_seconds"):
+        CyclicFeedingRequest(
+            line_id=str(uuid4()),
+            group_id=str(uuid4()),
+            doser_id=str(uuid4()),
+            blower_power_percentage=70,
+            wait_after_visit_seconds=-1,
+            operator_id=str(uuid4()),
+            cage_configs=[
+                CageConfigInput(
+                    cage_id=str(uuid4()),
+                    visits=15,
+                    quantity_kg=150,
+                    rate_kg_per_min=10,
+                    mode="NORMAL",
+                ),
+            ],
+        )
 
 
 def test_cyclic_request_requires_per_cage_or_global_visits_for_active_cages():

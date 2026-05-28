@@ -2,6 +2,7 @@ import pytest
 
 from application.services import feeding_orchestrator
 from application.services.feeding_orchestrator import FeedingOrchestrator
+from domain.dtos.machine_io import MachineVisitStatus, VisitStage
 from domain.entities.cage_feeding import CageFeeding, CageFeedingMode
 from domain.entities.feeding_session import SessionStatus
 from domain.value_objects import BlowerPowerPercentage, LineId
@@ -59,6 +60,102 @@ def _clone_cage_feeding(cage_feeding):
     clone._completed_visits = cage_feeding.completed_visits
     clone._dispensed_kg = cage_feeding.dispensed_kg
     return clone
+
+
+@pytest.mark.asyncio
+async def test_execute_visit_uses_refreshed_programmed_kg_from_repository(monkeypatch):
+    line_id = LineId.generate()
+    silo_id = SiloId.generate()
+    session = type(
+        "_Session",
+        (),
+        {
+            "id": "session-1",
+            "status": type("_Status", (), {"value": SessionStatus.IN_PROGRESS.value})(),
+        },
+    )()
+    stale = CageFeeding(
+        feeding_session_id=session.id,
+        cage_id="00000000-0000-0000-0000-000000000001",
+        doser_id="00000000-0000-0000-0000-000000000101",
+        silo_id=str(silo_id.value),
+        execution_order=1,
+        programmed_kg=10,
+        programmed_visits=2,
+        rate_kg_per_min=3,
+        mode=CageFeedingMode.NORMAL,
+    )
+    refreshed = _clone_cage_feeding(stale)
+    refreshed.set_programmed_kg(14)
+    commands = []
+
+    class _MachineWithStatus:
+        async def start_visit(self, line_id, command):
+            commands.append(command)
+
+        async def get_status(self, line_id):
+            return MachineVisitStatus(
+                is_running=False,
+                is_paused=False,
+                dispensed_kg=14,
+                current_flow_rate_kg_per_min=0,
+                has_error=False,
+                current_stage=VisitStage.COMPLETED,
+            )
+
+    class _CageFeedingRepository:
+        def __init__(self, db):
+            self.db = db
+
+        async def find_by_id(self, cage_feeding_id):
+            return refreshed
+
+        async def save(self, cage_feeding):
+            pass
+
+    class _FeedingSessionRepository:
+        def __init__(self, db):
+            self.db = db
+
+        async def find_by_id(self, session_id):
+            return session
+
+    class _FeedingEventRepository:
+        def __init__(self, db):
+            self.db = db
+
+        async def save(self, event):
+            pass
+
+    class _SiloRepository:
+        def __init__(self, db):
+            self.db = db
+
+        async def find_by_id(self, silo_id):
+            return None
+
+    monkeypatch.setattr(feeding_orchestrator, "CageFeedingRepository", _CageFeedingRepository)
+    monkeypatch.setattr(feeding_orchestrator, "FeedingSessionRepository", _FeedingSessionRepository)
+    monkeypatch.setattr(feeding_orchestrator, "FeedingEventRepository", _FeedingEventRepository)
+    monkeypatch.setattr(feeding_orchestrator, "SiloRepository", _SiloRepository)
+
+    orchestrator = FeedingOrchestrator(
+        machine=_MachineWithStatus(),
+        session_factory=_SessionFactory(),
+        poll_interval_seconds=0,
+    )
+
+    await orchestrator._execute_visit(
+        session=session,
+        cage_feeding=stale,
+        line_id=line_id,
+        slot_number=1,
+        silo_id=silo_id,
+        blower_power_percentage=70,
+        visit_number=1,
+    )
+
+    assert commands[0].target_kg == 14
 
 
 @pytest.mark.asyncio
@@ -323,3 +420,100 @@ async def test_cyclic_run_applies_blow_before_once_and_blow_after_once_after_ref
 
     assert [call[2] for call in calls] == [11, 0.0, 0.0, 0.0]
     assert [call[3] for call in calls] == [0.0, 0.0, 0.0, 13]
+
+
+@pytest.mark.asyncio
+async def test_cyclic_run_waits_after_intermediate_visits_only(monkeypatch):
+    line_id = LineId.generate()
+    silo_id = SiloId.generate()
+    status = type("_Status", (), {"value": SessionStatus.IN_PROGRESS.value})()
+    session = type(
+        "_Session",
+        (),
+        {
+            "id": "session-1",
+            "status": status,
+            "actual_start": None,
+            "complete": lambda self: setattr(self.status, "value", SessionStatus.COMPLETED.value),
+        },
+    )()
+
+    cage_feeding = CageFeeding(
+        feeding_session_id=session.id,
+        cage_id="00000000-0000-0000-0000-000000000001",
+        doser_id="00000000-0000-0000-0000-000000000101",
+        silo_id=str(silo_id.value),
+        execution_order=1,
+        programmed_kg=10,
+        programmed_visits=3,
+        rate_kg_per_min=10,
+        mode=CageFeedingMode.NORMAL,
+    )
+    visits = []
+    sleeps = []
+
+    class _FeedingSessionRepository:
+        def __init__(self, db):
+            self.db = db
+
+        async def find_by_id(self, session_id):
+            return session
+
+        async def save(self, session_to_save):
+            pass
+
+    class _FeedingEventRepository:
+        def __init__(self, db):
+            self.db = db
+
+        async def save(self, event):
+            pass
+
+    class _CageFeedingRepository:
+        def __init__(self, db):
+            self.db = db
+
+        async def find_by_id(self, cage_feeding_id):
+            return cage_feeding
+
+    async def _execute_visit(self, **kwargs):
+        visits.append(kwargs["visit_number"])
+        if cage_feeding.status.value == "PENDING":
+            cage_feeding.start()
+        cage_feeding.increment_completed_visits()
+        if cage_feeding.completed_visits >= cage_feeding.programmed_visits:
+            cage_feeding.complete()
+
+    async def _sleep(seconds):
+        sleeps.append(seconds)
+
+    async def _noop(self, line_id):
+        pass
+
+    monkeypatch.setattr(feeding_orchestrator, "FeedingSessionRepository", _FeedingSessionRepository)
+    monkeypatch.setattr(feeding_orchestrator, "FeedingEventRepository", _FeedingEventRepository)
+    monkeypatch.setattr(feeding_orchestrator, "CageFeedingRepository", _CageFeedingRepository)
+    monkeypatch.setattr(feeding_orchestrator.asyncio, "sleep", _sleep)
+    monkeypatch.setattr(FeedingOrchestrator, "_execute_visit", _execute_visit)
+    monkeypatch.setattr(FeedingOrchestrator, "_turn_off_persisted_blower", _noop)
+    monkeypatch.setattr(FeedingOrchestrator, "_release_feeding_line", _noop)
+
+    orchestrator = FeedingOrchestrator(
+        machine=_Machine(),
+        session_factory=_SessionFactory(),
+        poll_interval_seconds=0,
+    )
+
+    await orchestrator.run(
+        session=session,
+        cage_feedings=[cage_feeding],
+        line_id=line_id,
+        slot_map={cage_feeding.cage_id: 1},
+        silo_id=silo_id,
+        blower_power_percentage=70,
+        transport_time_map={cage_feeding.cage_id: 1},
+        wait_after_visit_seconds=9,
+    )
+
+    assert visits == [1, 2, 3]
+    assert sleeps == [9, 9]

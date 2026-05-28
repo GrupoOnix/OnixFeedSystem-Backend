@@ -31,6 +31,10 @@ class _LineState:
     visit_start_time: Optional[datetime] = None
     dispensing_completed_time: Optional[datetime] = None
     slot_rates: Dict[int, float] = None
+    cage_id: Optional[str] = None
+    cage_feeding_id: Optional[str] = None
+    visit_number: Optional[int] = None
+    is_empty_visit: bool = False
 
     def __post_init__(self):
         if self.slot_rates is None:
@@ -96,11 +100,14 @@ class SimulatedMachine(IMachine):
         # Guardar tasa en el registro del slot (simula PLC)
         # Si el slot ya tiene una tasa (cambio en caliente previo), usar esa
         # Si no, guardar la del comando (viene de BD)
-        if command.slot_number not in state.slot_rates:
+        if command.target_kg > 0 and command.slot_number not in state.slot_rates:
             state.slot_rates[command.slot_number] = command.doser_rate_kg_per_min
 
-        # Usar la tasa del registro del slot (simula leer del PLC)
-        state.doser_rate_kg_per_min = state.slot_rates[command.slot_number]
+        # Usar la tasa del registro del slot (simula leer del PLC). Las visitas
+        # vacías no dosifican, incluso si el slot tiene una tasa previa.
+        state.doser_rate_kg_per_min = (
+            0.0 if command.target_kg == 0 else state.slot_rates[command.slot_number]
+        )
 
         state.blower_power_percentage = command.blower_power_percentage
         state.pre_pause_doser_rate = 0.0
@@ -111,6 +118,10 @@ class SimulatedMachine(IMachine):
         state.blow_before_seconds = command.blow_before_seconds
         state.blow_after_seconds = command.blow_after_seconds
         state.selector_positioning_seconds = command.selector_positioning_seconds
+        state.cage_id = command.cage_id
+        state.cage_feeding_id = command.cage_feeding_id
+        state.visit_number = command.visit_number
+        state.is_empty_visit = command.is_empty_visit
         state.visit_start_time = now
         state.dispensing_completed_time = None
 
@@ -147,6 +158,11 @@ class SimulatedMachine(IMachine):
             has_error=state.has_error,
             current_stage=stage,
             error_code=state.error_code,
+            slot_number=state.slot_number,
+            cage_id=state.cage_id,
+            cage_feeding_id=state.cage_feeding_id,
+            visit_number=state.visit_number,
+            is_empty_visit=state.is_empty_visit,
         )
 
     def _compute_stage(self, state: "_LineState", now: datetime) -> VisitStage:
@@ -240,6 +256,10 @@ class SimulatedMachine(IMachine):
         state.doser_rate_kg_per_min = 0.0
         state.blower_power_percentage = 0.0
         state.visit_start_time = None
+        state.cage_id = None
+        state.cage_feeding_id = None
+        state.visit_number = None
+        state.is_empty_visit = False
         # Limpiar registros de tasas por slot al detener la línea
         state.slot_rates.clear()
         logger.info(

@@ -33,6 +33,7 @@ class LastValidCyclicFeedingConfigRepository:
         visits: int,
         blower_power_percentage: float,
         cage_configs: List[Dict[str, Any]],
+        wait_after_visit_seconds: float = 0.0,
         updated_by: Optional[str] = None,
     ) -> LastValidCyclicFeedingConfigModel:
         existing = await self.find_by_line_id(line_id)
@@ -44,6 +45,7 @@ class LastValidCyclicFeedingConfigRepository:
                 doser_id=doser_id,
                 visits=visits,
                 blower_power_percentage=blower_power_percentage,
+                wait_after_visit_seconds=wait_after_visit_seconds,
                 cage_configs=cage_configs,
                 updated_by=updated_by,
             ):
@@ -53,6 +55,7 @@ class LastValidCyclicFeedingConfigRepository:
             existing.doser_id = doser_id
             existing.visits = visits
             existing.blower_power_percentage = blower_power_percentage
+            existing.wait_after_visit_seconds = wait_after_visit_seconds
             existing.cage_configs = cage_configs
             existing.updated_by = updated_by
             existing.updated_at = datetime.now(timezone.utc)
@@ -65,6 +68,7 @@ class LastValidCyclicFeedingConfigRepository:
             doser_id=doser_id,
             visits=visits,
             blower_power_percentage=blower_power_percentage,
+            wait_after_visit_seconds=wait_after_visit_seconds,
             cage_configs=cage_configs,
             updated_by=updated_by,
         )
@@ -81,6 +85,7 @@ def _matches(
     doser_id: UUID,
     visits: int,
     blower_power_percentage: float,
+    wait_after_visit_seconds: float,
     cage_configs: List[Dict[str, Any]],
     updated_by: Optional[str],
 ) -> bool:
@@ -89,6 +94,7 @@ def _matches(
         and model.doser_id == doser_id
         and model.visits == visits
         and model.blower_power_percentage == blower_power_percentage
+        and model.wait_after_visit_seconds == wait_after_visit_seconds
         and model.cage_configs == cage_configs
         and model.updated_by == updated_by
     )

@@ -91,6 +91,11 @@ class LastValidCyclicFeedingConfigPayload(BaseModel):
         le=100,
         description="Potencia del blower en porcentaje",
     )
+    wait_after_visit_seconds: float = Field(
+        default=0,
+        ge=0,
+        description="Tiempo de espera en segundos después de cada visita cíclica, excepto la última.",
+    )
     cage_configs: list[LastValidCyclicCageConfigPayload] = Field(
         min_length=1,
         description="Configuración por jaula",
@@ -119,6 +124,7 @@ class LastValidCyclicFeedingConfigResponse(BaseModel):
     doser_id: str
     visits: Optional[int]
     blower_power_percentage: float
+    wait_after_visit_seconds: float
     cage_configs: list[LastValidCyclicCageConfigPayload]
     updated_by: Optional[str] = None
     created_at: datetime

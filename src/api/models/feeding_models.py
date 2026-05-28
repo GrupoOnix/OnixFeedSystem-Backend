@@ -272,6 +272,11 @@ class CyclicFeedingRequest(BaseModel):
     blower_power_percentage: float = Field(
         ge=30, le=100, description="Potencia del blower en porcentaje (30-100%)"
     )
+    wait_after_visit_seconds: float = Field(
+        default=0,
+        ge=0,
+        description="Tiempo de espera en segundos después de cada visita cíclica, excepto la última.",
+    )
     operator_id: str = Field(description="ID del operador (UUID)")
     allow_overtime: bool = Field(
         default=False,
@@ -337,6 +342,7 @@ class ActiveCageInfo(BaseModel):
     current_visit_number: int
     total_visits: int
     current_stage: str
+    is_empty_visit: bool = False
     current_visit_dispensed_kg: float
     current_visit_programmed_kg: float
     programmed_kg_per_visit: float

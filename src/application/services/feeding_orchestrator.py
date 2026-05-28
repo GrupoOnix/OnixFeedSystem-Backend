@@ -55,6 +55,7 @@ class FeedingOrchestrator:
         blow_before_seconds: float = 0.0,
         blow_after_seconds: float = 0.0,
         selector_positioning_seconds: float = 5.0,
+        wait_after_visit_seconds: float = 0.0,
     ) -> None:
         """
         Ejecuta una sesión de alimentación (manual o cíclica).
@@ -71,6 +72,13 @@ class FeedingOrchestrator:
             (cf.programmed_visits for cf in cage_feedings),
             default=0,
         )
+        active_feeding_count = sum(
+            1
+            for cf in cage_feedings
+            if cf.mode != CageFeedingMode.FASTING
+        )
+        total_visit_executions = total_rounds * active_feeding_count
+        completed_visit_executions = 0
 
         # Primera y última jaula activa: determinan dónde van blow_before y blow_after.
         # Usar IDs porque cada visita puede recargar instancias nuevas desde BD.
@@ -144,6 +152,8 @@ class FeedingOrchestrator:
                         selector_positioning_seconds=selector_positioning_seconds,
                     )
 
+                completed_visit_executions += 1
+
                 # Recargar sesión desde BD para sincronizar cambios externos
                 async with self._session_factory() as db:
                     refreshed_session = await FeedingSessionRepository(db).find_by_id(session.id)
@@ -157,6 +167,16 @@ class FeedingOrchestrator:
                     )
                     await self._release_feeding_line(line_id)
                     return
+
+                if (
+                    wait_after_visit_seconds > 0
+                    and completed_visit_executions < total_visit_executions
+                ):
+                    logger.info(
+                        f"[Orchestrator] Session {session.id}: waiting "
+                        f"{wait_after_visit_seconds:.1f}s before next cyclic visit"
+                    )
+                    await asyncio.sleep(wait_after_visit_seconds)
 
         # Verificar una última vez antes de marcar como completada
         async with self._session_factory() as db:
@@ -292,11 +312,12 @@ class FeedingOrchestrator:
     ) -> None:
         visit_start = datetime.now(timezone.utc)
 
-        # Recargar desde DB para obtener la tasa actualizada (puede haber cambiado en caliente)
+        # Recargar desde DB para obtener ajustes live de apetito (cantidad/tasa).
         async with self._session_factory() as db:
             refreshed = await CageFeedingRepository(db).find_by_id(cage_feeding.id)
             current_rate = refreshed.rate_kg_per_min if refreshed else cage_feeding.rate_kg_per_min
-        command_target_kg = cage_feeding.programmed_kg if target_kg is None else target_kg
+            current_programmed_kg = refreshed.programmed_kg if refreshed else cage_feeding.programmed_kg
+        command_target_kg = current_programmed_kg if target_kg is None else target_kg
         command_rate = current_rate if doser_rate_kg_per_min is None else doser_rate_kg_per_min
 
         command = MachineCommand(
@@ -308,6 +329,10 @@ class FeedingOrchestrator:
             blow_before_seconds=blow_before_seconds,
             blow_after_seconds=blow_after_seconds,
             selector_positioning_seconds=selector_positioning_seconds,
+            cage_id=cage_feeding.cage_id,
+            cage_feeding_id=cage_feeding.id,
+            visit_number=visit_number,
+            is_empty_visit=is_empty_visit,
         )
         await self._machine.start_visit(line_id, command)
 

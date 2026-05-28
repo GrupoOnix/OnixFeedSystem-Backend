@@ -113,15 +113,47 @@ async def build_cyclic_status(
     active_cfs = [cf for cf in cf_list if cf.mode != CageFeedingMode.FASTING]
     total_rounds = max((cf.programmed_visits for cf in active_cfs), default=0)
     total_cages = len(active_cfs)
-    active_cf = next(
+
+    status_cage_feeding_id = getattr(machine_status, "cage_feeding_id", None)
+    status_cage_id = getattr(machine_status, "cage_id", None)
+    status_has_visit_context = (
+        session.status.value in LIVE_SESSION_STATUSES
+        and machine_status.current_stage.value not in ("IDLE", "COMPLETED")
+        and (status_cage_feeding_id or status_cage_id)
+    )
+    machine_active_cf = None
+    if status_has_visit_context:
+        machine_active_cf = next(
+            (
+                cf for cf in cf_list
+                if (
+                    status_cage_feeding_id
+                    and cf.id == status_cage_feeding_id
+                )
+                or (
+                    not status_cage_feeding_id
+                    and status_cage_id
+                    and cf.cage_id == status_cage_id
+                )
+            ),
+            None,
+        )
+
+    active_cf = machine_active_cf or (next(
         (cf for cf in cf_list
          if cf.mode != CageFeedingMode.FASTING
          and cf.status.value == "IN_PROGRESS"),
         None,
-    ) if session.status.value in LIVE_SESSION_STATUSES else None
+    ) if session.status.value in LIVE_SESSION_STATUSES else None)
 
     if session.status.value == "COMPLETED":
         current_round = total_rounds
+    elif (
+        active_cf
+        and getattr(machine_status, "visit_number", None) is not None
+        and bool(getattr(machine_status, "is_empty_visit", False))
+    ):
+        current_round = min(machine_status.visit_number, total_rounds)
     elif active_cf:
         current_round = min(active_cf.completed_visits + 1, total_rounds)
     elif active_cfs:
@@ -146,9 +178,14 @@ async def build_cyclic_status(
         cage = await cage_repo.find_by_id(CageId.from_string(active_cf.cage_id))
         cage_name = cage.name.value if cage else active_cf.cage_id
 
-        current_visit_number = active_cf.completed_visits + 1
+        is_empty_visit = bool(getattr(machine_status, "is_empty_visit", False))
+        current_visit_number = (
+            machine_status.visit_number
+            if getattr(machine_status, "visit_number", None) is not None
+            else active_cf.completed_visits + 1
+        )
         current_visit_dispensed_kg = machine_status.dispensed_kg
-        current_visit_programmed_kg = active_cf.programmed_kg
+        current_visit_programmed_kg = 0.0 if is_empty_visit else active_cf.programmed_kg
         current_visit_completion_percentage = (
             (current_visit_dispensed_kg / current_visit_programmed_kg * 100)
             if current_visit_programmed_kg > 0
@@ -168,9 +205,10 @@ async def build_cyclic_status(
             "current_visit_number": current_visit_number,
             "total_visits": active_cf.programmed_visits,
             "current_stage": machine_status.current_stage.value,
+            "is_empty_visit": is_empty_visit,
             "current_visit_dispensed_kg": round(current_visit_dispensed_kg, 3),
             "current_visit_programmed_kg": current_visit_programmed_kg,
-            "programmed_kg_per_visit": current_visit_programmed_kg,
+            "programmed_kg_per_visit": active_cf.programmed_kg,
             "current_visit_completion_percentage": round(current_visit_completion_percentage, 2),
             "current_flow_rate_kg_per_min": machine_status.current_flow_rate_kg_per_min,
             **active_pulse_metrics,

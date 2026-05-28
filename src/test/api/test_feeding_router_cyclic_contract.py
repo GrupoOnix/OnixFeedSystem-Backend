@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
+from fastapi import HTTPException
 
 os.environ.setdefault("DB_HOST", "localhost")
 os.environ.setdefault("DB_PORT", "5432")
@@ -10,12 +11,14 @@ os.environ.setdefault("DB_USER", "postgres")
 os.environ.setdefault("DB_PASSWORD", "postgres")
 os.environ.setdefault("DB_NAME", "test")
 
-from api.models.feeding_models import UpdateCageModeRequest
+from api.models.feeding_models import UpdateAmountRequest, UpdateCageModeRequest, UpdateRateRequest
 from api.routers.feeding_router import (
     get_cage_visit_history,
     get_cyclic_feeding_status,
     get_session_history_detail,
     update_cage_mode,
+    update_cyclic_cage_amount,
+    update_cyclic_cage_rate,
 )
 from domain.dtos.machine_io import MachineVisitStatus, VisitStage
 from domain.entities.cage_feeding import CageFeeding, CageFeedingMode
@@ -30,6 +33,29 @@ class _UpdateCageModeUseCase:
     async def execute(self, session_id, cage_id, new_mode, operator_id):
         self.calls.append((session_id, cage_id, new_mode, operator_id))
         return "NORMAL", new_mode
+
+
+class _UpdateCyclicCageAmountUseCase:
+    def __init__(self):
+        self.calls = []
+
+    async def execute(self, session_id, cage_id, new_amount):
+        self.calls.append((session_id, cage_id, new_amount))
+        return new_amount
+
+
+class _UpdateCyclicCageRateUseCase:
+    def __init__(self):
+        self.calls = []
+
+    async def execute(self, session_id, cage_id, new_rate):
+        self.calls.append((session_id, cage_id, new_rate))
+        return new_rate
+
+
+class _FailingUseCase:
+    async def execute(self, *args):
+        raise ValueError("bad request")
 
 
 class _SessionRepo:
@@ -151,6 +177,56 @@ async def test_patch_cage_mode_response_contract_marks_next_visits_only():
     assert response.new_mode == "PAUSE"
     assert response.applied_immediately is False
     assert use_case.calls == [(session_id, cage_id, "PAUSE", operator_id)]
+
+
+@pytest.mark.asyncio
+async def test_patch_cyclic_cage_amount_response_contract():
+    session_id = str(uuid4())
+    cage_id = str(uuid4())
+    use_case = _UpdateCyclicCageAmountUseCase()
+
+    response = await update_cyclic_cage_amount(
+        session_id=session_id,
+        cage_id=cage_id,
+        request=UpdateAmountRequest(amount_kg=52.0),
+        use_case=use_case,
+    )
+
+    assert response.message == "Cantidad de alimentación de jaula actualizada"
+    assert response.new_amount_kg == 52.0
+    assert use_case.calls == [(session_id, cage_id, 52.0)]
+
+
+@pytest.mark.asyncio
+async def test_patch_cyclic_cage_rate_response_contract():
+    session_id = str(uuid4())
+    cage_id = str(uuid4())
+    use_case = _UpdateCyclicCageRateUseCase()
+
+    response = await update_cyclic_cage_rate(
+        session_id=session_id,
+        cage_id=cage_id,
+        request=UpdateRateRequest(rate_kg_per_min=4.5),
+        use_case=use_case,
+    )
+
+    assert response.message == "Tasa de alimentación de jaula actualizada"
+    assert response.new_rate_kg_per_min == 4.5
+    assert use_case.calls == [(session_id, cage_id, 4.5)]
+
+
+@pytest.mark.asyncio
+async def test_patch_cyclic_cage_amount_maps_value_error_to_400():
+    with pytest.raises(HTTPException) as exc_info:
+        await update_cyclic_cage_amount(
+            session_id=str(uuid4()),
+            cage_id=str(uuid4()),
+            request=UpdateAmountRequest(amount_kg=52.0),
+            use_case=_FailingUseCase(),
+        )
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "bad request"
 
 
 @pytest.mark.asyncio
