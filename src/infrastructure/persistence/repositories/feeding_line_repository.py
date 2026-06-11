@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -9,6 +9,8 @@ from domain.enums import FeedingLineStatus
 from domain.exceptions import FeedingLineUnavailableException
 from domain.repositories import IFeedingLineRepository
 from domain.value_objects import LineId, LineName
+from infrastructure.persistence.models.doser_model import DoserModel
+from infrastructure.persistence.models.doser_silo_model import DoserSiloModel
 from infrastructure.persistence.models.feeding_line_model import FeedingLineModel
 
 
@@ -20,6 +22,7 @@ class FeedingLineRepository(IFeedingLineRepository):
         line_model = FeedingLineModel.from_domain(feeding_line)
         await self.session.merge(line_model)
         await self.session.flush()
+        await self._save_doser_silo_links(feeding_line)
 
     async def save_available_status_transition(self, feeding_line: FeedingLine) -> None:
         stmt = (
@@ -55,7 +58,7 @@ class FeedingLineRepository(IFeedingLineRepository):
             .options(
                 selectinload(FeedingLineModel.blower),
                 selectinload(FeedingLineModel.cooler),
-                selectinload(FeedingLineModel.dosers),
+                selectinload(FeedingLineModel.dosers).selectinload(DoserModel.silos),
                 selectinload(FeedingLineModel.selector),
                 selectinload(FeedingLineModel.sensors),
             )
@@ -72,7 +75,7 @@ class FeedingLineRepository(IFeedingLineRepository):
             .options(
                 selectinload(FeedingLineModel.blower),
                 selectinload(FeedingLineModel.cooler),
-                selectinload(FeedingLineModel.dosers),
+                selectinload(FeedingLineModel.dosers).selectinload(DoserModel.silos),
                 selectinload(FeedingLineModel.selector),
                 selectinload(FeedingLineModel.sensors),
             )
@@ -86,7 +89,7 @@ class FeedingLineRepository(IFeedingLineRepository):
         stmt = select(FeedingLineModel).options(
             selectinload(FeedingLineModel.blower),
             selectinload(FeedingLineModel.cooler),
-            selectinload(FeedingLineModel.dosers),
+            selectinload(FeedingLineModel.dosers).selectinload(DoserModel.silos),
             selectinload(FeedingLineModel.selector),
             selectinload(FeedingLineModel.sensors),
         )
@@ -105,3 +108,23 @@ class FeedingLineRepository(IFeedingLineRepository):
         if line_model:
             await self.session.delete(line_model)
             await self.session.flush()
+
+    async def _save_doser_silo_links(self, feeding_line: FeedingLine) -> None:
+        doser_ids = [doser.id.value for doser in feeding_line.dosers]
+        if not doser_ids:
+            return
+
+        await self.session.execute(
+            delete(DoserSiloModel).where(DoserSiloModel.doser_id.in_(doser_ids))
+        )
+
+        for doser in feeding_line.dosers:
+            for silo_id in doser.assigned_silo_ids:
+                self.session.add(
+                    DoserSiloModel(
+                        doser_id=doser.id.value,
+                        silo_id=silo_id.value,
+                    )
+                )
+
+        await self.session.flush()

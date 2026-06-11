@@ -1,6 +1,6 @@
 """Factory para creación de componentes de líneas de alimentación."""
 
-from typing import Optional
+from typing import Iterable, Optional
 
 from ..interfaces import IBlower, IDoser, ISelector, ISensor
 from ..value_objects import (
@@ -54,7 +54,7 @@ class ComponentFactory:
     def create_doser(
         doser_type: str,
         name: DoserName,
-        assigned_silo_id: SiloId,
+        assigned_silo_ids: Iterable[SiloId],
         dosing_range: DosingRange,
         current_rate: DosingRate,
         speed_percentage: int = 50,
@@ -73,7 +73,7 @@ class ComponentFactory:
 
         return Doser(
             name=name,
-            assigned_silo_id=assigned_silo_id,
+            assigned_silo_ids=assigned_silo_ids,
             doser_type=doser_type_enum,
             dosing_range=dosing_range,
             current_rate=current_rate,

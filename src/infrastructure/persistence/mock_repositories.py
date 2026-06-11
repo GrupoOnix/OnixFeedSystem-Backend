@@ -28,6 +28,9 @@ class MockFeedingLineRepository(IFeedingLineRepository):
     async def save(self, feeding_line: FeedingLine) -> None:
         self._lines[feeding_line.id] = feeding_line
 
+    async def save_available_status_transition(self, feeding_line: FeedingLine) -> None:
+        self._lines[feeding_line.id] = feeding_line
+
     async def find_by_id(self, line_id: LineId) -> Optional[FeedingLine]:
         return self._lines.get(line_id)
 

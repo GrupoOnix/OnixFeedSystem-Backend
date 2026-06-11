@@ -315,7 +315,7 @@ async def _assert_valid_for_save(
     if not silo:
         raise ValueError(f"Silo con ID {silo_uuid} no encontrado")
 
-    if not any(doser.assigned_silo_id.value == silo_uuid for doser in line.dosers):
+    if not any(_doser_has_silo(doser, silo_uuid) for doser in line.dosers):
         raise ValueError(f"El silo {silo_uuid} no pertenece a la línea {line_id}")
 
     cage = await cage_repo.find_by_id(CageId(cage_uuid))
@@ -430,7 +430,7 @@ async def _is_valid_against_current_layout(
     if not silo:
         return False
 
-    if not any(doser.assigned_silo_id.value == config.target_silo_id for doser in line.dosers):
+    if not any(_doser_has_silo(doser, config.target_silo_id) for doser in line.dosers):
         return False
 
     cage = await use_case.cage_repo.find_by_id(CageId(config.target_cage_id))
@@ -527,6 +527,15 @@ async def _is_cyclic_valid_against_current_layout(
     except (TypeError, ValueError):
         return False
     return True
+
+
+def _doser_has_silo(doser, silo_uuid: UUID) -> bool:
+    assigned_silo_ids = getattr(doser, "assigned_silo_ids", None)
+    if assigned_silo_ids is not None:
+        return silo_uuid in {silo_id.value for silo_id in assigned_silo_ids}
+
+    assigned_silo_id = getattr(doser, "assigned_silo_id", None)
+    return bool(assigned_silo_id and assigned_silo_id.value == silo_uuid)
 
 
 def _cyclic_cage_config_with_legacy_visits(

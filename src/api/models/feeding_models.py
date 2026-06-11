@@ -10,6 +10,7 @@ class ManualFeedingRequest(BaseModel):
     line_id: str = Field(description="ID de la línea de alimentación (UUID)")
     cage_id: str = Field(description="ID de la jaula a alimentar (UUID)")
     doser_id: str = Field(description="ID del doser a usar (UUID)")
+    silo_id: str = Field(description="ID del silo a usar (UUID)")
     quantity_kg: float = Field(gt=0, description="Cantidad a dispensar en kg")
     rate_kg_per_min: float = Field(gt=0, description="Tasa de alimentación en kg/min")
     blower_power_percentage: float = Field(
@@ -23,7 +24,7 @@ class ManualFeedingRequest(BaseModel):
         description="Permitir que la alimentación se extienda más allá del horario operativo"
     )
 
-    @field_validator('line_id', 'cage_id', 'doser_id', 'operator_id')
+    @field_validator('line_id', 'cage_id', 'doser_id', 'silo_id', 'operator_id')
     @classmethod
     def validate_uuid(cls, v: str) -> str:
         try:
@@ -261,6 +262,7 @@ class CyclicFeedingRequest(BaseModel):
     line_id: str = Field(description="ID de la línea de alimentación (UUID)")
     group_id: str = Field(description="ID del grupo de jaulas (UUID)")
     doser_id: str = Field(description="ID del doser a usar (UUID)")
+    silo_id: str = Field(description="ID del silo a usar (UUID)")
     visits: Optional[int] = Field(
         default=None,
         ge=1,
@@ -287,7 +289,7 @@ class CyclicFeedingRequest(BaseModel):
         description="Configuración por jaula. Debe incluir todas las jaulas del grupo.",
     )
 
-    @field_validator("line_id", "group_id", "doser_id", "operator_id")
+    @field_validator("line_id", "group_id", "doser_id", "silo_id", "operator_id")
     @classmethod
     def validate_uuid(cls, v: str) -> str:
         try:

@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import List, Literal, Optional
+from typing import Any, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class SiloConfigModel(BaseModel):
@@ -37,7 +37,7 @@ class DoserConfigModel(BaseModel):
 
     id: str
     name: str = Field(min_length=1, max_length=100)
-    assigned_silo_id: str
+    assigned_silo_ids: List[str] = Field(min_length=1)
     doser_type: str
     min_rate: float = Field(ge=0.0)
     max_rate: float = Field(gt=0.0, description="Tasa máxima del dosificador en kg/min")
@@ -48,6 +48,26 @@ class DoserConfigModel(BaseModel):
     pulse_on_time: Optional[float] = Field(default=None, gt=0.0)
     pulse_off_time: Optional[float] = Field(default=None, ge=0.0)
     pulse_speed: Optional[int] = Field(default=None, ge=1, le=100)
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_legacy_silo_field(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "assigned_silo_id" in data:
+            data = data.copy()
+            legacy_silo_id = data.pop("assigned_silo_id")
+            data.setdefault("assigned_silo_ids", [legacy_silo_id])
+        return data
+
+    @field_validator("assigned_silo_ids")
+    @classmethod
+    def validate_unique_silo_ids(cls, value: List[str]) -> List[str]:
+        if len(set(value)) != len(value):
+            raise ValueError("assigned_silo_ids no puede contener IDs duplicados")
+        return value
+
+    @property
+    def assigned_silo_id(self) -> str:
+        return self.assigned_silo_ids[0]
 
 
 class SelectorConfigModel(BaseModel):

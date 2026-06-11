@@ -1,13 +1,17 @@
 from datetime import datetime
-from typing import Optional
+from typing import TYPE_CHECKING, List, Optional
 from uuid import UUID as PyUUID
 
 from sqlalchemy import BigInteger, Column, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
 
 from domain.aggregates.silo import Silo
 from domain.value_objects import FoodId, SiloId, SiloName, Weight
+from .doser_silo_model import DoserSiloModel
+
+if TYPE_CHECKING:
+    from .doser_model import DoserModel
 
 
 class SiloModel(SQLModel, table=True):
@@ -25,6 +29,10 @@ class SiloModel(SQLModel, table=True):
     warning_threshold_percentage: float = Field(default=20.0)
     critical_threshold_percentage: float = Field(default=10.0)
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
+    dosers: List["DoserModel"] = Relationship(
+        back_populates="silos",
+        link_model=DoserSiloModel,
+    )
 
     @staticmethod
     def from_domain(silo: "Silo") -> "SiloModel":

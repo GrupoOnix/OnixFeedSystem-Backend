@@ -212,6 +212,7 @@ def test_cyclic_request_accepts_visits_per_cage_without_global_visits():
         line_id=str(uuid4()),
         group_id=str(uuid4()),
         doser_id=str(uuid4()),
+        silo_id=str(uuid4()),
         blower_power_percentage=70,
         operator_id=str(uuid4()),
         cage_configs=[
@@ -235,6 +236,7 @@ def test_cyclic_request_accepts_positive_wait_after_visit_seconds():
         line_id=str(uuid4()),
         group_id=str(uuid4()),
         doser_id=str(uuid4()),
+        silo_id=str(uuid4()),
         blower_power_percentage=70,
         wait_after_visit_seconds=30,
         operator_id=str(uuid4()),
@@ -258,6 +260,7 @@ def test_cyclic_request_rejects_negative_wait_after_visit_seconds():
             line_id=str(uuid4()),
             group_id=str(uuid4()),
             doser_id=str(uuid4()),
+            silo_id=str(uuid4()),
             blower_power_percentage=70,
             wait_after_visit_seconds=-1,
             operator_id=str(uuid4()),
@@ -279,6 +282,7 @@ def test_cyclic_request_requires_per_cage_or_global_visits_for_active_cages():
             line_id=str(uuid4()),
             group_id=str(uuid4()),
             doser_id=str(uuid4()),
+            silo_id=str(uuid4()),
             blower_power_percentage=70,
             operator_id=str(uuid4()),
             cage_configs=[

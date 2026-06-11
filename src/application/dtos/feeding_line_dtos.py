@@ -26,6 +26,8 @@ class DoserDTO:
     dosing_range_min: float
     dosing_range_max: float
     speed_percentage: int = 50
+    silo_ids: Optional[List[str]] = None
+    silo_names: Optional[List[str]] = None
     silo_id: Optional[str] = None
     silo_name: Optional[str] = None
 
@@ -105,6 +107,7 @@ class UpdateDoserRequest:
     """Request para actualizar la configuración de un doser."""
 
     name: Optional[str] = None
+    assigned_silo_ids: Optional[List[str]] = None
     assigned_silo_id: Optional[str] = None
     current_rate: Optional[float] = None
     dosing_range_min: Optional[float] = None
@@ -115,6 +118,13 @@ class UpdateDoserRequest:
         """Validaciones del request."""
         if self.speed_percentage is not None and not (1 <= self.speed_percentage <= 100):
             raise ValueError("speed_percentage debe estar entre 1 y 100")
+        if self.assigned_silo_id is not None and self.assigned_silo_ids is None:
+            self.assigned_silo_ids = [self.assigned_silo_id]
+        if self.assigned_silo_ids is not None:
+            if not self.assigned_silo_ids:
+                raise ValueError("assigned_silo_ids no puede estar vacío")
+            if len(set(self.assigned_silo_ids)) != len(self.assigned_silo_ids):
+                raise ValueError("assigned_silo_ids no puede contener IDs duplicados")
         if self.current_rate is not None and self.current_rate < 0:
             raise ValueError("current_rate debe ser mayor o igual a 0")
         if self.dosing_range_min is not None and self.dosing_range_min < 0:

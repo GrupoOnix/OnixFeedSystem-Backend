@@ -31,7 +31,7 @@ def feeding_line():
     )
     doser = Doser(
         name=DoserName("Doser Test"),
-        assigned_silo_id=SiloId.generate(),
+        assigned_silo_ids=[SiloId.generate()],
         dosing_range=DosingRange(min_rate=0.1, max_rate=100.0),
         doser_type=DoserType.VARI_DOSER,
         current_rate=DosingRate(50.0),

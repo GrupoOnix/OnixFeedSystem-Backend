@@ -315,11 +315,11 @@ class TestFA4_DuplicateSlot:
 
 
 class TestFA5_SiloAlreadyAssigned:
-    """FA5: Silo ya asignado a otro dosificador (regla 1-a-1)."""
+    """FA5: Silo asignado a uno o más dosificadores."""
 
     @pytest.mark.asyncio
     async def test_fa5_silo_assigned_to_multiple_dosers(self, use_case):
-        """No debe permitir asignar el mismo silo a dos dosificadores."""
+        """Debe permitir asignar el mismo silo a dos dosificadores."""
         request = SystemLayoutModel(
             silos=[
                 SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)
@@ -373,15 +373,14 @@ class TestFA5_SiloAlreadyAssigned:
             ]
         )
 
-        with pytest.raises(Exception) as exc_info:
-            await use_case.execute(request)
+        silos, _cages, lines, _slots = await use_case.execute(request)
 
-        assert "silo" in str(exc_info.value).lower()
-        assert "asignado" in str(exc_info.value).lower()
+        assert len(lines[0].dosers) == 2
+        assert all(doser.assigned_silo_ids == (silos[0].id,) for doser in lines[0].dosers)
 
     @pytest.mark.asyncio
     async def test_fa5_silo_assigned_across_lines(self, use_case):
-        """No debe permitir asignar el mismo silo a dosificadores de diferentes líneas."""
+        """Debe permitir asignar el mismo silo a dosificadores de diferentes líneas."""
         # Crear primera línea con silo asignado
         first_request = SystemLayoutModel(
             silos=[
@@ -430,7 +429,7 @@ class TestFA5_SiloAlreadyAssigned:
         )
         r_silos, r_cages, r_lines, _ = await use_case.execute(first_request)
 
-        # Intentar crear segunda línea usando el mismo silo
+        # Crear segunda línea usando el mismo silo
         second_request = SystemLayoutModel(
             silos=[
                 SiloConfigModel(id=str(r_silos[0].id), name="Silo A", capacity=1000.0),
@@ -512,11 +511,11 @@ class TestFA5_SiloAlreadyAssigned:
             ]
         )
 
-        with pytest.raises(Exception) as exc_info:
-            await use_case.execute(second_request)
+        silos, _cages, lines, _slots = await use_case.execute(second_request)
 
-        assert "silo" in str(exc_info.value).lower()
-        assert "asignado" in str(exc_info.value).lower()
+        assert len(lines) == 2
+        assert all(r_silos[0].id in doser.assigned_silo_ids for line in lines for doser in line.dosers)
+        assert silos[0].is_assigned
 
 
 

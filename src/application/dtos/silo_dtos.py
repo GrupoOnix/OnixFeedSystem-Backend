@@ -15,6 +15,8 @@ class SiloDTO:
     created_at: datetime
     line_id: Optional[str] = None
     line_name: Optional[str] = None
+    line_ids: Optional[List[str]] = None
+    line_names: Optional[List[str]] = None
     food_id: Optional[str] = None
 
 

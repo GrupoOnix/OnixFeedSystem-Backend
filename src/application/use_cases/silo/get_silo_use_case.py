@@ -32,13 +32,15 @@ class GetSiloUseCase:
         if not result:
             raise SiloNotFoundError(f"Silo con ID {silo_id} no encontrado")
 
-        silo, line_id, line_name = result
+        silo, line_ids, line_names = result
 
         # Convertir a DTO
-        return self._to_dto(silo, line_id, line_name)
+        return self._to_dto(silo, line_ids, line_names)
 
-    def _to_dto(self, silo, line_id=None, line_name=None) -> SiloDTO:
+    def _to_dto(self, silo, line_ids=None, line_names=None) -> SiloDTO:
         """Convierte un agregado Silo a SiloDTO."""
+        line_ids = line_ids or []
+        line_names = line_names or []
         return SiloDTO(
             id=str(silo.id),
             name=str(silo.name),
@@ -46,7 +48,9 @@ class GetSiloUseCase:
             stock_level_kg=silo.stock_level.as_kg,
             is_assigned=silo.is_assigned,
             created_at=silo.created_at,
-            line_id=line_id,
-            line_name=line_name,
+            line_id=line_ids[0] if line_ids else None,
+            line_name=line_names[0] if line_names else None,
+            line_ids=line_ids,
+            line_names=line_names,
             food_id=str(silo.food_id) if silo.food_id else None,
         )

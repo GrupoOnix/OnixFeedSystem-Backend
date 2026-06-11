@@ -9,6 +9,7 @@ from .cage_model import CageModel
 from .cooler_model import CoolerModel
 from .doser_model import DoserModel
 from .doser_calibration_model import DoserCalibrationModel
+from .doser_silo_model import DoserSiloModel
 from .feedback_model import FeedbackModel
 from .feeding_event_model import FeedingEventModel
 from .feeding_line_model import FeedingLineModel
@@ -40,6 +41,7 @@ __all__ = [
     "CoolerModel",
     "DoserModel",
     "DoserCalibrationModel",
+    "DoserSiloModel",
     "SelectorModel",
     "SensorModel",
     "FeedingSessionModel",

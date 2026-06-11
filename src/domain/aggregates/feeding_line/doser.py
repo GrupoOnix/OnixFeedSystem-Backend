@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterable, Optional, Tuple
 
 from domain.interfaces import IDoser
 from domain.enums import DoserType
@@ -9,7 +9,7 @@ class Doser(IDoser):
     def __init__(
         self,
         name: DoserName,
-        assigned_silo_id: SiloId,
+        assigned_silo_ids: Iterable[SiloId],
         doser_type: DoserType,
         dosing_range: DosingRange,
         current_rate: DosingRate,
@@ -28,7 +28,7 @@ class Doser(IDoser):
 
         Args:
             name: Nombre del doser
-            assigned_silo_id: ID del silo asignado
+            assigned_silo_ids: IDs de los silos asignados
             doser_type: Tipo de doser
             dosing_range: Rango de dosificación permitido
             current_rate: Tasa de dosificación configurada
@@ -43,9 +43,15 @@ class Doser(IDoser):
                 f"La tasa de dosificación inicial ({current_rate}) está fuera del rango permitido ({dosing_range})."
             )
 
+        silo_ids = tuple(assigned_silo_ids)
+        if not silo_ids:
+            raise ValueError("Doser debe tener al menos un silo asignado")
+        if len(set(silo_ids)) != len(silo_ids):
+            raise ValueError("Doser no puede tener silos asignados duplicados")
+
         self._id = DoserId.from_string(_existing_id) if _existing_id else DoserId.generate()
         self._name = name
-        self._assigned_silo_id = assigned_silo_id
+        self._assigned_silo_ids = silo_ids
         self._doser_type = doser_type
         self._dosing_range = dosing_range
         self._current_rate = current_rate
@@ -70,12 +76,25 @@ class Doser(IDoser):
         self._name = name
 
     @property
+    def assigned_silo_ids(self) -> Tuple[SiloId, ...]:
+        return self._assigned_silo_ids
+
+    @assigned_silo_ids.setter
+    def assigned_silo_ids(self, new_silo_ids: Tuple[SiloId, ...]) -> None:
+        if not new_silo_ids:
+            raise ValueError("Doser debe tener al menos un silo asignado")
+        if len(set(new_silo_ids)) != len(new_silo_ids):
+            raise ValueError("Doser no puede tener silos asignados duplicados")
+        self._assigned_silo_ids = tuple(new_silo_ids)
+
+    @property
     def assigned_silo_id(self) -> SiloId:
-        return self._assigned_silo_id
+        """Compatibilidad interna: retorna el primer silo asignado."""
+        return self._assigned_silo_ids[0]
 
     @assigned_silo_id.setter
     def assigned_silo_id(self, new_silo_id: SiloId) -> None:
-        self._assigned_silo_id = new_silo_id
+        self.assigned_silo_ids = (new_silo_id,)
 
     @property
     def doser_type(self) -> DoserType:

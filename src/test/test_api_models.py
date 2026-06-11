@@ -103,7 +103,38 @@ def test_doser_config_model_valid():
     )
 
     assert doser.assigned_silo_id == "temp_silo_1"
+    assert doser.assigned_silo_ids == ["temp_silo_1"]
     assert doser.doser_type == "volumetric"
+
+
+def test_doser_config_model_accepts_multiple_silos():
+    """Test: DoserConfigModel acepta múltiples silos asignados."""
+    doser = DoserConfigModel(
+        id="temp_doser_1",
+        name="Dosificador 1",
+        assigned_silo_ids=["temp_silo_1", "temp_silo_2"],
+        doser_type="volumetric",
+        min_rate=10.0,
+        max_rate=100.0,
+        current_rate=50.0
+    )
+
+    assert doser.assigned_silo_ids == ["temp_silo_1", "temp_silo_2"]
+    assert doser.assigned_silo_id == "temp_silo_1"
+
+
+def test_doser_config_model_rejects_duplicate_silos():
+    """Test: DoserConfigModel rechaza silos duplicados."""
+    with pytest.raises(ValidationError):
+        DoserConfigModel(
+            id="temp_doser_1",
+            name="Dosificador 1",
+            assigned_silo_ids=["temp_silo_1", "temp_silo_1"],
+            doser_type="volumetric",
+            min_rate=10.0,
+            max_rate=100.0,
+            current_rate=50.0
+        )
 
 
 def test_selector_config_model_valid():

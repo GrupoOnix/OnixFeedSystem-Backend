@@ -4,13 +4,14 @@ from dataclasses import dataclass
 from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy import desc, select
+from sqlalchemy import delete, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from domain.aggregates.feeding_line.doser import Doser
 from infrastructure.persistence.models.doser_calibration_model import DoserCalibrationModel
 from infrastructure.persistence.models.doser_model import DoserModel
+from infrastructure.persistence.models.doser_silo_model import DoserSiloModel
 
 
 @dataclass
@@ -31,14 +32,25 @@ class DoserRepository:
 
     async def find_by_id(self, doser_id: UUID) -> Optional[Doser]:
         """Busca un doser por su ID."""
-        stmt = select(DoserModel).where(DoserModel.id == doser_id)
+        stmt = (
+            select(DoserModel)
+            .options(selectinload(DoserModel.silos))
+            .where(DoserModel.id == doser_id)
+        )
         result = await self.session.execute(stmt)
         doser_model = result.scalar_one_or_none()
         return doser_model.to_domain() if doser_model else None
 
     async def find_by_id_with_context(self, doser_id: UUID) -> Optional[DoserWithContext]:
         """Busca un doser por su ID y devuelve también información de la línea."""
-        stmt = select(DoserModel).options(selectinload(DoserModel.feeding_line)).where(DoserModel.id == doser_id)
+        stmt = (
+            select(DoserModel)
+            .options(
+                selectinload(DoserModel.feeding_line),
+                selectinload(DoserModel.silos),
+            )
+            .where(DoserModel.id == doser_id)
+        )
         result = await self.session.execute(stmt)
         doser_model = result.scalar_one_or_none()
 
@@ -63,7 +75,7 @@ class DoserRepository:
 
         # Actualizar campos
         doser_model.name = str(doser.name)
-        doser_model.silo_id = doser.assigned_silo_id.value
+        doser_model.silo_id = None
         doser_model.doser_type = doser.doser_type.value
         doser_model.dosing_rate_value = doser.current_rate.value
         doser_model.dosing_rate_unit = doser.current_rate.unit
@@ -76,6 +88,12 @@ class DoserRepository:
         doser_model.pulse_on_time = doser.pulse_on_time
         doser_model.pulse_off_time = doser.pulse_off_time
         doser_model.pulse_speed = doser.pulse_speed
+
+        await self.session.execute(
+            delete(DoserSiloModel).where(DoserSiloModel.doser_id == doser_id)
+        )
+        for silo_id in doser.assigned_silo_ids:
+            self.session.add(DoserSiloModel(doser_id=doser_id, silo_id=silo_id.value))
 
         await self.session.flush()
 

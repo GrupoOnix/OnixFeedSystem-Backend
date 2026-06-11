@@ -54,9 +54,11 @@ class UpdateDoserUseCase:
         if request.name is not None:
             doser.name = DoserName(request.name)
 
-        # Actualizar silo asignado si se proporciona
-        if request.assigned_silo_id is not None:
-            doser.assigned_silo_id = SiloId(request.assigned_silo_id)
+        # Actualizar silos asignados si se proporcionan
+        if request.assigned_silo_ids is not None:
+            doser.assigned_silo_ids = tuple(
+                SiloId(silo_id) for silo_id in request.assigned_silo_ids
+            )
 
         # Actualizar rango de dosificación si se proporciona
         if request.dosing_range_min is not None or request.dosing_range_max is not None:

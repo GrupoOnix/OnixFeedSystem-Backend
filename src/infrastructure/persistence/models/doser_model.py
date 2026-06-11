@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, List, Optional
 from uuid import UUID
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -10,12 +10,14 @@ from domain.value_objects import (
     DosingRate,
     SiloId,
 )
+from .doser_silo_model import DoserSiloModel
 
 if TYPE_CHECKING:
     from domain.aggregates.feeding_line.doser import Doser
     from domain.interfaces import IDoser
 
     from .feeding_line_model import FeedingLineModel
+    from .silo_model import SiloModel
 
 
 class DoserModel(SQLModel, table=True):
@@ -39,6 +41,10 @@ class DoserModel(SQLModel, table=True):
     pulse_speed: Optional[int] = Field(default=None)
 
     feeding_line: "FeedingLineModel" = Relationship(back_populates="dosers")
+    silos: List["SiloModel"] = Relationship(
+        back_populates="dosers",
+        link_model=DoserSiloModel,
+    )
 
     @staticmethod
     def from_domain(doser: "IDoser", line_id: UUID) -> "DoserModel":
@@ -47,7 +53,7 @@ class DoserModel(SQLModel, table=True):
             id=doser.id.value,
             line_id=line_id,
             name=str(doser.name),
-            silo_id=doser.assigned_silo_id.value,
+            silo_id=None,
             doser_type=doser.doser_type.value,
             dosing_rate_value=doser.current_rate.value,
             dosing_rate_unit=doser.current_rate.unit,
@@ -67,12 +73,16 @@ class DoserModel(SQLModel, table=True):
         # Import local para evitar circular imports pero tenerlo disponible en runtime
         from domain.aggregates.feeding_line.doser import Doser
 
-        if not self.silo_id:
+        silo_ids = [silo.id for silo in self.silos]
+        if not silo_ids and self.silo_id:
+            silo_ids = [self.silo_id]
+
+        if not silo_ids:
             raise ValueError("Doser debe tener un silo asignado")
 
         doser = Doser(
             name=DoserName(self.name),
-            assigned_silo_id=SiloId(self.silo_id),
+            assigned_silo_ids=[SiloId(silo_id) for silo_id in silo_ids],
             doser_type=DoserType(self.doser_type),
             dosing_range=DosingRange(
                 min_rate=self.min_rate_value,

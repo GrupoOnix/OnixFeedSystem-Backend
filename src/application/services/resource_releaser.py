@@ -50,9 +50,5 @@ class ResourceReleaser:
         line: FeedingLine,
         silo_repo: ISiloRepository,
     ) -> None:
-        """Libera todos los silos asignados a dosers de una línea."""
-        for old_doser in line.dosers:
-            old_silo = await silo_repo.find_by_id(old_doser.assigned_silo_id)
-            if old_silo:
-                old_silo.release_from_doser()
-                await silo_repo.save(old_silo)
+        """Las asignaciones de silos se recalculan desde la tabla doser_silos."""
+        return

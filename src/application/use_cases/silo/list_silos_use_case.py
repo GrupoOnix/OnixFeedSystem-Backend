@@ -25,14 +25,16 @@ class ListSilosUseCase:
 
         # Convertir a DTOs
         silo_dtos = [
-            self._to_dto(silo, line_id, line_name)
-            for silo, line_id, line_name in silos_with_line
+            self._to_dto(silo, line_ids, line_names)
+            for silo, line_ids, line_names in silos_with_line
         ]
 
         return ListSilosResponse(silos=silo_dtos)
 
-    def _to_dto(self, silo, line_id=None, line_name=None) -> SiloDTO:
+    def _to_dto(self, silo, line_ids=None, line_names=None) -> SiloDTO:
         """Convierte un agregado Silo a SiloDTO."""
+        line_ids = line_ids or []
+        line_names = line_names or []
         return SiloDTO(
             id=str(silo.id),
             name=str(silo.name),
@@ -40,7 +42,9 @@ class ListSilosUseCase:
             stock_level_kg=silo.stock_level.as_kg,
             is_assigned=silo.is_assigned,
             created_at=silo.created_at,
-            line_id=line_id,
-            line_name=line_name,
+            line_id=line_ids[0] if line_ids else None,
+            line_name=line_names[0] if line_names else None,
+            line_ids=line_ids,
+            line_names=line_names,
             food_id=str(silo.food_id) if silo.food_id else None,
         )

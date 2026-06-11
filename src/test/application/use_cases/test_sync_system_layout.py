@@ -503,6 +503,114 @@ class TestSyncSystemLayout_IDMapping:
         assert str(doser.assigned_silo_id) != "temp-silo-1"
 
     @pytest.mark.asyncio
+    async def test_doser_can_reference_multiple_silos(self, use_case):
+        """Debe permitir que un doser tenga múltiples silos asignados."""
+        request = SystemLayoutModel(
+            silos=[
+                SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0),
+                SiloConfigModel(id="temp-silo-2", name="Silo B", capacity=1000.0),
+            ],
+            cages=[CageConfigModel(id="temp-cage-1", name="Jaula 1")],
+            feeding_lines=[
+                FeedingLineConfigModel(
+                    id="temp-line-1",
+                    line_name="Línea 1",
+                    blower_config=BlowerConfigModel(
+                        id="temp-blower-1",
+                        name="Soplador 1",
+                        non_feeding_power=50.0,
+                        blow_before_time=5,
+                        blow_after_time=3,
+                    ),
+                    sensors_config=[],
+                    dosers_config=[
+                        DoserConfigModel(
+                            id="temp-doser-1",
+                            name="Dosificador 1",
+                            assigned_silo_ids=["temp-silo-1", "temp-silo-2"],
+                            doser_type="PULSE_DOSER",
+                            min_rate=10.0,
+                            max_rate=100.0,
+                            current_rate=50.0,
+                        )
+                    ],
+                    selector_config=SelectorConfigModel(
+                        id="temp-selector-1",
+                        name="Selectora 1",
+                        capacity=4,
+                        fast_speed=80.0,
+                        slow_speed=20.0,
+                    ),
+                    slot_assignments=[
+                        SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")
+                    ],
+                )
+            ],
+        )
+
+        silos, _cages, lines, _ = await use_case.execute(request)
+
+        expected_silo_ids = {silo.id for silo in silos}
+        assert set(lines[0].dosers[0].assigned_silo_ids) == expected_silo_ids
+
+    @pytest.mark.asyncio
+    async def test_two_dosers_can_share_one_silo(self, use_case):
+        """Debe permitir que dos dosers compartan un mismo silo."""
+        request = SystemLayoutModel(
+            silos=[SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)],
+            cages=[CageConfigModel(id="temp-cage-1", name="Jaula 1")],
+            feeding_lines=[
+                FeedingLineConfigModel(
+                    id="temp-line-1",
+                    line_name="Línea 1",
+                    blower_config=BlowerConfigModel(
+                        id="temp-blower-1",
+                        name="Soplador 1",
+                        non_feeding_power=50.0,
+                        blow_before_time=5,
+                        blow_after_time=3,
+                    ),
+                    sensors_config=[],
+                    dosers_config=[
+                        DoserConfigModel(
+                            id="temp-doser-1",
+                            name="Dosificador 1",
+                            assigned_silo_ids=["temp-silo-1"],
+                            doser_type="PULSE_DOSER",
+                            min_rate=10.0,
+                            max_rate=100.0,
+                            current_rate=50.0,
+                        ),
+                        DoserConfigModel(
+                            id="temp-doser-2",
+                            name="Dosificador 2",
+                            assigned_silo_ids=["temp-silo-1"],
+                            doser_type="VARI_DOSER",
+                            min_rate=10.0,
+                            max_rate=100.0,
+                            current_rate=50.0,
+                        ),
+                    ],
+                    selector_config=SelectorConfigModel(
+                        id="temp-selector-1",
+                        name="Selectora 1",
+                        capacity=4,
+                        fast_speed=80.0,
+                        slow_speed=20.0,
+                    ),
+                    slot_assignments=[
+                        SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")
+                    ],
+                )
+            ],
+        )
+
+        silos, _cages, lines, _ = await use_case.execute(request)
+
+        assert len(lines[0].dosers) == 2
+        assert all(doser.assigned_silo_ids == (silos[0].id,) for doser in lines[0].dosers)
+
+    @pytest.mark.asyncio
     async def test_id_mapping_cage_to_slot(self, use_case):
         """Debe mapear correctamente el ID temporal de la jaula al slot."""
         request = SystemLayoutModel(

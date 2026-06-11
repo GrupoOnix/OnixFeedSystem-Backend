@@ -24,7 +24,7 @@ from domain.services.feeding_time_calculator import (
     calculate_visit_duration,
 )
 from domain.services.operating_schedule_service import OperatingScheduleService
-from domain.value_objects import CageId, LineId
+from domain.value_objects import CageId, LineId, SiloId
 from domain.value_objects.activity_log_entry import ActivityLogEntry
 from domain.value_objects.identifiers import CageGroupId, DoserId
 from domain.value_objects.measurements import Weight
@@ -77,13 +77,12 @@ class StartCyclicFeedingUseCase:
 
     async def execute(self, request: CyclicFeedingRequest) -> CyclicFeedingResponse:
         # Paso 1: Validar y cargar todas las entidades necesarias
-        line, group, doser, cage_data = await self._validate_request(request)
+        line, group, _doser, cage_data = await self._validate_request(request)
         # cage_data: configuración de jaula, jaula y asignación de slot
         line.reserve_for_feeding(operator_id=request.operator_id)
         await self.line_repo.save_available_status_transition(line)
 
-        selected_doser = doser
-        silo_id = selected_doser.assigned_silo_id
+        silo_id = SiloId.from_string(request.silo_id)
 
         # Paso 2: Calcular stock requerido (solo jaulas NORMAL)
         total_programmed_kg = sum(
@@ -95,7 +94,7 @@ class StartCyclicFeedingUseCase:
         # Validar stock del silo
         silo = await self.silo_repo.find_by_id(silo_id)
         if not silo:
-            raise ValueError(f"El doser {request.doser_id} no tiene un silo asignado")
+            raise ValueError(f"El silo {request.silo_id} no existe")
         required = Weight.from_kg(total_programmed_kg)
         if silo.stock_level < required:
             raise ValueError(
@@ -187,7 +186,7 @@ class StartCyclicFeedingUseCase:
                 feeding_session_id=session.id,
                 cage_id=str(cage.id.value),
                 doser_id=request.doser_id,
-                silo_id=str(silo_id.value),
+                silo_id=request.silo_id,
                 execution_order=execution_order,
                 programmed_kg=kg_per_visit,
                 programmed_visits=programmed_visits,
@@ -307,6 +306,12 @@ class StartCyclicFeedingUseCase:
         if not selected_doser:
             raise ValueError(
                 f"El doser {request.doser_id} no existe en la línea {request.line_id}"
+            )
+
+        silo_id = SiloId.from_string(request.silo_id)
+        if silo_id not in selected_doser.assigned_silo_ids:
+            raise ValueError(
+                f"El silo {request.silo_id} no está asignado al doser {request.doser_id}"
             )
 
         # Validar cada jaula

@@ -33,7 +33,7 @@ class Silo:
         self._capacity = capacity
         self._stock_level = stock_level
         self._food_id = food_id
-        self._is_assigned = False  # FA4: Control de asignación 1-a-1
+        self._is_assigned = False
         self._warning_threshold_percentage = warning_threshold_percentage
         self._critical_threshold_percentage = critical_threshold_percentage
         self._created_at = datetime.now(timezone.utc)
@@ -145,16 +145,12 @@ class Silo:
         """
         Marca el silo como asignado a un dosificador.
 
-        Regla FA4: Un silo solo puede estar asignado a un dosificador a la vez.
+        Un silo puede estar asignado a uno o más dosificadores.
         """
-        if self._is_assigned:
-            raise ValueError(
-                f"El silo '{self.name}' ya está asignado a otro dosificador"
-            )
         self._is_assigned = True
 
     def release_from_doser(self) -> None:
-        """Libera el silo para que pueda ser asignado a otro dosificador."""
+        """Marca el silo como sin dosificadores asignados."""
         self._is_assigned = False
 
     def assign_food(self, food_id: FoodId) -> None:

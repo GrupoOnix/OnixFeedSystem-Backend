@@ -142,7 +142,7 @@ class SyncSystemLayoutUseCase:
         dosers = []
 
         for model in dosers_model:
-            silo_id = await self._resolve_and_assign_silo(model.assigned_silo_id, id_map)
+            silo_ids = await self._resolve_silo_ids(model.assigned_silo_ids, id_map)
 
             name = DoserName(model.name)
             dosing_range = DosingRange(min_rate=model.min_rate, max_rate=model.max_rate)
@@ -151,7 +151,7 @@ class SyncSystemLayoutUseCase:
             doser = self.component_factory.create_doser(
                 doser_type=model.doser_type,
                 name=name,
-                assigned_silo_id=silo_id,
+                assigned_silo_ids=silo_ids,
                 dosing_range=dosing_range,
                 current_rate=current_rate,
                 speed_percentage=model.speed_percentage,
@@ -196,7 +196,13 @@ class SyncSystemLayoutUseCase:
 
         return cooler
 
-    async def _resolve_and_assign_silo(self, silo_id_str: str, id_map: Dict[str, Any]) -> SiloId:
+    async def _resolve_silo_ids(self, silo_id_strs: List[str], id_map: Dict[str, Any]) -> List[SiloId]:
+        if len(set(silo_id_strs)) != len(silo_id_strs):
+            raise ValueError("Un doser no puede tener silos asignados duplicados")
+
+        return [await self._resolve_silo_id(silo_id_str, id_map) for silo_id_str in silo_id_strs]
+
+    async def _resolve_silo_id(self, silo_id_str: str, id_map: Dict[str, Any]) -> SiloId:
         if silo_id_str in id_map:
             silo_id = id_map[silo_id_str]
         elif self._is_uuid(silo_id_str):
@@ -208,7 +214,6 @@ class SyncSystemLayoutUseCase:
         if not silo:
             raise ValueError(f"El silo con ID '{silo_id_str}' no existe")
 
-        # Validar que el silo no esté asignado a otro dosificador
         silo.assign_to_doser()
         await self.silo_repo.save(silo)
 

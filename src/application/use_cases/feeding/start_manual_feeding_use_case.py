@@ -19,7 +19,7 @@ from domain.repositories import (
 )
 from domain.services.feeding_time_calculator import calculate_visit_duration
 from domain.services.operating_schedule_service import OperatingScheduleService
-from domain.value_objects import CageId, LineId
+from domain.value_objects import CageId, LineId, SiloId
 from domain.value_objects.activity_log_entry import ActivityLogEntry
 from domain.value_objects.identifiers import DoserId
 from domain.value_objects.measurements import Weight
@@ -87,7 +87,7 @@ class StartManualFeedingUseCase:
             feeding_session_id=session.id,
             cage_id=request.cage_id,
             doser_id=request.doser_id,
-            silo_id=str(selected_doser.assigned_silo_id.value),
+            silo_id=request.silo_id,
             execution_order=1,
             programmed_kg=request.quantity_kg,
             programmed_visits=1,
@@ -125,7 +125,7 @@ class StartManualFeedingUseCase:
                 cage_feedings=[cage_feeding],
                 line_id=LineId.from_string(request.line_id),
                 slot_map={cage_feeding.cage_id: assignment.slot_number},
-                silo_id=selected_doser.assigned_silo_id,
+                silo_id=SiloId.from_string(request.silo_id),
                 blower_power_percentage=request.blower_power_percentage,
                 transport_time_map={cage_feeding.cage_id: float(cage.config.transport_time_seconds)},  # type: ignore[arg-type]
                 blow_before_seconds=float(line.blower.blow_before_feeding_time.value),
@@ -200,8 +200,14 @@ class StartManualFeedingUseCase:
                 f"la capacidad máxima del doser ({selected_doser.max_rate_kg_per_min} kg/min)"
             )
 
+        silo_id = SiloId.from_string(request.silo_id)
+        if silo_id not in selected_doser.assigned_silo_ids:
+            raise ValueError(
+                f"El silo {request.silo_id} no está asignado al doser {request.doser_id}"
+            )
+
         #Silo del doser seleccionado tiene stock suficiente?
-        silo = await self.silo_repo.find_by_id(selected_doser.assigned_silo_id)
+        silo = await self.silo_repo.find_by_id(silo_id)
         if not silo:
             raise ValueError(f"El doser {request.doser_id} no tiene un silo asignado")
         required = Weight.from_kg(request.quantity_kg)

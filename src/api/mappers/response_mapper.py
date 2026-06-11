@@ -112,7 +112,7 @@ class ResponseMapper:
         return DoserConfigModel(
             id=str(doser.id),
             name=str(doser.name),
-            assigned_silo_id=str(doser.assigned_silo_id),
+            assigned_silo_ids=[str(silo_id) for silo_id in doser.assigned_silo_ids],
             doser_type=doser.doser_type.value,
             min_rate=doser.dosing_range.min_rate,
             max_rate=doser.dosing_range.max_rate,

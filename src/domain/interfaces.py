@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from domain.dtos import (
     BlowerCommand,
@@ -110,11 +110,11 @@ class IDoser(ABC):
 
     @property
     @abstractmethod
-    def assigned_silo_id(self) -> SiloId: ...
+    def assigned_silo_ids(self) -> Tuple[SiloId, ...]: ...
 
-    @assigned_silo_id.setter
+    @assigned_silo_ids.setter
     @abstractmethod
-    def assigned_silo_id(self, new_silo_id: SiloId) -> None: ...
+    def assigned_silo_ids(self, new_silo_ids: Tuple[SiloId, ...]) -> None: ...
 
     @property
     @abstractmethod
