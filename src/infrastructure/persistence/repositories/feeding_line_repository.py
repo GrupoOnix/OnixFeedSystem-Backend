@@ -1,8 +1,9 @@
-from typing import List, Optional
+from typing import Any, List, Optional, cast
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlmodel import col
 
 from domain.aggregates.feeding_line.feeding_line import FeedingLine
 from domain.enums import FeedingLineStatus
@@ -12,6 +13,14 @@ from domain.value_objects import LineId, LineName
 from infrastructure.persistence.models.doser_model import DoserModel
 from infrastructure.persistence.models.doser_silo_model import DoserSiloModel
 from infrastructure.persistence.models.feeding_line_model import FeedingLineModel
+
+
+_blower_rel = cast(Any, FeedingLineModel.blower)
+_cooler_rel = cast(Any, FeedingLineModel.cooler)
+_dosers_rel = cast(Any, FeedingLineModel.dosers)
+_selector_rel = cast(Any, FeedingLineModel.selector)
+_sensors_rel = cast(Any, FeedingLineModel.sensors)
+_silos_rel = cast(Any, DoserModel.silos)
 
 
 class FeedingLineRepository(IFeedingLineRepository):
@@ -28,8 +37,8 @@ class FeedingLineRepository(IFeedingLineRepository):
         stmt = (
             update(FeedingLineModel)
             .where(
-                FeedingLineModel.id == feeding_line.id.value,
-                FeedingLineModel.status == FeedingLineStatus.AVAILABLE.value,
+                col(FeedingLineModel.id) == feeding_line.id.value,
+                col(FeedingLineModel.status) == FeedingLineStatus.AVAILABLE.value,
             )
             .values(
                 status=feeding_line.status.value,
@@ -41,7 +50,8 @@ class FeedingLineRepository(IFeedingLineRepository):
         )
 
         result = await self.session.execute(stmt)
-        if result.rowcount != 1:
+        rowcount = cast(Any, result).rowcount
+        if rowcount != 1:
             current_status = await self._get_current_status(feeding_line.id)
             status_detail = current_status or "desconocido"
             raise FeedingLineUnavailableException(
@@ -54,13 +64,13 @@ class FeedingLineRepository(IFeedingLineRepository):
     async def find_by_id(self, line_id: LineId) -> Optional[FeedingLine]:
         stmt = (
             select(FeedingLineModel)
-            .where(FeedingLineModel.id == line_id.value)
+            .where(col(FeedingLineModel.id) == line_id.value)
             .options(
-                selectinload(FeedingLineModel.blower),
-                selectinload(FeedingLineModel.cooler),
-                selectinload(FeedingLineModel.dosers).selectinload(DoserModel.silos),
-                selectinload(FeedingLineModel.selector),
-                selectinload(FeedingLineModel.sensors),
+                selectinload(_blower_rel),
+                selectinload(_cooler_rel),
+                selectinload(_dosers_rel).selectinload(_silos_rel),
+                selectinload(_selector_rel),
+                selectinload(_sensors_rel),
             )
         )
 
@@ -71,13 +81,13 @@ class FeedingLineRepository(IFeedingLineRepository):
     async def find_by_name(self, name: LineName) -> Optional[FeedingLine]:
         stmt = (
             select(FeedingLineModel)
-            .where(FeedingLineModel.name == str(name))
+            .where(col(FeedingLineModel.name) == str(name))
             .options(
-                selectinload(FeedingLineModel.blower),
-                selectinload(FeedingLineModel.cooler),
-                selectinload(FeedingLineModel.dosers).selectinload(DoserModel.silos),
-                selectinload(FeedingLineModel.selector),
-                selectinload(FeedingLineModel.sensors),
+                selectinload(_blower_rel),
+                selectinload(_cooler_rel),
+                selectinload(_dosers_rel).selectinload(_silos_rel),
+                selectinload(_selector_rel),
+                selectinload(_sensors_rel),
             )
         )
 
@@ -87,11 +97,11 @@ class FeedingLineRepository(IFeedingLineRepository):
 
     async def get_all(self) -> List[FeedingLine]:
         stmt = select(FeedingLineModel).options(
-            selectinload(FeedingLineModel.blower),
-            selectinload(FeedingLineModel.cooler),
-            selectinload(FeedingLineModel.dosers).selectinload(DoserModel.silos),
-            selectinload(FeedingLineModel.selector),
-            selectinload(FeedingLineModel.sensors),
+            selectinload(_blower_rel),
+            selectinload(_cooler_rel),
+            selectinload(_dosers_rel).selectinload(_silos_rel),
+            selectinload(_selector_rel),
+            selectinload(_sensors_rel),
         )
 
         result = await self.session.execute(stmt)
@@ -99,7 +109,7 @@ class FeedingLineRepository(IFeedingLineRepository):
         return [model.to_domain() for model in line_models]
 
     async def _get_current_status(self, line_id: LineId) -> Optional[str]:
-        stmt = select(FeedingLineModel.status).where(FeedingLineModel.id == line_id.value)
+        stmt = select(col(FeedingLineModel.status)).where(col(FeedingLineModel.id) == line_id.value)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -115,7 +125,7 @@ class FeedingLineRepository(IFeedingLineRepository):
             return
 
         await self.session.execute(
-            delete(DoserSiloModel).where(DoserSiloModel.doser_id.in_(doser_ids))
+            delete(DoserSiloModel).where(col(DoserSiloModel.doser_id).in_(doser_ids))
         )
 
         for doser in feeding_line.dosers:

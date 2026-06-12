@@ -4,6 +4,7 @@ from typing import List, Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from domain.aggregates.scheduled_alert import ScheduledAlert
 from domain.repositories import IScheduledAlertRepository
@@ -51,7 +52,7 @@ class ScheduledAlertRepository(IScheduledAlertRepository):
     async def get_all(self) -> List[ScheduledAlert]:
         """Obtiene todas las alertas programadas."""
         result = await self.session.execute(
-            select(ScheduledAlertModel).order_by(ScheduledAlertModel.next_trigger_date)
+            select(ScheduledAlertModel).order_by(col(ScheduledAlertModel.next_trigger_date))
         )
         models = result.scalars().all()
         return [model.to_domain() for model in models]
@@ -60,8 +61,8 @@ class ScheduledAlertRepository(IScheduledAlertRepository):
         """Obtiene solo las alertas programadas activas."""
         result = await self.session.execute(
             select(ScheduledAlertModel)
-            .where(ScheduledAlertModel.is_active.is_(True))
-            .order_by(ScheduledAlertModel.next_trigger_date)
+            .where(col(ScheduledAlertModel.is_active).is_(True))
+            .order_by(col(ScheduledAlertModel.next_trigger_date))
         )
         models = result.scalars().all()
         return [model.to_domain() for model in models]

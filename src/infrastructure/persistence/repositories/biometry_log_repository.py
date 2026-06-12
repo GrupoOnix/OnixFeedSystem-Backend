@@ -1,7 +1,8 @@
 from typing import List
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from domain.repositories import IBiometryLogRepository
 from domain.value_objects import CageId
@@ -23,8 +24,8 @@ class BiometryLogRepository(IBiometryLogRepository):
         """Lista registros de biometría de una jaula, ordenados por fecha DESC."""
         result = await self.session.execute(
             select(BiometryLogModel)
-            .where(BiometryLogModel.cage_id == cage_id.value)
-            .order_by(BiometryLogModel.sampling_date.desc(), BiometryLogModel.created_at.desc())
+            .where(col(BiometryLogModel.cage_id) == cage_id.value)
+            .order_by(col(BiometryLogModel.sampling_date).desc(), col(BiometryLogModel.created_at).desc())
             .limit(limit)
             .offset(offset)
         )
@@ -34,7 +35,7 @@ class BiometryLogRepository(IBiometryLogRepository):
     async def count_by_cage(self, cage_id: CageId) -> int:
         """Cuenta total de registros de biometría de una jaula."""
         result = await self.session.execute(
-            select(func.count(BiometryLogModel.biometry_id))
-            .where(BiometryLogModel.cage_id == cage_id.value)
+            select(func.count(col(BiometryLogModel.biometry_id)))
+            .where(col(BiometryLogModel.cage_id) == cage_id.value)
         )
         return result.scalar() or 0

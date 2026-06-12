@@ -108,6 +108,15 @@ class FeedingLine:
         return cast(ISelector, self._selector)
 
     @property
+    def sensors(self) -> Tuple[ISensor, ...]:
+        """
+        Sensores configurados en la línea.
+
+        Retorna una tupla inmutable con todos los sensores.
+        """
+        return self._sensors
+
+    @property
     def cooler(self) -> Optional[ICooler]:
         """
         Cooler opcional de la línea.

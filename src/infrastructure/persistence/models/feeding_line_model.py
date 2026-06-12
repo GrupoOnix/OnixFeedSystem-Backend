@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List, Optional, cast
 from uuid import UUID
 
 from sqlalchemy import Column, DateTime
@@ -7,6 +7,7 @@ from sqlmodel import Field, Relationship, SQLModel
 
 from domain.aggregates.feeding_line.feeding_line import FeedingLine
 from domain.enums import FeedingLineStatus
+from domain.interfaces import IDoser, ISensor
 from domain.value_objects import LineId, LineName
 
 if TYPE_CHECKING:
@@ -104,9 +105,9 @@ class FeedingLineModel(SQLModel, table=True):
             raise ValueError("FeedingLine debe tener blower y selector para reconstruir el dominio")
 
         blower_domain = self.blower.to_domain()
-        dosers_domain = [doser.to_domain() for doser in self.dosers]
+        dosers_domain = cast(List[IDoser], [doser.to_domain() for doser in self.dosers])
         selector_domain = self.selector.to_domain()
-        sensors_domain = [sensor.to_domain() for sensor in self.sensors]
+        sensors_domain = cast(List[ISensor], [sensor.to_domain() for sensor in self.sensors])
         cooler_domain = self.cooler.to_domain() if self.cooler else None
 
         line = FeedingLine.create(

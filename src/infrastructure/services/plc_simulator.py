@@ -232,7 +232,7 @@ class PLCSimulator(IFeedingMachine):
 
     def _get_or_create_state(self, line_id: LineId) -> LineState:
         """Obtiene o crea el estado de una línea"""
-        key = line_id.value
+        key = str(line_id)
         if key not in self._states:
             self._states[key] = LineState(line_id=key)
             if self._detailed_logging:

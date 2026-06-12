@@ -5,6 +5,7 @@ from typing import List, Optional
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from domain.aggregates.cage_group import CageGroup
 from domain.repositories import ICageGroupRepository
@@ -45,7 +46,7 @@ class CageGroupRepository(ICageGroupRepository):
     async def find_by_name(self, name: CageGroupName) -> Optional[CageGroup]:
         """Busca un grupo por su nombre."""
         result = await self.session.execute(
-            select(CageGroupModel).where(CageGroupModel.name == str(name))
+            select(CageGroupModel).where(col(CageGroupModel.name) == str(name))
         )
         group_model = result.scalar_one_or_none()
         return group_model.to_domain() if group_model else None
@@ -71,14 +72,14 @@ class CageGroupRepository(ICageGroupRepository):
             # Búsqueda en nombre y descripción
             query = query.where(
                 or_(
-                    func.lower(CageGroupModel.name).contains(search_lower),
-                    func.lower(CageGroupModel.description).contains(search_lower),
+                    func.lower(col(CageGroupModel.name)).contains(search_lower),
+                    func.lower(col(CageGroupModel.description)).contains(search_lower),
                     # Búsqueda en cage_ids (si search es un UUID válido)
-                    CageGroupModel.cage_ids.contains(search),
+                    col(CageGroupModel.cage_ids).contains(search),
                 )
             )
 
-        query = query.order_by(CageGroupModel.created_at.desc())
+        query = query.order_by(col(CageGroupModel.created_at).desc())
         query = query.limit(limit).offset(offset)
 
         result = await self.session.execute(query)
@@ -93,9 +94,9 @@ class CageGroupRepository(ICageGroupRepository):
             search_lower = search.lower()
             query = query.where(
                 or_(
-                    func.lower(CageGroupModel.name).contains(search_lower),
-                    func.lower(CageGroupModel.description).contains(search_lower),
-                    CageGroupModel.cage_ids.contains(search),
+                    func.lower(col(CageGroupModel.name)).contains(search_lower),
+                    func.lower(col(CageGroupModel.description)).contains(search_lower),
+                    col(CageGroupModel.cage_ids).contains(search),
                 )
             )
 
@@ -122,10 +123,12 @@ class CageGroupRepository(ICageGroupRepository):
         Returns:
             True si existe un grupo con ese nombre, False en caso contrario
         """
-        query = select(CageGroupModel).where(func.lower(CageGroupModel.name) == name.lower())
+        query = select(CageGroupModel).where(
+            func.lower(col(CageGroupModel.name)) == name.lower()
+        )
 
         if exclude_id:
-            query = query.where(CageGroupModel.id != exclude_id.value)
+            query = query.where(col(CageGroupModel.id) != exclude_id.value)
 
         result = await self.session.execute(query)
         return result.scalar_one_or_none() is not None

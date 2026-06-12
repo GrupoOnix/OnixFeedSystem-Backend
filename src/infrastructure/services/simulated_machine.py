@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Dict, Optional
 
@@ -30,16 +30,11 @@ class _LineState:
     selector_positioning_seconds: float = 5.0
     visit_start_time: Optional[datetime] = None
     dispensing_completed_time: Optional[datetime] = None
-    slot_rates: Dict[int, float] = None
+    slot_rates: Dict[int, float] = field(default_factory=dict)
     cage_id: Optional[str] = None
     cage_feeding_id: Optional[str] = None
     visit_number: Optional[int] = None
     is_empty_visit: bool = False
-
-    def __post_init__(self):
-        if self.slot_rates is None:
-            self.slot_rates = {}
-
 
 class SimulatedMachine(IMachine):
 

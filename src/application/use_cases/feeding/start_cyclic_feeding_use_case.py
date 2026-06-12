@@ -119,7 +119,7 @@ class StartCyclicFeedingUseCase:
                 continue
             visits = _visits_for_config(request, cfg)
             active_visit_counts.append(visits)
-            transport_time = float(cage.config.transport_time_seconds)
+            transport_time = int(float(cage.config.transport_time_seconds))
             kg_per_visit = round(cfg.quantity_kg / visits, 3)
             visit_seconds = calculate_visit_duration(
                 quantity_kg=kg_per_visit,

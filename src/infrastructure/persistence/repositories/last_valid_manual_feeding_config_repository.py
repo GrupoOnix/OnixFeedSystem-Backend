@@ -4,6 +4,7 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from infrastructure.persistence.models.last_valid_manual_feeding_config_model import (
     LastValidManualFeedingConfigModel,
@@ -20,7 +21,9 @@ class LastValidManualFeedingConfigRepository:
 
     async def find_by_line_id(self, line_id: UUID) -> Optional[LastValidManualFeedingConfigModel]:
         result = await self.session.execute(
-            select(LastValidManualFeedingConfigModel).where(LastValidManualFeedingConfigModel.line_id == line_id)
+            select(LastValidManualFeedingConfigModel).where(
+                col(LastValidManualFeedingConfigModel.line_id) == line_id
+            )
         )
         return result.scalar_one_or_none()
 

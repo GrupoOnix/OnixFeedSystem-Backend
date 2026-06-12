@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta
-from typing import List
+from typing import Any, List
 from uuid import UUID
 
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from domain.dtos.feeding_rate_timeline import FeedingRateTimelineVisit
 from domain.entities.feeding_event import FeedingEvent, FeedingEventType
@@ -29,8 +30,8 @@ class FeedingEventRepository(IFeedingEventRepository):
     async def find_by_session(self, session_id: str) -> List[FeedingEvent]:
         query = (
             select(FeedingEventModel)
-            .where(FeedingEventModel.feeding_session_id == session_id)
-            .order_by(FeedingEventModel.timestamp.desc())
+            .where(col(FeedingEventModel.feeding_session_id) == session_id)
+            .order_by(col(FeedingEventModel.timestamp).desc())
         )
         result = await self.session.execute(query)
         models = result.scalars().all()
@@ -41,11 +42,11 @@ class FeedingEventRepository(IFeedingEventRepository):
             select(FeedingEventModel)
             .where(
                 and_(
-                    FeedingEventModel.feeding_session_id == session_id,
-                    FeedingEventModel.event_type == event_type.value
+                    col(FeedingEventModel.feeding_session_id) == session_id,
+                    col(FeedingEventModel.event_type) == event_type.value
                 )
             )
-            .order_by(FeedingEventModel.timestamp.desc())
+            .order_by(col(FeedingEventModel.timestamp).desc())
         )
         result = await self.session.execute(query)
         models = result.scalars().all()
@@ -60,30 +61,30 @@ class FeedingEventRepository(IFeedingEventRepository):
         feeding_type: str | None = None,
     ) -> List[FeedingRateTimelineVisit]:
         lookback_start = start - timedelta(days=1)
-        conditions = [
-            FeedingEventModel.event_type == FeedingEventType.VISIT_COMPLETED.value,
-            FeedingEventModel.timestamp >= lookback_start,
-            FeedingEventModel.timestamp <= end,
+        conditions: list[Any] = [
+            col(FeedingEventModel.event_type) == FeedingEventType.VISIT_COMPLETED.value,
+            col(FeedingEventModel.timestamp) >= lookback_start,
+            col(FeedingEventModel.timestamp) <= end,
         ]
 
         if line_id:
-            conditions.append(FeedingSessionModel.line_id == UUID(line_id))
+            conditions.append(col(FeedingSessionModel.line_id) == UUID(line_id))
         if feeding_type:
-            conditions.append(FeedingSessionModel.type == feeding_type)
+            conditions.append(col(FeedingSessionModel.type) == feeding_type)
 
         query = (
             select(
                 FeedingEventModel,
-                FeedingSessionModel.id,
-                FeedingSessionModel.type,
-                FeedingSessionModel.line_id,
+                col(FeedingSessionModel.id),
+                col(FeedingSessionModel.type),
+                col(FeedingSessionModel.line_id),
             )
             .join(
                 FeedingSessionModel,
-                FeedingEventModel.feeding_session_id == FeedingSessionModel.id,
+                col(FeedingEventModel.feeding_session_id) == col(FeedingSessionModel.id),
             )
             .where(and_(*conditions))
-            .order_by(FeedingEventModel.timestamp.asc())
+            .order_by(col(FeedingEventModel.timestamp).asc())
         )
         result = await self.session.execute(query)
 

@@ -1,7 +1,8 @@
-from typing import Dict
+from typing import Dict, cast
 from uuid import UUID
 
 from application.dtos.manual_feeding_config_dtos import (
+    AllowedManualDosingUnit,
     LastValidCyclicCageConfigPayload,
     LastSelectedFeedingModePayload,
     LastSelectedFeedingModeResponse,
@@ -452,7 +453,7 @@ async def _to_response(
         target_cage_id=str(config.target_cage_id),
         target_amount_kg=config.target_amount_kg,
         dosing_rate_kg_per_min=config.dosing_rate_kg_per_min,
-        dosing_unit=config.dosing_unit,
+        dosing_unit=cast(AllowedManualDosingUnit, config.dosing_unit),
         blower_power_percentage=config.blower_power_percentage,
         updated_by=config.updated_by,
         created_at=config.created_at,
@@ -501,7 +502,7 @@ async def _is_cyclic_valid_against_current_layout(
 ) -> bool:
     try:
         cage_configs = [
-            _cyclic_cage_config_with_legacy_visits(cage_config, config.visits)
+            LastValidCyclicCageConfigPayload(**_cyclic_cage_config_with_legacy_visits(cage_config, config.visits))
             for cage_config in config.cage_configs
         ]
         payload = LastValidCyclicFeedingConfigPayload(

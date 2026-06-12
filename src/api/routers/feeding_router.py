@@ -1,5 +1,5 @@
 from datetime import date, datetime, time, timezone
-from typing import Annotated, List, Literal, Optional
+from typing import Annotated, Any, List, Literal, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -562,12 +562,13 @@ async def get_daily_feeding_summary(
     type: Optional[Literal["MANUAL", "CYCLIC"]] = Query(default=None, description="Filtrar por tipo"),
 ) -> DailyFeedingSummaryResponse:
     try:
-        return await use_case.execute(
+        dto = await use_case.execute(
             start_date=start_date,
             end_date=end_date,
             line_id=str(line_id) if line_id else None,
             feeding_type=type,
         )
+        return DailyFeedingSummaryResponse.model_validate(dto, from_attributes=True)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
@@ -586,7 +587,7 @@ async def get_feeding_rate_timeline(
     include_series: Literal["lines", "cages", "sessions"] = Query(default="lines"),
 ) -> FeedingRateTimelineResponse:
     try:
-        return await use_case.execute(
+        dto = await use_case.execute(
             start_at=start_at,
             end_at=end_at,
             line_id=str(line_id) if line_id else None,
@@ -595,6 +596,7 @@ async def get_feeding_rate_timeline(
             bucket_seconds=bucket_seconds,
             include_series=include_series,
         )
+        return FeedingRateTimelineResponse.model_validate(dto, from_attributes=True)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
@@ -856,7 +858,7 @@ async def get_batch_session_status(
 
         from api.models.feeding_models import CageSummaryItem, ActiveCageInfo
 
-        results = []
+        results: list[Any] = []
         for session_id in session_id_list:
             try:
                 session = await session_repo.find_by_id(session_id)

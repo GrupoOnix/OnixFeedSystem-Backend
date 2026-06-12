@@ -2,6 +2,7 @@ from typing import List, Optional, Tuple
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from domain.aggregates.silo import Silo
 from domain.repositories import ISiloRepository
@@ -42,7 +43,7 @@ class SiloRepository(ISiloRepository):
 
     async def find_by_name(self, name: SiloName) -> Optional[Silo]:
         result = await self.session.execute(
-            select(SiloModel).where(SiloModel.name == str(name))
+            select(SiloModel).where(col(SiloModel.name) == str(name))
         )
         silo_model = result.scalar_one_or_none()
         if not silo_model:
@@ -77,17 +78,26 @@ class SiloRepository(ISiloRepository):
             Lista de tuplas con el silo y las líneas a las que está asignado.
         """
         query = (
-            select(SiloModel, DoserModel.line_id, FeedingLineModel.name)
-            .outerjoin(DoserSiloModel, DoserSiloModel.silo_id == SiloModel.id)
-            .outerjoin(DoserModel, DoserModel.id == DoserSiloModel.doser_id)
-            .outerjoin(FeedingLineModel, FeedingLineModel.id == DoserModel.line_id)
+            select(SiloModel, col(DoserModel.line_id), col(FeedingLineModel.name))
+            .outerjoin(
+                DoserSiloModel,
+                col(DoserSiloModel.silo_id) == col(SiloModel.id),
+            )
+            .outerjoin(
+                DoserModel,
+                col(DoserModel.id) == col(DoserSiloModel.doser_id),
+            )
+            .outerjoin(
+                FeedingLineModel,
+                col(FeedingLineModel.id) == col(DoserModel.line_id),
+            )
         )
 
         if is_assigned is not None:
             if is_assigned:
-                query = query.where(DoserSiloModel.doser_id.is_not(None))
+                query = query.where(col(DoserSiloModel.doser_id).is_not(None))
             else:
-                query = query.where(DoserSiloModel.doser_id.is_(None))
+                query = query.where(col(DoserSiloModel.doser_id).is_(None))
 
         result = await self.session.execute(query)
         rows = result.all()
@@ -114,11 +124,20 @@ class SiloRepository(ISiloRepository):
             Tupla con el silo y las líneas a las que está asignado.
         """
         query = (
-            select(SiloModel, DoserModel.line_id, FeedingLineModel.name)
-            .outerjoin(DoserSiloModel, DoserSiloModel.silo_id == SiloModel.id)
-            .outerjoin(DoserModel, DoserModel.id == DoserSiloModel.doser_id)
-            .outerjoin(FeedingLineModel, FeedingLineModel.id == DoserModel.line_id)
-            .where(SiloModel.id == silo_id.value)
+            select(SiloModel, col(DoserModel.line_id), col(FeedingLineModel.name))
+            .outerjoin(
+                DoserSiloModel,
+                col(DoserSiloModel.silo_id) == col(SiloModel.id),
+            )
+            .outerjoin(
+                DoserModel,
+                col(DoserModel.id) == col(DoserSiloModel.doser_id),
+            )
+            .outerjoin(
+                FeedingLineModel,
+                col(FeedingLineModel.id) == col(DoserModel.line_id),
+            )
+            .where(col(SiloModel.id) == silo_id.value)
         )
 
         result = await self.session.execute(query)
@@ -140,8 +159,8 @@ class SiloRepository(ISiloRepository):
 
     async def _has_doser_links(self, silo_id: SiloId) -> bool:
         result = await self.session.execute(
-            select(func.count(DoserSiloModel.doser_id)).where(
-                DoserSiloModel.silo_id == silo_id.value
+            select(func.count(col(DoserSiloModel.doser_id))).where(
+                col(DoserSiloModel.silo_id) == silo_id.value
             )
         )
         return result.scalar_one() > 0

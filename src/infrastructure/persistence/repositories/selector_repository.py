@@ -1,12 +1,13 @@
 """Repositorio para operaciones de Selector."""
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional, cast
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlmodel import col
 
 from domain.aggregates.feeding_line.selector import Selector
 from infrastructure.persistence.models.selector_model import SelectorModel
@@ -30,7 +31,7 @@ class SelectorRepository:
 
     async def find_by_id(self, selector_id: UUID) -> Optional[Selector]:
         """Busca un selector por su ID."""
-        stmt = select(SelectorModel).where(SelectorModel.id == selector_id)
+        stmt = select(SelectorModel).where(col(SelectorModel.id) == selector_id)
         result = await self.session.execute(stmt)
         selector_model = result.scalar_one_or_none()
         return selector_model.to_domain() if selector_model else None
@@ -41,8 +42,8 @@ class SelectorRepository:
         """Busca un selector por su ID y devuelve también información de la línea."""
         stmt = (
             select(SelectorModel)
-            .options(selectinload(SelectorModel.feeding_line))
-            .where(SelectorModel.id == selector_id)
+            .options(selectinload(cast(Any, SelectorModel.feeding_line)))
+            .where(col(SelectorModel.id) == selector_id)
         )
         result = await self.session.execute(stmt)
         selector_model = result.scalar_one_or_none()
@@ -59,7 +60,7 @@ class SelectorRepository:
 
     async def update(self, selector_id: UUID, selector: Selector) -> None:
         """Actualiza un selector existente."""
-        stmt = select(SelectorModel).where(SelectorModel.id == selector_id)
+        stmt = select(SelectorModel).where(col(SelectorModel.id) == selector_id)
         result = await self.session.execute(stmt)
         selector_model = result.scalar_one_or_none()
 

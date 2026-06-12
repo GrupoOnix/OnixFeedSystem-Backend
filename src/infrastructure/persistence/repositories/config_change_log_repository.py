@@ -1,7 +1,8 @@
 from typing import List
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from domain.repositories import IConfigChangeLogRepository
 from domain.value_objects import CageId
@@ -27,8 +28,8 @@ class ConfigChangeLogRepository(IConfigChangeLogRepository):
         """Lista registros de cambios de configuración de una jaula, ordenados por fecha DESC."""
         result = await self.session.execute(
             select(ConfigChangeLogModel)
-            .where(ConfigChangeLogModel.cage_id == cage_id.value)
-            .order_by(ConfigChangeLogModel.created_at.desc())
+            .where(col(ConfigChangeLogModel.cage_id) == cage_id.value)
+            .order_by(col(ConfigChangeLogModel.created_at).desc())
             .limit(limit)
             .offset(offset)
         )
@@ -38,7 +39,7 @@ class ConfigChangeLogRepository(IConfigChangeLogRepository):
     async def count_by_cage(self, cage_id: CageId) -> int:
         """Cuenta total de registros de cambios de configuración de una jaula."""
         result = await self.session.execute(
-            select(func.count(ConfigChangeLogModel.change_id))
-            .where(ConfigChangeLogModel.cage_id == cage_id.value)
+            select(func.count(col(ConfigChangeLogModel.change_id)))
+            .where(col(ConfigChangeLogModel.cage_id) == cage_id.value)
         )
         return result.scalar() or 0

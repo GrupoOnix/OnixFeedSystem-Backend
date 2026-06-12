@@ -2,8 +2,9 @@ from datetime import date, datetime
 from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy import select, and_, func
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from domain.entities.cage_feeding import CageFeeding, CageFeedingStatus
 from domain.repositories import ICageFeedingRepository
@@ -20,7 +21,7 @@ class CageFeedingRepository(ICageFeedingRepository):
         await self.session.flush()
 
     async def find_by_id(self, id: str) -> Optional[CageFeeding]:
-        query = select(CageFeedingModel).where(CageFeedingModel.id == id)
+        query = select(CageFeedingModel).where(col(CageFeedingModel.id) == id)
         result = await self.session.execute(query)
         model = result.scalars().first()
         if not model:
@@ -30,8 +31,8 @@ class CageFeedingRepository(ICageFeedingRepository):
     async def find_by_session(self, session_id: str) -> List[CageFeeding]:
         query = (
             select(CageFeedingModel)
-            .where(CageFeedingModel.feeding_session_id == session_id)
-            .order_by(CageFeedingModel.execution_order)
+            .where(col(CageFeedingModel.feeding_session_id) == session_id)
+            .order_by(col(CageFeedingModel.execution_order))
         )
         result = await self.session.execute(query)
         models = result.scalars().all()
@@ -40,8 +41,8 @@ class CageFeedingRepository(ICageFeedingRepository):
     async def find_current_by_session(self, session_id: str) -> Optional[CageFeeding]:
         query = select(CageFeedingModel).where(
             and_(
-                CageFeedingModel.feeding_session_id == session_id,
-                CageFeedingModel.status == CageFeedingStatus.IN_PROGRESS.value,
+                col(CageFeedingModel.feeding_session_id) == session_id,
+                col(CageFeedingModel.status) == CageFeedingStatus.IN_PROGRESS.value,
             )
         )
         result = await self.session.execute(query)
@@ -63,9 +64,9 @@ class CageFeedingRepository(ICageFeedingRepository):
         today_start = datetime.combine(date.today(), datetime.min.time())
         cage_uuid = UUID(cage_id)
 
-        query = select(func.coalesce(func.sum(CageFeedingModel.dispensed_kg), 0)).where(
-            CageFeedingModel.cage_id == cage_uuid,
-            CageFeedingModel.created_at >= today_start,
+        query = select(func.coalesce(func.sum(col(CageFeedingModel.dispensed_kg)), 0)).where(
+            col(CageFeedingModel.cage_id) == cage_uuid,
+            col(CageFeedingModel.created_at) >= today_start,
         )
 
         result = await self.session.execute(query)
@@ -90,14 +91,14 @@ class CageFeedingRepository(ICageFeedingRepository):
 
         query = (
             select(
-                CageFeedingModel.cage_id,
-                func.coalesce(func.sum(CageFeedingModel.dispensed_kg), 0).label("total_dispensed"),
+                col(CageFeedingModel.cage_id),
+                func.coalesce(func.sum(col(CageFeedingModel.dispensed_kg)), 0).label("total_dispensed"),
             )
             .where(
-                CageFeedingModel.cage_id.in_(cage_uuid_list),
-                CageFeedingModel.created_at >= today_start,
+                col(CageFeedingModel.cage_id).in_(cage_uuid_list),
+                col(CageFeedingModel.created_at) >= today_start,
             )
-            .group_by(CageFeedingModel.cage_id)
+            .group_by(col(CageFeedingModel.cage_id))
         )
 
         result = await self.session.execute(query)

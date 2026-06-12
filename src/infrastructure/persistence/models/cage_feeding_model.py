@@ -64,7 +64,9 @@ class CageFeedingModel(SQLModel, table=True):
     status: str = Field(max_length=20, nullable=False, index=True)
 
     # Timestamps
-    created_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=False, index=True))
+    created_at: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=False, index=True)
+    )
 
     # Relaciones
     session: "FeedingSessionModel" = Relationship(back_populates="cage_feedings")
@@ -97,8 +99,8 @@ class CageFeedingModel(SQLModel, table=True):
         cage_feeding._id = self.id
         cage_feeding._feeding_session_id = self.feeding_session_id
         cage_feeding._cage_id = str(self.cage_id)
-        cage_feeding._doser_id = str(self.doser_id) if self.doser_id else None
-        cage_feeding._silo_id = str(self.silo_id) if self.silo_id else None
+        cage_feeding._doser_id = str(self.doser_id) if self.doser_id is not None else None
+        cage_feeding._silo_id = str(self.silo_id) if self.silo_id is not None else None
         cage_feeding._execution_order = self.execution_order
         cage_feeding._mode = CageFeedingMode(self.mode)
         cage_feeding._programmed_kg = self.programmed_kg

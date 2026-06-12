@@ -2,6 +2,7 @@ from typing import List, Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from domain.aggregates.food import Food
 from domain.repositories import IFoodRepository
@@ -43,7 +44,7 @@ class FoodRepository(IFoodRepository):
     async def find_by_name(self, name: FoodName) -> Optional[Food]:
         """Busca un alimento por su nombre."""
         result = await self.session.execute(
-            select(FoodModel).where(FoodModel.name == str(name))
+            select(FoodModel).where(col(FoodModel.name) == str(name))
         )
         food_model = result.scalar_one_or_none()
         return food_model.to_domain() if food_model else None
@@ -51,21 +52,23 @@ class FoodRepository(IFoodRepository):
     async def find_by_code(self, code: str) -> Optional[Food]:
         """Busca un alimento por su código de producto."""
         result = await self.session.execute(
-            select(FoodModel).where(FoodModel.code == code)
+            select(FoodModel).where(col(FoodModel.code) == code)
         )
         food_model = result.scalar_one_or_none()
         return food_model.to_domain() if food_model else None
 
     async def get_all(self) -> List[Food]:
         """Obtiene todos los alimentos."""
-        result = await self.session.execute(select(FoodModel).order_by(FoodModel.name))
+        result = await self.session.execute(select(FoodModel).order_by(col(FoodModel.name)))
         food_models = result.scalars().all()
         return [model.to_domain() for model in food_models]
 
     async def get_active(self) -> List[Food]:
         """Obtiene solo los alimentos activos."""
         result = await self.session.execute(
-            select(FoodModel).where(FoodModel.active.is_(True)).order_by(FoodModel.name)
+            select(FoodModel)
+            .where(col(FoodModel.active).is_(True))
+            .order_by(col(FoodModel.name))
         )
         food_models = result.scalars().all()
         return [model.to_domain() for model in food_models]

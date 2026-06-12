@@ -2,9 +2,9 @@ from datetime import datetime, timezone
 from math import ceil
 from typing import Dict, Any, Optional
 
-from domain.aggregates.feeding_line.doser import Doser
 from domain.entities.cage_feeding import CageFeedingMode
 from domain.entities.feeding_session import FeedingSession
+from domain.interfaces import IDoser
 from domain.value_objects import CageId, LineId
 from infrastructure.persistence.repositories.cage_feeding_repository import CageFeedingRepository
 from infrastructure.persistence.repositories.feeding_line_repository import FeedingLineRepository
@@ -18,7 +18,7 @@ LIVE_SESSION_STATUSES = {"IN_PROGRESS", "PAUSED"}
 def _calculate_pulse_metrics(
     programmed_kg_per_visit: float,
     programmed_visits: int,
-    doser: Optional[Doser],
+    doser: Optional[IDoser],
 ) -> Dict[str, Optional[float | int]]:
     if (
         not doser
@@ -153,7 +153,7 @@ async def build_cyclic_status(
         and getattr(machine_status, "visit_number", None) is not None
         and bool(getattr(machine_status, "is_empty_visit", False))
     ):
-        current_round = min(machine_status.visit_number, total_rounds)
+        current_round = min(machine_status.visit_number or 0, total_rounds)
     elif active_cf:
         current_round = min(active_cf.completed_visits + 1, total_rounds)
     elif active_cfs:

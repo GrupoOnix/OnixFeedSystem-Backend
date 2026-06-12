@@ -1,13 +1,18 @@
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional
+from typing import Any, List, Optional, cast
 
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlmodel import col
 
 from domain.entities.feeding_session import FeedingSession, SessionStatus
 from domain.repositories import IFeedingSessionRepository
 from infrastructure.persistence.models.feeding_session_model import FeedingSessionModel
+
+
+_cage_feedings_rel = cast(Any, FeedingSessionModel.cage_feedings)
+_events_rel = cast(Any, FeedingSessionModel.events)
 
 
 class FeedingSessionRepository(IFeedingSessionRepository):
@@ -22,10 +27,10 @@ class FeedingSessionRepository(IFeedingSessionRepository):
     async def find_by_id(self, session_id: str) -> Optional[FeedingSession]:
         query = (
             select(FeedingSessionModel)
-            .where(FeedingSessionModel.id == session_id)
+            .where(col(FeedingSessionModel.id) == session_id)
             .options(
-                selectinload(FeedingSessionModel.cage_feedings),
-                selectinload(FeedingSessionModel.events)
+                selectinload(_cage_feedings_rel),
+                selectinload(_events_rel)
             )
         )
         result = await self.session.execute(query)
@@ -39,16 +44,16 @@ class FeedingSessionRepository(IFeedingSessionRepository):
             select(FeedingSessionModel)
             .where(
                 and_(
-                    FeedingSessionModel.line_id == line_id,
-                    FeedingSessionModel.status.in_([
+                    col(FeedingSessionModel.line_id) == line_id,
+                    col(FeedingSessionModel.status).in_([
                         SessionStatus.IN_PROGRESS.value,
                         SessionStatus.PAUSED.value
                     ])
                 )
             )
             .options(
-                selectinload(FeedingSessionModel.cage_feedings),
-                selectinload(FeedingSessionModel.events)
+                selectinload(_cage_feedings_rel),
+                selectinload(_events_rel)
             )
         )
         result = await self.session.execute(query)
@@ -64,13 +69,13 @@ class FeedingSessionRepository(IFeedingSessionRepository):
             select(FeedingSessionModel)
             .where(
                 and_(
-                    FeedingSessionModel.line_id == line_id,
-                    FeedingSessionModel.actual_start >= today_start
+                    col(FeedingSessionModel.line_id) == line_id,
+                    col(FeedingSessionModel.actual_start) >= today_start
                 )
             )
             .options(
-                selectinload(FeedingSessionModel.cage_feedings),
-                selectinload(FeedingSessionModel.events)
+                selectinload(_cage_feedings_rel),
+                selectinload(_events_rel)
             )
         )
         result = await self.session.execute(query)
@@ -84,15 +89,15 @@ class FeedingSessionRepository(IFeedingSessionRepository):
             select(FeedingSessionModel)
             .where(
                 and_(
-                    FeedingSessionModel.actual_start >= start,
-                    FeedingSessionModel.actual_start <= end
+                    col(FeedingSessionModel.actual_start) >= start,
+                    col(FeedingSessionModel.actual_start) <= end
                 )
             )
             .options(
-                selectinload(FeedingSessionModel.cage_feedings),
-                selectinload(FeedingSessionModel.events)
+                selectinload(_cage_feedings_rel),
+                selectinload(_events_rel)
             )
-            .order_by(FeedingSessionModel.actual_start.desc())
+            .order_by(col(FeedingSessionModel.actual_start).desc())
         )
         result = await self.session.execute(query)
         models = result.scalars().all()
@@ -105,18 +110,18 @@ class FeedingSessionRepository(IFeedingSessionRepository):
             select(FeedingSessionModel)
             .where(
                 and_(
-                    FeedingSessionModel.status.in_([
+                    col(FeedingSessionModel.status).in_([
                         SessionStatus.IN_PROGRESS.value,
                         SessionStatus.PAUSED.value
                     ]),
-                    FeedingSessionModel.actual_start >= cutoff_time
+                    col(FeedingSessionModel.actual_start) >= cutoff_time
                 )
             )
             .options(
-                selectinload(FeedingSessionModel.cage_feedings),
-                selectinload(FeedingSessionModel.events)
+                selectinload(_cage_feedings_rel),
+                selectinload(_events_rel)
             )
-            .order_by(FeedingSessionModel.actual_start.desc())
+            .order_by(col(FeedingSessionModel.actual_start).desc())
         )
         result = await self.session.execute(query)
         models = result.scalars().all()

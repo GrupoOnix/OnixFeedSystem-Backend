@@ -27,7 +27,7 @@ class ResetSelectorPositionUseCase:
             FeedingLineNotFoundException: Si la línea no existe
         """
         # Obtener línea
-        feeding_line = await self._feeding_line_repository.find_by_id(LineId(line_id))
+        feeding_line = await self._feeding_line_repository.find_by_id(LineId.from_string(line_id))
 
         if not feeding_line:
             raise FeedingLineNotFoundException(

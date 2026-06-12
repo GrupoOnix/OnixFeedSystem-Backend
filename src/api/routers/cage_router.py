@@ -454,8 +454,13 @@ async def get_activity_log(
     use_case: ListActivityLogUseCaseDep,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    event_type: Optional[List[str]] = Query(None, description="Filtrar por tipo de evento: SUCCESS, INFO, CONFIG, ALERT"),
-    category: Optional[List[str]] = Query(None, description="Filtrar por categoría: FEEDING, CONFIG, BIOMETRY, MORTALITY, POPULATION, DEVICE, SYSTEM"),
+    event_type: Optional[List[str]] = Query(
+        None, description="Filtrar por tipo: SUCCESS, INFO, CONFIG, ALERT"
+    ),
+    category: Optional[List[str]] = Query(
+        None,
+        description="Filtrar por categoría: FEEDING, CONFIG, BIOMETRY, MORTALITY, POPULATION, DEVICE, SYSTEM",
+    ),
     from_date: Optional[datetime] = Query(None, description="Fecha/hora de inicio (ISO 8601)"),
     to_date: Optional[datetime] = Query(None, description="Fecha/hora de fin (ISO 8601)"),
 ) -> PaginatedActivityLogResponseModel:

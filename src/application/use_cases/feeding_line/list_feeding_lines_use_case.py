@@ -1,5 +1,6 @@
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from application.dtos.feeding_line_dtos import (
     BlowerDTO,
@@ -46,8 +47,11 @@ class ListFeedingLinesUseCase:
     async def _get_cage_counts_by_line(self) -> dict[str, int]:
         """Obtiene el conteo de jaulas por línea."""
         stmt = (
-            select(SlotAssignmentModel.line_id, func.count(SlotAssignmentModel.cage_id))
-            .group_by(SlotAssignmentModel.line_id)
+            select(
+                col(SlotAssignmentModel.line_id),
+                func.count(col(SlotAssignmentModel.cage_id)),
+            )
+            .group_by(col(SlotAssignmentModel.line_id))
         )
 
         result = await self._session.execute(stmt)

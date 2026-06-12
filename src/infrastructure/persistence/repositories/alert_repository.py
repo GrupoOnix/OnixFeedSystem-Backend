@@ -3,8 +3,9 @@
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from sqlalchemy import or_, select, update, CursorResult
+from sqlalchemy import CursorResult, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from domain.aggregates.alert import Alert
 from domain.enums import AlertCategory, AlertStatus, AlertType
@@ -63,33 +64,35 @@ class AlertRepository(IAlertRepository):
 
         # Excluir alertas silenciadas (snoozed_until > now)
         now = datetime.now(timezone.utc)
-        query = query.where(or_(AlertModel.snoozed_until.is_(None), AlertModel.snoozed_until <= now))
+        query = query.where(
+            or_(col(AlertModel.snoozed_until).is_(None), col(AlertModel.snoozed_until) <= now)
+        )
 
         # Aplicar filtros
         if status:
             status_values = [s.value for s in status]
-            query = query.where(AlertModel.status.in_(status_values))
+            query = query.where(col(AlertModel.status).in_(status_values))
 
         if type:
             type_values = [t.value for t in type]
-            query = query.where(AlertModel.type.in_(type_values))
+            query = query.where(col(AlertModel.type).in_(type_values))
 
         if category:
             category_values = [c.value for c in category]
-            query = query.where(AlertModel.category.in_(category_values))
+            query = query.where(col(AlertModel.category).in_(category_values))
 
         if search:
             search_pattern = f"%{search}%"
             query = query.where(
                 or_(
-                    AlertModel.title.ilike(search_pattern),
-                    AlertModel.message.ilike(search_pattern),
-                    AlertModel.source.ilike(search_pattern),
+                    col(AlertModel.title).ilike(search_pattern),
+                    col(AlertModel.message).ilike(search_pattern),
+                    col(AlertModel.source).ilike(search_pattern),
                 )
             )
 
         # Ordenar por timestamp descendente (más recientes primero)
-        query = query.order_by(AlertModel.timestamp.desc())
+        query = query.order_by(col(AlertModel.timestamp).desc())
 
         # Paginación
         query = query.limit(limit).offset(offset)
@@ -106,34 +109,34 @@ class AlertRepository(IAlertRepository):
         search: Optional[str] = None,
     ) -> int:
         """Cuenta alertas con filtros opcionales (sin paginación). Excluye silenciadas."""
-        from sqlalchemy import func
-
-        query = select(func.count(AlertModel.id))
+        query = select(func.count(col(AlertModel.id)))
 
         # Excluir alertas silenciadas (snoozed_until > now)
         now = datetime.now(timezone.utc)
-        query = query.where(or_(AlertModel.snoozed_until.is_(None), AlertModel.snoozed_until <= now))
+        query = query.where(
+            or_(col(AlertModel.snoozed_until).is_(None), col(AlertModel.snoozed_until) <= now)
+        )
 
         # Aplicar filtros
         if status:
             status_values = [s.value for s in status]
-            query = query.where(AlertModel.status.in_(status_values))
+            query = query.where(col(AlertModel.status).in_(status_values))
 
         if type:
             type_values = [t.value for t in type]
-            query = query.where(AlertModel.type.in_(type_values))
+            query = query.where(col(AlertModel.type).in_(type_values))
 
         if category:
             category_values = [c.value for c in category]
-            query = query.where(AlertModel.category.in_(category_values))
+            query = query.where(col(AlertModel.category).in_(category_values))
 
         if search:
             search_pattern = f"%{search}%"
             query = query.where(
                 or_(
-                    AlertModel.title.ilike(search_pattern),
-                    AlertModel.message.ilike(search_pattern),
-                    AlertModel.source.ilike(search_pattern),
+                    col(AlertModel.title).ilike(search_pattern),
+                    col(AlertModel.message).ilike(search_pattern),
+                    col(AlertModel.source).ilike(search_pattern),
                 )
             )
 
@@ -142,13 +145,16 @@ class AlertRepository(IAlertRepository):
 
     async def count_unread(self) -> int:
         """Cuenta la cantidad de alertas no leídas (excluyendo silenciadas)."""
-        from sqlalchemy import func
-
         now = datetime.now(timezone.utc)
         query = (
-            select(func.count(AlertModel.id))
-            .where(AlertModel.status == AlertStatus.UNREAD.value)
-            .where(or_(AlertModel.snoozed_until.is_(None), AlertModel.snoozed_until <= now))
+            select(func.count(col(AlertModel.id)))
+            .where(col(AlertModel.status) == AlertStatus.UNREAD.value)
+            .where(
+                or_(
+                    col(AlertModel.snoozed_until).is_(None),
+                    col(AlertModel.snoozed_until) <= now,
+                )
+            )
         )
         result = await self.session.execute(query)
         return result.scalar() or 0
@@ -158,7 +164,7 @@ class AlertRepository(IAlertRepository):
         now = datetime.now(timezone.utc)
         stmt = (
             update(AlertModel)
-            .where(AlertModel.status == AlertStatus.UNREAD.value)
+            .where(col(AlertModel.status) == AlertStatus.UNREAD.value)
             .values(status=AlertStatus.READ.value, read_at=now)
         )
         result: CursorResult = await self.session.execute(stmt)  # type: ignore[assignment]
@@ -175,10 +181,15 @@ class AlertRepository(IAlertRepository):
         now = datetime.now(timezone.utc)
         query = (
             select(AlertModel)
-            .where(AlertModel.category == AlertCategory.INVENTORY.value)
-            .where(AlertModel.status.in_([AlertStatus.UNREAD.value, AlertStatus.READ.value]))
-            .where(or_(AlertModel.snoozed_until.is_(None), AlertModel.snoozed_until <= now))
-            .order_by(AlertModel.timestamp.desc())
+            .where(col(AlertModel.category) == AlertCategory.INVENTORY.value)
+            .where(col(AlertModel.status).in_([AlertStatus.UNREAD.value, AlertStatus.READ.value]))
+            .where(
+                or_(
+                    col(AlertModel.snoozed_until).is_(None),
+                    col(AlertModel.snoozed_until) <= now,
+                )
+            )
+            .order_by(col(AlertModel.timestamp).desc())
         )
 
         result = await self.session.execute(query)
@@ -198,9 +209,9 @@ class AlertRepository(IAlertRepository):
         """
         query = (
             select(AlertModel)
-            .where(AlertModel.category == AlertCategory.INVENTORY.value)
-            .where(AlertModel.status.in_([AlertStatus.UNREAD.value, AlertStatus.READ.value]))
-            .order_by(AlertModel.timestamp.desc())
+            .where(col(AlertModel.category) == AlertCategory.INVENTORY.value)
+            .where(col(AlertModel.status).in_([AlertStatus.UNREAD.value, AlertStatus.READ.value]))
+            .order_by(col(AlertModel.timestamp).desc())
         )
 
         result = await self.session.execute(query)
@@ -215,13 +226,11 @@ class AlertRepository(IAlertRepository):
 
     async def list_snoozed(self, limit: int = 50, offset: int = 0) -> tuple[List[Alert], int]:
         """Lista alertas actualmente silenciadas."""
-        from sqlalchemy import func
-
         now = datetime.now(timezone.utc)
 
         # Contar total de alertas silenciadas
-        count_query = select(func.count(AlertModel.id)).where(
-            AlertModel.snoozed_until.isnot(None), AlertModel.snoozed_until > now
+        count_query = select(func.count(col(AlertModel.id))).where(
+            col(AlertModel.snoozed_until).isnot(None), col(AlertModel.snoozed_until) > now
         )
         count_result = await self.session.execute(count_query)
         total = count_result.scalar() or 0
@@ -229,9 +238,9 @@ class AlertRepository(IAlertRepository):
         # Obtener alertas silenciadas con paginación
         query = (
             select(AlertModel)
-            .where(AlertModel.snoozed_until.isnot(None))
-            .where(AlertModel.snoozed_until > now)
-            .order_by(AlertModel.snoozed_until.asc())  # Las que expiran primero
+            .where(col(AlertModel.snoozed_until).isnot(None))
+            .where(col(AlertModel.snoozed_until) > now)
+            .order_by(col(AlertModel.snoozed_until).asc())  # Las que expiran primero
             .limit(limit)
             .offset(offset)
         )
@@ -244,11 +253,9 @@ class AlertRepository(IAlertRepository):
 
     async def count_snoozed(self) -> int:
         """Cuenta la cantidad de alertas actualmente silenciadas."""
-        from sqlalchemy import func
-
         now = datetime.now(timezone.utc)
-        query = select(func.count(AlertModel.id)).where(
-            AlertModel.snoozed_until.isnot(None), AlertModel.snoozed_until > now
+        query = select(func.count(col(AlertModel.id))).where(
+            col(AlertModel.snoozed_until).isnot(None), col(AlertModel.snoozed_until) > now
         )
         result = await self.session.execute(query)
         return result.scalar() or 0
@@ -260,18 +267,21 @@ class AlertRepository(IAlertRepository):
         exclude_snoozed: bool = True,
     ) -> int:
         """Cuenta alertas por tipo."""
-        from sqlalchemy import func
-
         now = datetime.now(timezone.utc)
-        query = select(func.count(AlertModel.id)).where(AlertModel.type == type.value)
+        query = select(func.count(col(AlertModel.id))).where(col(AlertModel.type) == type.value)
 
         # Excluir alertas resueltas si se solicita
         if exclude_resolved:
-            query = query.where(AlertModel.status != AlertStatus.RESOLVED.value)
+            query = query.where(col(AlertModel.status) != AlertStatus.RESOLVED.value)
 
         # Excluir alertas silenciadas si se solicita
         if exclude_snoozed:
-            query = query.where(or_(AlertModel.snoozed_until.is_(None), AlertModel.snoozed_until <= now))
+            query = query.where(
+                or_(
+                    col(AlertModel.snoozed_until).is_(None),
+                    col(AlertModel.snoozed_until) <= now,
+                )
+            )
 
         result = await self.session.execute(query)
         return result.scalar() or 0

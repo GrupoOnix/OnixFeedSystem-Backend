@@ -1,5 +1,5 @@
 from domain.repositories import ICageRepository, IMortalityLogRepository
-from domain.value_objects import CageId, FishCount
+from domain.value_objects import CageId
 from domain.value_objects.mortality_log_entry import MortalityLogEntry
 from application.dtos.mortality_dtos import RegisterMortalityRequest
 
@@ -41,7 +41,11 @@ class RegisterMortalityUseCase:
             raise ValueError(f"La jaula con ID '{cage_id}' no existe")
 
         # Validar mortalidad (solo validación, NO modifica current_fish_count)
-        cage.register_mortality(FishCount(request.dead_fish_count))
+        cage.register_mortality(
+            dead_count=request.dead_fish_count,
+            event_date=request.mortality_date,
+            note=request.note,
+        )
 
         # Crear registro en el log
         log_entry = MortalityLogEntry.create(

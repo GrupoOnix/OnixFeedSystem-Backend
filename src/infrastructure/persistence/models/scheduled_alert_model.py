@@ -34,7 +34,9 @@ class ScheduledAlertModel(SQLModel, table=True):
         default_factory=dict, sa_column=Column("metadata", JSONB, nullable=False)
     )
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
-    last_triggered_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
+    last_triggered_at: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
 
     class Config:
         arbitrary_types_allowed = True

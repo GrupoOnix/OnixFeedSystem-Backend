@@ -10,13 +10,14 @@ import asyncio
 import random
 import sys
 from dataclasses import dataclass
-from datetime import datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 from sqlalchemy import or_, select
+from sqlmodel import col
 
 SRC_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = SRC_DIR.parent
@@ -65,7 +66,9 @@ async def main() -> None:
         tz = ZoneInfo(timezone_id)
         now_local = datetime.now(tz)
 
-        lines = (await session.execute(select(FeedingLineModel).order_by(FeedingLineModel.name))).scalars().all()
+        lines = (
+            await session.execute(select(FeedingLineModel).order_by(col(FeedingLineModel.name)))
+        ).scalars().all()
         if not lines:
             raise RuntimeError(
                 "No hay feeding_lines. Crea/sincroniza el trazado del sistema antes de ejecutar el seed."
@@ -88,7 +91,9 @@ async def main() -> None:
             lines_processed += 1
             doser = (
                 await session.execute(
-                    select(DoserModel).where(DoserModel.line_id == line.id).order_by(DoserModel.name)
+                    select(DoserModel)
+                    .where(col(DoserModel.line_id) == line.id)
+                    .order_by(col(DoserModel.name))
                 )
             ).scalars().first()
             silo_id = doser.silo_id if doser and doser.silo_id else await _get_first_silo_id(session)
@@ -111,15 +116,20 @@ async def main() -> None:
                         max_duration_seconds=feeding_window.max_duration_seconds,
                     )
 
-                    if session_model.actual_end >= now_local.astimezone(timezone.utc) - timedelta(minutes=10):
+                    actual_start = session_model.actual_start
+                    actual_end = session_model.actual_end
+                    if actual_start is None or actual_end is None:
+                        raise RuntimeError("La sesión generada no tiene rango temporal completo.")
+
+                    if actual_end >= now_local.astimezone(timezone.utc) - timedelta(minutes=10):
                         sessions_skipped_future += 1
                         continue
 
                     if await _has_overlapping_session(
                         session=session,
                         line_id=line.id,
-                        start_utc=session_model.actual_start,
-                        end_utc=session_model.actual_end,
+                        start_utc=actual_start,
+                        end_utc=actual_end,
                     ):
                         sessions_skipped_overlap += 1
                         continue
@@ -148,7 +158,9 @@ async def main() -> None:
 
 
 async def _get_timezone_id(session) -> str:
-    config = (await session.execute(select(SystemConfigModel).where(SystemConfigModel.id == 1))).scalars().first()
+    config = (
+        await session.execute(select(SystemConfigModel).where(col(SystemConfigModel.id) == 1))
+    ).scalars().first()
     return config.timezone_id if config else "America/Santiago"
 
 
@@ -156,14 +168,16 @@ async def _build_targets(session, line_id: UUID) -> list[FeedingTarget]:
     assignments = (
         await session.execute(
             select(SlotAssignmentModel)
-            .where(SlotAssignmentModel.line_id == line_id)
-            .order_by(SlotAssignmentModel.slot_number)
+            .where(col(SlotAssignmentModel.line_id) == line_id)
+            .order_by(col(SlotAssignmentModel.slot_number))
         )
     ).scalars().all()
 
     if assignments:
         cage_ids = [assignment.cage_id for assignment in assignments]
-        cages = (await session.execute(select(CageModel).where(CageModel.id.in_(cage_ids)))).scalars().all()
+        cages = (
+            await session.execute(select(CageModel).where(col(CageModel.id).in_(cage_ids)))
+        ).scalars().all()
         cages_by_id = {cage.id: cage for cage in cages}
         return [
             _target_from_cage(cages_by_id[assignment.cage_id], assignment.slot_number)
@@ -171,12 +185,16 @@ async def _build_targets(session, line_id: UUID) -> list[FeedingTarget]:
             if assignment.cage_id in cages_by_id
         ]
 
-    cages = (await session.execute(select(CageModel).order_by(CageModel.name).limit(6))).scalars().all()
+    cages = (
+        await session.execute(select(CageModel).order_by(col(CageModel.name)).limit(6))
+    ).scalars().all()
     return [_target_from_cage(cage, index) for index, cage in enumerate(cages, start=1)]
 
 
 async def _get_first_silo_id(session) -> UUID | None:
-    silo = (await session.execute(select(SiloModel).order_by(SiloModel.name))).scalars().first()
+    silo = (
+        await session.execute(select(SiloModel).order_by(col(SiloModel.name)))
+    ).scalars().first()
     return silo.id if silo else None
 
 
@@ -188,11 +206,14 @@ async def _has_overlapping_session(
 ) -> bool:
     existing_id = (
         await session.execute(
-            select(FeedingSessionModel.id)
+            select(col(FeedingSessionModel.id))
             .where(
-                FeedingSessionModel.line_id == line_id,
-                FeedingSessionModel.actual_start < end_utc,
-                or_(FeedingSessionModel.actual_end.is_(None), FeedingSessionModel.actual_end > start_utc),
+                col(FeedingSessionModel.line_id) == line_id,
+                col(FeedingSessionModel.actual_start) < end_utc,
+                or_(
+                    col(FeedingSessionModel.actual_end).is_(None),
+                    col(FeedingSessionModel.actual_end) > start_utc,
+                ),
             )
             .limit(1)
         )
@@ -214,7 +235,7 @@ def _target_from_cage(cage: CageModel, slot_number: int) -> FeedingTarget:
     )
 
 
-def _last_30_dates(now_local: datetime) -> list[datetime.date]:
+def _last_30_dates(now_local: datetime) -> list[date]:
     start_date = now_local.date() - timedelta(days=29)
     return [start_date + timedelta(days=offset) for offset in range(30)]
 
@@ -317,7 +338,7 @@ def _make_completed_session(
         active_start_offset = random.randint(3 * 60, 8 * 60)
         active_end_offset = duration_seconds - random.randint(2 * 60, 6 * 60)
         active_window_seconds = active_end_offset - active_start_offset
-        pauses = [random.randint(60, 240) for _ in range(total_visits - 1)]
+        pauses: list[float] = [random.randint(60, 240) for _ in range(total_visits - 1)]
         pauses_total = sum(pauses)
 
         max_pause_total = active_window_seconds * 0.25

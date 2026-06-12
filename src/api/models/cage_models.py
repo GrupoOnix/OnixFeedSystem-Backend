@@ -1,7 +1,7 @@
 """Modelos de API para el módulo de jaulas."""
 
 from datetime import date, datetime
-from typing import List, Optional
+from typing import List, Optional, Protocol
 
 from pydantic import BaseModel, Field
 
@@ -17,7 +17,6 @@ from application.dtos.cage_dtos import (
     CageListItemResponse,
     CageResponse,
     ListCagesResponse,
-    PaginationInfo,
     PopulationEventResponse,
     PopulationHistoryResponse,
 )
@@ -34,6 +33,14 @@ from application.dtos.mortality_dtos import (
     MortalityLogItemResponse,
     PaginatedMortalityResponse,
 )
+
+
+class _PaginationDTO(Protocol):
+    total: int
+    limit: int
+    offset: int
+    has_next: bool
+    has_previous: bool
 
 # =============================================================================
 # REQUEST MODELS
@@ -272,7 +279,7 @@ class PaginationInfoModel(BaseModel):
     has_previous: bool
 
     @classmethod
-    def from_dto(cls, dto: PaginationInfo) -> "PaginationInfoModel":
+    def from_dto(cls, dto: _PaginationDTO) -> "PaginationInfoModel":
         """Convierte DTO a modelo de API."""
         return cls(
             total=dto.total,

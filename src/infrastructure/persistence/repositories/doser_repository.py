@@ -1,17 +1,22 @@
 """Repositorio para operaciones de Doser."""
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Any, List, Optional, cast
 from uuid import UUID
 
 from sqlalchemy import delete, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlmodel import col
 
 from domain.aggregates.feeding_line.doser import Doser
 from infrastructure.persistence.models.doser_calibration_model import DoserCalibrationModel
 from infrastructure.persistence.models.doser_model import DoserModel
 from infrastructure.persistence.models.doser_silo_model import DoserSiloModel
+
+
+_feeding_line_rel = cast(Any, DoserModel.feeding_line)
+_silos_rel = cast(Any, DoserModel.silos)
 
 
 @dataclass
@@ -34,8 +39,8 @@ class DoserRepository:
         """Busca un doser por su ID."""
         stmt = (
             select(DoserModel)
-            .options(selectinload(DoserModel.silos))
-            .where(DoserModel.id == doser_id)
+            .options(selectinload(_silos_rel))
+            .where(col(DoserModel.id) == doser_id)
         )
         result = await self.session.execute(stmt)
         doser_model = result.scalar_one_or_none()
@@ -46,10 +51,10 @@ class DoserRepository:
         stmt = (
             select(DoserModel)
             .options(
-                selectinload(DoserModel.feeding_line),
-                selectinload(DoserModel.silos),
+                selectinload(_feeding_line_rel),
+                selectinload(_silos_rel),
             )
-            .where(DoserModel.id == doser_id)
+            .where(col(DoserModel.id) == doser_id)
         )
         result = await self.session.execute(stmt)
         doser_model = result.scalar_one_or_none()
@@ -66,7 +71,7 @@ class DoserRepository:
 
     async def update(self, doser_id: UUID, doser: Doser) -> None:
         """Actualiza un doser existente."""
-        stmt = select(DoserModel).where(DoserModel.id == doser_id)
+        stmt = select(DoserModel).where(col(DoserModel.id) == doser_id)
         result = await self.session.execute(stmt)
         doser_model = result.scalar_one_or_none()
 
@@ -90,7 +95,7 @@ class DoserRepository:
         doser_model.pulse_speed = doser.pulse_speed
 
         await self.session.execute(
-            delete(DoserSiloModel).where(DoserSiloModel.doser_id == doser_id)
+            delete(DoserSiloModel).where(col(DoserSiloModel.doser_id) == doser_id)
         )
         for silo_id in doser.assigned_silo_ids:
             self.session.add(DoserSiloModel(doser_id=doser_id, silo_id=silo_id.value))
@@ -103,7 +108,7 @@ class DoserRepository:
         calibration: DoserCalibrationModel,
     ) -> DoserCalibrationModel:
         """Guarda una calibración y actualiza el valor actual del doser."""
-        stmt = select(DoserModel).where(DoserModel.id == doser_id)
+        stmt = select(DoserModel).where(col(DoserModel.id) == doser_id)
         result = await self.session.execute(stmt)
         doser_model = result.scalar_one_or_none()
 
@@ -121,8 +126,8 @@ class DoserRepository:
         """Lista historial de calibraciones, más reciente primero."""
         stmt = (
             select(DoserCalibrationModel)
-            .where(DoserCalibrationModel.doser_id == doser_id)
-            .order_by(desc(DoserCalibrationModel.created_at))
+            .where(col(DoserCalibrationModel.doser_id) == doser_id)
+            .order_by(desc(col(DoserCalibrationModel.created_at)))
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())

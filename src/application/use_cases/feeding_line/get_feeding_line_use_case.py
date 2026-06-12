@@ -1,5 +1,6 @@
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from application.dtos.feeding_line_dtos import (
     BlowerDTO,
@@ -11,7 +12,7 @@ from application.dtos.feeding_line_dtos import (
 from domain.exceptions import FeedingLineNotFoundException
 from domain.repositories import IFeedingLineRepository
 from domain.value_objects import LineId
-from infrastructure.persistence.models import CageModel
+from infrastructure.persistence.models import SlotAssignmentModel
 
 
 class GetFeedingLineUseCase:
@@ -37,7 +38,7 @@ class GetFeedingLineUseCase:
             FeedingLineNotFoundException: Si la línea no existe
         """
         # Obtener línea
-        feeding_line = await self._feeding_line_repository.find_by_id(LineId(line_id))
+        feeding_line = await self._feeding_line_repository.find_by_id(LineId.from_string(line_id))
 
         if not feeding_line:
             raise FeedingLineNotFoundException(
@@ -52,8 +53,8 @@ class GetFeedingLineUseCase:
 
     async def _get_cage_count_by_line(self, line_id: str) -> int:
         """Obtiene el conteo de jaulas para una línea específica."""
-        stmt = select(func.count(CageModel.id)).where(
-            CageModel.line_id == LineId(line_id).value
+        stmt = select(func.count(col(SlotAssignmentModel.cage_id))).where(
+            col(SlotAssignmentModel.line_id) == LineId.from_string(line_id).value
         )
 
         result = await self._session.execute(stmt)

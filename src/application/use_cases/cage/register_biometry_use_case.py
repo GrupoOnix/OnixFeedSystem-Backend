@@ -1,6 +1,6 @@
 
 from domain.repositories import ICageRepository, IBiometryLogRepository
-from domain.value_objects import CageId, FishCount, Weight
+from domain.value_objects import CageId, FishCount
 from domain.value_objects.biometry_log_entry import BiometryLogEntry
 from application.dtos.biometry_dtos import RegisterBiometryRequest
 
@@ -46,7 +46,11 @@ class RegisterBiometryUseCase:
         if request.average_weight_g is not None:
             old_avg_weight = cage.avg_fish_weight.as_grams if cage.avg_fish_weight else None
             new_avg_weight = request.average_weight_g
-            cage.update_biometry(Weight.from_grams(request.average_weight_g))
+            cage.update_biometry(
+                avg_weight_grams=request.average_weight_g,
+                event_date=request.sampling_date,
+                note=request.note,
+            )
 
         log_entry = BiometryLogEntry.create(
             cage_id=cage.id,

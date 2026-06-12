@@ -1,12 +1,13 @@
 """Repositorio para operaciones de Blower."""
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional, cast
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlmodel import col
 
 from domain.aggregates.feeding_line.blower import Blower
 from infrastructure.persistence.models.blower_model import BlowerModel
@@ -30,7 +31,7 @@ class BlowerRepository:
 
     async def find_by_id(self, blower_id: UUID) -> Optional[Blower]:
         """Busca un blower por su ID."""
-        stmt = select(BlowerModel).where(BlowerModel.id == blower_id)
+        stmt = select(BlowerModel).where(col(BlowerModel.id) == blower_id)
         result = await self.session.execute(stmt)
         blower_model = result.scalar_one_or_none()
         return blower_model.to_domain() if blower_model else None
@@ -41,8 +42,8 @@ class BlowerRepository:
         """Busca un blower por su ID y devuelve también información de la línea."""
         stmt = (
             select(BlowerModel)
-            .options(selectinload(BlowerModel.feeding_line))
-            .where(BlowerModel.id == blower_id)
+            .options(selectinload(cast(Any, BlowerModel.feeding_line)))
+            .where(col(BlowerModel.id) == blower_id)
         )
         result = await self.session.execute(stmt)
         blower_model = result.scalar_one_or_none()
@@ -59,7 +60,7 @@ class BlowerRepository:
 
     async def update(self, blower_id: UUID, blower: Blower) -> None:
         """Actualiza un blower existente."""
-        stmt = select(BlowerModel).where(BlowerModel.id == blower_id)
+        stmt = select(BlowerModel).where(col(BlowerModel.id) == blower_id)
         result = await self.session.execute(stmt)
         blower_model = result.scalar_one_or_none()
 

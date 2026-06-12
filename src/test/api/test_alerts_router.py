@@ -7,6 +7,7 @@ en vez de patchear nombres que no existen a nivel de módulo del router.
 import sys
 from pathlib import Path
 from datetime import datetime, timedelta
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -47,9 +48,9 @@ def client():
     app.dependency_overrides.clear()
 
 
-def _make_alert_dto(**overrides) -> AlertDTO:
+def _make_alert_dto(**overrides: Any) -> AlertDTO:
     """Helper para crear un AlertDTO con valores por defecto."""
-    defaults = {
+    defaults: dict[str, Any] = {
         "id": str(uuid4()),
         "type": "WARNING",
         "status": "UNREAD",
@@ -68,9 +69,9 @@ def _make_alert_dto(**overrides) -> AlertDTO:
     return AlertDTO(**defaults)
 
 
-def _make_scheduled_alert_dto(**overrides) -> ScheduledAlertDTO:
+def _make_scheduled_alert_dto(**overrides: Any) -> ScheduledAlertDTO:
     """Helper para crear un ScheduledAlertDTO con valores por defecto."""
-    defaults = {
+    defaults: dict[str, Any] = {
         "id": str(uuid4()),
         "title": "Mantenimiento",
         "message": "Revisar",

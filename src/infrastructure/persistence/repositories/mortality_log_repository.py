@@ -1,7 +1,8 @@
 from typing import List
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from domain.repositories import IMortalityLogRepository
 from domain.value_objects import CageId
@@ -23,8 +24,8 @@ class MortalityLogRepository(IMortalityLogRepository):
         """Lista registros de mortalidad de una jaula, ordenados por fecha DESC."""
         result = await self.session.execute(
             select(MortalityLogModel)
-            .where(MortalityLogModel.cage_id == cage_id.value)
-            .order_by(MortalityLogModel.mortality_date.desc(), MortalityLogModel.created_at.desc())
+            .where(col(MortalityLogModel.cage_id) == cage_id.value)
+            .order_by(col(MortalityLogModel.mortality_date).desc(), col(MortalityLogModel.created_at).desc())
             .limit(limit)
             .offset(offset)
         )
@@ -34,8 +35,8 @@ class MortalityLogRepository(IMortalityLogRepository):
     async def count_by_cage(self, cage_id: CageId) -> int:
         """Cuenta total de registros de mortalidad de una jaula."""
         result = await self.session.execute(
-            select(func.count(MortalityLogModel.mortality_id))
-            .where(MortalityLogModel.cage_id == cage_id.value)
+            select(func.count(col(MortalityLogModel.mortality_id)))
+            .where(col(MortalityLogModel.cage_id) == cage_id.value)
         )
         return result.scalar() or 0
 
@@ -45,7 +46,7 @@ class MortalityLogRepository(IMortalityLogRepository):
         Suma todos los dead_fish_count del log.
         """
         result = await self.session.execute(
-            select(func.coalesce(func.sum(MortalityLogModel.dead_fish_count), 0))
-            .where(MortalityLogModel.cage_id == cage_id.value)
+            select(func.coalesce(func.sum(col(MortalityLogModel.dead_fish_count)), 0))
+            .where(col(MortalityLogModel.cage_id) == cage_id.value)
         )
         return result.scalar() or 0

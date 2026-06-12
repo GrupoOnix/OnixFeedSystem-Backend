@@ -4,6 +4,7 @@ from typing import List, Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from domain.entities.population_event import PopulationEvent
 from domain.enums import PopulationEventType
@@ -35,17 +36,17 @@ class PopulationEventRepository(IPopulationEventRepository):
     ) -> List[PopulationEvent]:
         """Lista eventos de población de una jaula."""
         query = select(PopulationEventModel).where(
-            PopulationEventModel.cage_id == cage_id.value
+            col(PopulationEventModel.cage_id) == cage_id.value
         )
 
         if event_types:
             type_values = [et.value for et in event_types]
-            query = query.where(PopulationEventModel.event_type.in_(type_values))
+            query = query.where(col(PopulationEventModel.event_type).in_(type_values))
 
         query = (
             query.order_by(
-                PopulationEventModel.event_date.desc(),
-                PopulationEventModel.created_at.desc(),
+                col(PopulationEventModel.event_date).desc(),
+                col(PopulationEventModel.created_at).desc(),
             )
             .offset(offset)
             .limit(limit)
@@ -62,13 +63,13 @@ class PopulationEventRepository(IPopulationEventRepository):
         event_types: Optional[List[PopulationEventType]] = None,
     ) -> int:
         """Cuenta eventos de una jaula."""
-        query = select(func.count(PopulationEventModel.id)).where(
-            PopulationEventModel.cage_id == cage_id.value
+        query = select(func.count(col(PopulationEventModel.id))).where(
+            col(PopulationEventModel.cage_id) == cage_id.value
         )
 
         if event_types:
             type_values = [et.value for et in event_types]
-            query = query.where(PopulationEventModel.event_type.in_(type_values))
+            query = query.where(col(PopulationEventModel.event_type).in_(type_values))
 
         result = await self.session.execute(query)
         return result.scalar() or 0

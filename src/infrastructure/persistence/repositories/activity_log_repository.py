@@ -3,6 +3,7 @@ from typing import List, Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from domain.enums import ActivityLogCategory, ActivityLogEventType
 from domain.repositories import ICageActivityLogRepository
@@ -32,18 +33,18 @@ class ActivityLogRepository(ICageActivityLogRepository):
         offset: int = 0,
     ) -> List[ActivityLogEntry]:
         """Lista registros de actividad de una jaula, ordenados por event_at DESC."""
-        query = select(ActivityLogModel).where(ActivityLogModel.cage_id == cage_id.value)
+        query = select(ActivityLogModel).where(col(ActivityLogModel.cage_id) == cage_id.value)
 
         if event_type:
-            query = query.where(ActivityLogModel.event_type.in_([e.value for e in event_type]))
+            query = query.where(col(ActivityLogModel.event_type).in_([e.value for e in event_type]))
         if category:
-            query = query.where(ActivityLogModel.category.in_([c.value for c in category]))
+            query = query.where(col(ActivityLogModel.category).in_([c.value for c in category]))
         if from_date:
-            query = query.where(ActivityLogModel.event_at >= from_date)
+            query = query.where(col(ActivityLogModel.event_at) >= from_date)
         if to_date:
-            query = query.where(ActivityLogModel.event_at <= to_date)
+            query = query.where(col(ActivityLogModel.event_at) <= to_date)
 
-        query = query.order_by(ActivityLogModel.event_at.desc()).limit(limit).offset(offset)
+        query = query.order_by(col(ActivityLogModel.event_at).desc()).limit(limit).offset(offset)
         result = await self.session.execute(query)
         return [model.to_domain() for model in result.scalars().all()]
 
@@ -56,18 +57,18 @@ class ActivityLogRepository(ICageActivityLogRepository):
         to_date: Optional[datetime] = None,
     ) -> int:
         """Cuenta registros de actividad de una jaula con filtros opcionales."""
-        query = select(func.count(ActivityLogModel.log_id)).where(
-            ActivityLogModel.cage_id == cage_id.value
+        query = select(func.count(col(ActivityLogModel.log_id))).where(
+            col(ActivityLogModel.cage_id) == cage_id.value
         )
 
         if event_type:
-            query = query.where(ActivityLogModel.event_type.in_([e.value for e in event_type]))
+            query = query.where(col(ActivityLogModel.event_type).in_([e.value for e in event_type]))
         if category:
-            query = query.where(ActivityLogModel.category.in_([c.value for c in category]))
+            query = query.where(col(ActivityLogModel.category).in_([c.value for c in category]))
         if from_date:
-            query = query.where(ActivityLogModel.event_at >= from_date)
+            query = query.where(col(ActivityLogModel.event_at) >= from_date)
         if to_date:
-            query = query.where(ActivityLogModel.event_at <= to_date)
+            query = query.where(col(ActivityLogModel.event_at) <= to_date)
 
         result = await self.session.execute(query)
         return result.scalar() or 0

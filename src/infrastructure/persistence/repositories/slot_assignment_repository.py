@@ -5,6 +5,7 @@ from uuid import UUID
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from domain.entities.slot_assignment import SlotAssignment
 from domain.repositories import ISlotAssignmentRepository
@@ -28,7 +29,11 @@ class SlotAssignmentRepository(ISlotAssignmentRepository):
             existing.line_id = assignment.line_id.value
             existing.cage_id = assignment.cage_id.value
             existing.slot_number = assignment.slot_number
-            existing.assigned_at = assignment.assigned_at
+            existing.assigned_at = (
+                assignment.assigned_at
+                if assignment.assigned_at is not None
+                else existing.assigned_at
+            )
         else:
             model = SlotAssignmentModel.from_domain(assignment)
             self.session.add(model)
@@ -41,8 +46,8 @@ class SlotAssignmentRepository(ISlotAssignmentRepository):
         """Busca una asignación por línea y número de slot."""
         result = await self.session.execute(
             select(SlotAssignmentModel).where(
-                SlotAssignmentModel.line_id == line_id.value,
-                SlotAssignmentModel.slot_number == slot_number,
+                col(SlotAssignmentModel.line_id) == line_id.value,
+                col(SlotAssignmentModel.slot_number) == slot_number,
             )
         )
         model = result.scalar_one_or_none()
@@ -52,7 +57,7 @@ class SlotAssignmentRepository(ISlotAssignmentRepository):
         """Busca la asignación de una jaula."""
         result = await self.session.execute(
             select(SlotAssignmentModel).where(
-                SlotAssignmentModel.cage_id == cage_id.value
+                col(SlotAssignmentModel.cage_id) == cage_id.value
             )
         )
         model = result.scalar_one_or_none()
@@ -62,8 +67,8 @@ class SlotAssignmentRepository(ISlotAssignmentRepository):
         """Obtiene todas las asignaciones de una línea."""
         result = await self.session.execute(
             select(SlotAssignmentModel)
-            .where(SlotAssignmentModel.line_id == line_id.value)
-            .order_by(SlotAssignmentModel.slot_number)
+            .where(col(SlotAssignmentModel.line_id) == line_id.value)
+            .order_by(col(SlotAssignmentModel.slot_number))
         )
         models = result.scalars().all()
         return [model.to_domain() for model in models]
@@ -79,7 +84,7 @@ class SlotAssignmentRepository(ISlotAssignmentRepository):
         """Elimina todas las asignaciones de una línea."""
         await self.session.execute(
             delete(SlotAssignmentModel).where(
-                SlotAssignmentModel.line_id == line_id.value
+                col(SlotAssignmentModel.line_id) == line_id.value
             )
         )
         await self.session.flush()
@@ -88,7 +93,7 @@ class SlotAssignmentRepository(ISlotAssignmentRepository):
         """Elimina la asignación de una jaula."""
         await self.session.execute(
             delete(SlotAssignmentModel).where(
-                SlotAssignmentModel.cage_id == cage_id.value
+                col(SlotAssignmentModel.cage_id) == cage_id.value
             )
         )
         await self.session.flush()

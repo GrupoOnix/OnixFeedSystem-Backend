@@ -118,6 +118,14 @@ class IDoser(ABC):
 
     @property
     @abstractmethod
+    def assigned_silo_id(self) -> SiloId: ...
+
+    @assigned_silo_id.setter
+    @abstractmethod
+    def assigned_silo_id(self, new_silo_id: SiloId) -> None: ...
+
+    @property
+    @abstractmethod
     def doser_type(self) -> "DoserType": ...
 
     @property
@@ -255,12 +263,26 @@ class ISelector(ABC):
     @abstractmethod
     def created_at(self) -> datetime: ...
 
+    @property
+    @abstractmethod
+    def current_slot(self) -> Optional[int]: ...
+
+    @current_slot.setter
+    @abstractmethod
+    def current_slot(self, slot: Optional[int]) -> None: ...
+
     # -----------------
     # Métodos de Comportamiento (Reglas de Negocio)
     # -----------------
 
     @abstractmethod
     def validate_slot(self, slot_number: int) -> bool: ...
+
+    @abstractmethod
+    def move_to_slot(self, slot_number: int) -> None: ...
+
+    @abstractmethod
+    def reset_position(self) -> None: ...
 
 
 class ISensor(ABC):
@@ -316,6 +338,19 @@ class ISensor(ABC):
     @abstractmethod
     def disable(self) -> None:
         """Deshabilita el sensor (no se incluirá en lecturas)."""
+        ...
+
+    @abstractmethod
+    def update(
+        self,
+        name: Optional[SensorName] = None,
+        is_enabled: Optional[bool] = None,
+        warning_threshold: Optional[float] = None,
+        critical_threshold: Optional[float] = None,
+        clear_warning_threshold: bool = False,
+        clear_critical_threshold: bool = False,
+    ) -> None:
+        """Actualiza las propiedades configurables del sensor."""
         ...
 
 

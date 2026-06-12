@@ -12,6 +12,7 @@ from domain.aggregates.scheduled_alert import ScheduledAlert
 from domain.aggregates.silo import Silo
 from domain.entities.cage_feeding import CageFeeding
 from domain.entities.feeding_event import FeedingEvent, FeedingEventType
+from domain.entities.feeding_operation import FeedingOperation
 from domain.entities.feeding_session import FeedingSession as FeedingSessionEntity
 from domain.dtos.feeding_rate_timeline import FeedingRateTimelineVisit
 from domain.entities.population_event import PopulationEvent
@@ -40,7 +41,9 @@ from .value_objects import (
     LineId,
     LineName,
     MortalityLogEntry,
+    OperationId,
     ScheduledAlertId,
+    SessionId,
     SiloId,
     SiloName,
 )
@@ -97,6 +100,13 @@ class ICageRepository(ABC):
     @abstractmethod
     async def exists(self, cage_id: CageId) -> bool:
         """Verifica si existe una jaula con el ID dado."""
+        ...
+
+    @abstractmethod
+    async def list_with_line_info(
+        self, line_id: Optional[LineId] = None
+    ) -> List[Tuple[Cage, Optional[str]]]:
+        """Lista jaulas con información de la línea asignada."""
         ...
 
 
@@ -266,6 +276,16 @@ class ISiloRepository(ABC):
     @abstractmethod
     async def delete(self, silo_id: SiloId) -> None: ...
 
+    @abstractmethod
+    async def find_all_with_line_info(
+        self, is_assigned: Optional[bool] = None
+    ) -> List[Tuple[Silo, List[str], List[str]]]: ...
+
+    @abstractmethod
+    async def find_by_id_with_line_info(
+        self, silo_id: SiloId
+    ) -> Optional[Tuple[Silo, List[str], List[str]]]: ...
+
 
 class IFeedingSessionRepository(ABC):
     @abstractmethod
@@ -330,6 +350,28 @@ class IFeedingEventRepository(ABC):
         cage_id: str | None = None,
         feeding_type: str | None = None,
     ) -> List[FeedingRateTimelineVisit]: ...
+
+
+class IFeedingOperationRepository(ABC):
+    """Repositorio para operaciones de alimentación."""
+
+    @abstractmethod
+    async def save(self, operation: FeedingOperation) -> None: ...
+
+    @abstractmethod
+    async def find_by_id(self, operation_id: OperationId) -> Optional[FeedingOperation]: ...
+
+    @abstractmethod
+    async def find_current_by_session(self, session_id: SessionId) -> Optional[FeedingOperation]: ...
+
+    @abstractmethod
+    async def find_all_by_session(self, session_id: SessionId) -> List[FeedingOperation]: ...
+
+    @abstractmethod
+    async def get_today_dispensed_by_cage(self, cage_id: CageId) -> float: ...
+
+    @abstractmethod
+    async def get_today_dispensed_by_cages(self, cage_ids: List[CageId]) -> dict[str, float]: ...
 
 
 class IBiometryLogRepository(ABC):
@@ -507,6 +549,17 @@ class IAlertRepository(ABC):
             limit: Cantidad máxima de resultados
             offset: Desplazamiento para paginación
         """
+        ...
+
+    @abstractmethod
+    async def count(
+        self,
+        status: Optional[List[AlertStatus]] = None,
+        type: Optional[List[AlertType]] = None,
+        category: Optional[List[AlertCategory]] = None,
+        search: Optional[str] = None,
+    ) -> int:
+        """Cuenta alertas con filtros opcionales (sin paginación). Excluye silenciadas."""
         ...
 
     @abstractmethod

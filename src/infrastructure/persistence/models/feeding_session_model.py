@@ -44,11 +44,15 @@ class FeedingSessionModel(SQLModel, table=True):
     total_programmed_kg: float = Field(nullable=False)
 
     # Timestamps
-    scheduled_start: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
+    scheduled_start: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
     actual_start: Optional[datetime] = Field(
         default=None, sa_column=Column(DateTime(timezone=True), nullable=True, index=True)
     )
-    actual_end: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
+    actual_end: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
     created_at: Optional[datetime] = Field(
         default=None, sa_column=Column(DateTime(timezone=True), nullable=False, index=True)
     )

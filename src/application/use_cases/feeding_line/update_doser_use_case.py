@@ -35,7 +35,7 @@ class UpdateDoserUseCase:
             ValueError: Si el doser no existe o los valores son inválidos
         """
         # Obtener línea
-        feeding_line = await self._feeding_line_repository.find_by_id(LineId(line_id))
+        feeding_line = await self._feeding_line_repository.find_by_id(LineId.from_string(line_id))
 
         if not feeding_line:
             raise FeedingLineNotFoundException(
@@ -57,7 +57,7 @@ class UpdateDoserUseCase:
         # Actualizar silos asignados si se proporcionan
         if request.assigned_silo_ids is not None:
             doser.assigned_silo_ids = tuple(
-                SiloId(silo_id) for silo_id in request.assigned_silo_ids
+                SiloId.from_string(silo_id) for silo_id in request.assigned_silo_ids
             )
 
         # Actualizar rango de dosificación si se proporciona

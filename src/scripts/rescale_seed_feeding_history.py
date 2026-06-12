@@ -16,11 +16,13 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+from sqlmodel import col
 
 SRC_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = SRC_DIR.parent
@@ -60,12 +62,12 @@ async def main() -> None:
         sessions = (
             await session.execute(
                 select(FeedingSessionModel)
-                .where(FeedingSessionModel.operator_id == SEED_OPERATOR_ID)
+                .where(col(FeedingSessionModel.operator_id) == SEED_OPERATOR_ID)
                 .options(
-                    selectinload(FeedingSessionModel.cage_feedings),
-                    selectinload(FeedingSessionModel.events),
+                    selectinload(cast(Any, FeedingSessionModel.cage_feedings)),
+                    selectinload(cast(Any, FeedingSessionModel.events)),
                 )
-                .order_by(FeedingSessionModel.actual_start)
+                .order_by(col(FeedingSessionModel.actual_start))
             )
         ).scalars().all()
 
@@ -106,7 +108,9 @@ def _parse_args() -> argparse.Namespace:
 
 
 async def _get_timezone_id(session) -> str:
-    config = (await session.execute(select(SystemConfigModel).where(SystemConfigModel.id == 1))).scalars().first()
+    config = (
+        await session.execute(select(SystemConfigModel).where(col(SystemConfigModel.id) == 1))
+    ).scalars().first()
     return config.timezone_id if config else "America/Santiago"
 
 

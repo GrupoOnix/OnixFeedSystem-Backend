@@ -2,12 +2,13 @@
 Repositorio para operaciones de alimentación.
 """
 
-from datetime import datetime, date
-from typing import Optional, List
+from datetime import date, datetime
+from typing import List, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import select, desc, func
+from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from domain.entities.feeding_operation import FeedingOperation, OperationEvent
 from domain.enums import OperationStatus, OperationEventType
@@ -68,7 +69,9 @@ class FeedingOperationRepository(IFeedingOperationRepository):
     async def find_by_id(self, operation_id: OperationId) -> Optional[FeedingOperation]:
         """Busca una operación por su ID."""
         result = await self.db.execute(
-            select(FeedingOperationModel).where(FeedingOperationModel.id == operation_id.value)
+            select(FeedingOperationModel).where(
+                col(FeedingOperationModel.id) == operation_id.value
+            )
         )
         model = result.scalar_one_or_none()
         return self._to_domain(model) if model else None
@@ -78,10 +81,12 @@ class FeedingOperationRepository(IFeedingOperationRepository):
         query = (
             select(FeedingOperationModel)
             .where(
-                FeedingOperationModel.session_id == session_id.value,
-                FeedingOperationModel.status.in_([OperationStatus.RUNNING.value, OperationStatus.PAUSED.value]),
+                col(FeedingOperationModel.session_id) == session_id.value,
+                col(FeedingOperationModel.status).in_(
+                    [OperationStatus.RUNNING.value, OperationStatus.PAUSED.value]
+                ),
             )
-            .order_by(desc(FeedingOperationModel.started_at))
+            .order_by(desc(col(FeedingOperationModel.started_at)))
         )
 
         result = await self.db.execute(query)
@@ -93,8 +98,8 @@ class FeedingOperationRepository(IFeedingOperationRepository):
         """Obtiene todas las operaciones de una sesión (para reportes)."""
         query = (
             select(FeedingOperationModel)
-            .where(FeedingOperationModel.session_id == session_id.value)
-            .order_by(FeedingOperationModel.started_at)
+            .where(col(FeedingOperationModel.session_id) == session_id.value)
+            .order_by(col(FeedingOperationModel.started_at))
         )
 
         result = await self.db.execute(query)
@@ -105,6 +110,8 @@ class FeedingOperationRepository(IFeedingOperationRepository):
     def _to_domain(self, model: FeedingOperationModel) -> FeedingOperation:
         """Reconstruye la operación desde el modelo."""
         operation = FeedingOperation.__new__(FeedingOperation)
+        if model.cage_id is None:
+            raise ValueError(f"Feeding operation {model.id} has no cage_id")
         operation._id = OperationId(model.id)
         operation._session_id = SessionId(model.session_id)  # Necesario para save
         operation._cage_id = CageId(model.cage_id)
@@ -140,9 +147,9 @@ class FeedingOperationRepository(IFeedingOperationRepository):
         # Inicio del día actual (naive datetime para compatibilidad con DB)
         today_start = datetime.combine(date.today(), datetime.min.time())
 
-        query = select(func.coalesce(func.sum(FeedingOperationModel.dispensed_kg), 0)).where(
-            FeedingOperationModel.cage_id == cage_id.value,
-            FeedingOperationModel.started_at >= today_start,
+        query = select(func.coalesce(func.sum(col(FeedingOperationModel.dispensed_kg)), 0)).where(
+            col(FeedingOperationModel.cage_id) == cage_id.value,
+            col(FeedingOperationModel.started_at) >= today_start,
         )
 
         result = await self.db.execute(query)
@@ -171,14 +178,16 @@ class FeedingOperationRepository(IFeedingOperationRepository):
 
         query = (
             select(
-                FeedingOperationModel.cage_id,
-                func.coalesce(func.sum(FeedingOperationModel.dispensed_kg), 0).label("total_dispensed"),
+                col(FeedingOperationModel.cage_id),
+                func.coalesce(func.sum(col(FeedingOperationModel.dispensed_kg)), 0).label(
+                    "total_dispensed"
+                ),
             )
             .where(
-                FeedingOperationModel.cage_id.in_(cage_uuid_list),
-                FeedingOperationModel.started_at >= today_start,
+                col(FeedingOperationModel.cage_id).in_(cage_uuid_list),
+                col(FeedingOperationModel.started_at) >= today_start,
             )
-            .group_by(FeedingOperationModel.cage_id)
+            .group_by(col(FeedingOperationModel.cage_id))
         )
 
         result = await self.db.execute(query)

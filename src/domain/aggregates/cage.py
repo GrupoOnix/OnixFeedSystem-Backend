@@ -5,6 +5,15 @@ from typing import Optional
 
 from domain.entities.population_event import PopulationEvent
 from domain.enums import CageStatus
+from domain.value_objects import (
+    BlowDurationInSeconds,
+    Density,
+    FCR,
+    FeedingTableId,
+    FishCount,
+    Volume,
+    Weight,
+)
 from domain.value_objects.cage_configuration import CageConfiguration
 from domain.value_objects.identifiers import CageId
 from domain.value_objects.names import CageName
@@ -40,6 +49,13 @@ class Cage:
 
         # Configuración
         self._config = config or CageConfiguration.empty()
+
+        # Atributos de configuración expuestos directamente
+        self._fcr: Optional[FCR] = None
+        self._total_volume: Optional[Volume] = None
+        self._max_density: Optional[Density] = None
+        self._feeding_table_id: Optional[FeedingTableId] = None
+        self._transport_time: Optional[BlowDurationInSeconds] = None
 
     # =========================================================================
     # PROPIEDADES DE IDENTIDAD
@@ -96,6 +112,58 @@ class Cage:
     @property
     def config(self) -> CageConfiguration:
         return self._config
+
+    @property
+    def fcr(self) -> Optional[FCR]:
+        return self._fcr
+
+    @fcr.setter
+    def fcr(self, value: Optional[FCR]) -> None:
+        self._fcr = value
+
+    @property
+    def total_volume(self) -> Optional[Volume]:
+        return self._total_volume
+
+    @total_volume.setter
+    def total_volume(self, value: Optional[Volume]) -> None:
+        self._total_volume = value
+
+    @property
+    def max_density(self) -> Optional[Density]:
+        return self._max_density
+
+    @max_density.setter
+    def max_density(self, value: Optional[Density]) -> None:
+        self._max_density = value
+
+    @property
+    def feeding_table_id(self) -> Optional[FeedingTableId]:
+        return self._feeding_table_id
+
+    @feeding_table_id.setter
+    def feeding_table_id(self, value: Optional[FeedingTableId]) -> None:
+        self._feeding_table_id = value
+
+    @property
+    def transport_time(self) -> Optional[BlowDurationInSeconds]:
+        return self._transport_time
+
+    @transport_time.setter
+    def transport_time(self, value: Optional[BlowDurationInSeconds]) -> None:
+        self._transport_time = value
+
+    @property
+    def current_fish_count(self) -> Optional[FishCount]:
+        if self._fish_count == 0:
+            return None
+        return FishCount(self._fish_count)
+
+    @property
+    def avg_fish_weight(self) -> Optional[Weight]:
+        if self._avg_weight_grams is None:
+            return None
+        return Weight.from_grams(self._avg_weight_grams)
 
     # =========================================================================
     # MÉTODOS DE IDENTIDAD
@@ -236,6 +304,14 @@ class Cage:
             event_date=event_date,
             note=note,
         )
+
+    def update_fish_count(self, fish_count: FishCount) -> None:
+        """
+        Actualiza la cantidad de peces en la jaula.
+
+        Útil para actualizaciones directas desde biometría.
+        """
+        self._fish_count = fish_count.value
 
     def harvest(
         self,

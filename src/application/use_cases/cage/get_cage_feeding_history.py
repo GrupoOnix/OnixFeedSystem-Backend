@@ -1,7 +1,9 @@
 from uuid import UUID
+from typing import Any
 
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from application.dtos.feeding_history_dtos import (
     CageFeedingHistoryDTO,
@@ -35,29 +37,29 @@ class GetCageFeedingHistoryUseCase:
 
         # cage_feedings.feeding_session_id (str) == feeding_sessions.id (str)
         # No se requiere cast — ambos son VARCHAR.
-        join_condition = CageFeedingModel.feeding_session_id == FeedingSessionModel.id
+        join_condition = col(CageFeedingModel.feeding_session_id) == col(FeedingSessionModel.id)
 
-        stmt = (
+        stmt: Any = (
             select(
-                CageFeedingModel.feeding_session_id,
-                FeedingSessionModel.type,
-                FeedingSessionModel.status,
-                FeedingLineModel.name.label("line_name"),
-                FeedingSessionModel.actual_start,
-                FeedingSessionModel.actual_end,
-                CageFeedingModel.dispensed_kg,
+                col(CageFeedingModel.feeding_session_id),
+                col(FeedingSessionModel.type),
+                col(FeedingSessionModel.status),
+                col(FeedingLineModel.name).label("line_name"),
+                col(FeedingSessionModel.actual_start),
+                col(FeedingSessionModel.actual_end),
+                col(CageFeedingModel.dispensed_kg),
             )
             .join(FeedingSessionModel, join_condition)
-            .join(FeedingLineModel, FeedingSessionModel.line_id == FeedingLineModel.id)
-            .where(CageFeedingModel.cage_id == cage_uuid)
-            .order_by(desc(FeedingSessionModel.actual_start))
+            .join(FeedingLineModel, col(FeedingSessionModel.line_id) == col(FeedingLineModel.id))
+            .where(col(CageFeedingModel.cage_id) == cage_uuid)
+            .order_by(desc(col(FeedingSessionModel.actual_start)))
         )
 
         count_stmt = (
             select(func.count())
             .select_from(CageFeedingModel)
             .join(FeedingSessionModel, join_condition)
-            .where(CageFeedingModel.cage_id == cage_uuid)
+            .where(col(CageFeedingModel.cage_id) == cage_uuid)
         )
 
         total = (await self._session.execute(count_stmt)).scalar_one()
