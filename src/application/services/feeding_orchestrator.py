@@ -12,12 +12,14 @@ from domain.entities.feeding_session import FeedingSession
 from domain.interfaces import IMachine
 from domain.value_objects import BlowerPowerPercentage
 from domain.value_objects.identifiers import LineId, SiloId
-from domain.value_objects.measurements import Weight
 from infrastructure.persistence.repositories.cage_feeding_repository import CageFeedingRepository
 from infrastructure.persistence.repositories.feeding_event_repository import FeedingEventRepository
 from infrastructure.persistence.repositories.feeding_line_repository import FeedingLineRepository
 from infrastructure.persistence.repositories.feeding_session_repository import FeedingSessionRepository
-from infrastructure.persistence.repositories.silo_repository import SiloRepository
+from infrastructure.persistence.repositories.silo_repository import SiloRepository  # noqa: F401
+from infrastructure.persistence.repositories.silo_inventory_repository import (
+    SiloInventoryRepository,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -205,6 +207,7 @@ class FeedingOrchestrator:
         async def _persist_completion(db: AsyncSession):
             await FeedingSessionRepository(db).save(session)
             await FeedingEventRepository(db).save(completed_event)
+            await SiloInventoryRepository(db).release(session.id)
 
         await self._save(_persist_completion)
         await self._machine.stop(line_id)
@@ -377,11 +380,20 @@ class FeedingOrchestrator:
                         _captured_status = status
 
                         async def _persist_partial(db: AsyncSession):
-                            await CageFeedingRepository(db).save(cage_feeding)
-                            silo = await SiloRepository(db).find_by_id(silo_id)
-                            if silo:
-                                silo.stock_level = silo.stock_level - Weight.from_kg(_captured_status.dispensed_kg)
-                                await SiloRepository(db).save(silo)
+                            inventory = SiloInventoryRepository(db)
+                            try:
+                                await inventory.consume(
+                                    session.id,
+                                    cage_feeding.id,
+                                    _captured_status.dispensed_kg,
+                                    getattr(session, "operator_id", "system:feeding"),
+                                )
+                            except ValueError as exc:
+                                if "No existen reservas activas" not in str(exc):
+                                    raise
+                            else:
+                                await CageFeedingRepository(db).save(cage_feeding)
+                            await inventory.release(session.id)
 
                         await self._save(_persist_partial)
                         logger.info(
@@ -408,8 +420,18 @@ class FeedingOrchestrator:
                 )
 
                 async def _persist_interrupt(db: AsyncSession):
+                    if status.dispensed_kg > 0:
+                        cage_feeding.add_dispensed_amount(status.dispensed_kg)
+                        await CageFeedingRepository(db).save(cage_feeding)
+                        await SiloInventoryRepository(db).consume(
+                            session.id,
+                            cage_feeding.id,
+                            status.dispensed_kg,
+                            getattr(session, "operator_id", "system:feeding"),
+                        )
                     await FeedingSessionRepository(db).save(session)
                     await FeedingEventRepository(db).save(interrupted_event)
+                    await SiloInventoryRepository(db).release(session.id)
 
                 await self._save(_persist_interrupt)
                 await self._machine.stop(line_id)
@@ -448,13 +470,41 @@ class FeedingOrchestrator:
                 async def _persist_visit_end(db: AsyncSession):
                     await CageFeedingRepository(db).save(cage_feeding)
                     if count_completed_visit:
-                        silo = await SiloRepository(db).find_by_id(silo_id)
-                        if silo:
-                            silo.stock_level = silo.stock_level - Weight.from_kg(status.dispensed_kg)
-                            await SiloRepository(db).save(silo)
+                        await SiloInventoryRepository(db).consume(
+                            session.id,
+                            cage_feeding.id,
+                            status.dispensed_kg,
+                            getattr(session, "operator_id", "system:feeding"),
+                        )
                     await FeedingEventRepository(db).save(visit_completed_event)
 
-                await self._save(_persist_visit_end)
+                try:
+                    await self._save(_persist_visit_end)
+                except ValueError as exc:
+                    session.interrupt()
+                    discrepancy_event = FeedingEvent.alarm_triggered(
+                        feeding_session_id=session.id,
+                        alarm_type="SILO_INVENTORY_DISCREPANCY",
+                        sensor_value=status.dispensed_kg,
+                        threshold=command_target_kg,
+                    )
+
+                    async def _persist_discrepancy(db: AsyncSession):
+                        await FeedingSessionRepository(db).save(session)
+                        await FeedingEventRepository(db).save(discrepancy_event)
+                        await SiloInventoryRepository(db).release(session.id)
+
+                    await self._save(_persist_discrepancy)
+                    await self._machine.stop(line_id)
+                    await self._turn_off_persisted_blower(line_id)
+                    await self._mark_feeding_line_fault(
+                        line_id,
+                        reason=f"Inventory reconciliation failed: {exc}",
+                    )
+                    logger.error(
+                        f"[Orchestrator] Session {session.id}: inventory discrepancy: {exc}"
+                    )
+                    return
 
                 logger.info(
                     f"[Orchestrator] Session {session.id}: visit {visit_number} completed "

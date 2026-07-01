@@ -35,10 +35,7 @@ class CreateSiloUseCase:
 
         # Crear value objects
         capacity = Weight.from_kg(request.capacity_kg)
-        stock_level = Weight.from_kg(request.stock_level_kg)
-
-        # Crear el agregado (valida que stock_level <= capacity)
-        silo = Silo(name=silo_name, capacity=capacity, stock_level=stock_level)
+        silo = Silo(name=silo_name, capacity=capacity)
 
         # Persistir
         await self._silo_repository.save(silo)
@@ -52,10 +49,13 @@ class CreateSiloUseCase:
             id=str(silo.id),
             name=str(silo.name),
             capacity_kg=silo.capacity.as_kg,
-            stock_level_kg=silo.stock_level.as_kg,
+            total_stock_kg=silo.total_stock.as_kg,
+            reserved_stock_kg=silo.reserved_stock.as_kg,
+            available_stock_kg=silo.available_stock.as_kg,
+            fill_percentage=silo.fill_percentage,
             is_assigned=silo.is_assigned,
             created_at=silo.created_at,
             line_id=line_id,
             line_name=line_name,
-            food_id=str(silo.food_id) if silo.food_id else None,
+            active_batches=[],
         )

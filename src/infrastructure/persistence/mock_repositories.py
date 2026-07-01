@@ -80,6 +80,11 @@ class MockCageRepository(ICageRepository):
     async def exists(self, cage_id: CageId) -> bool:
         return cage_id in self._cages
 
+    async def list_with_line_info(
+        self, line_id: Optional[LineId] = None
+    ) -> List[tuple[Cage, Optional[str]]]:
+        return [(cage, None) for cage in self._cages.values()]
+
     async def get_all(self) -> List[Cage]:
         return list(self._cages.values())
 
@@ -116,6 +121,20 @@ class MockSiloRepository(ISiloRepository):
     async def delete(self, silo_id: SiloId) -> None:
         if silo_id in self._silos:
             del self._silos[silo_id]
+
+    async def find_all_with_line_info(
+        self, is_assigned: Optional[bool] = None
+    ) -> List[tuple[Silo, List[str], List[str]]]:
+        silos = list(self._silos.values())
+        if is_assigned is not None:
+            silos = [silo for silo in silos if silo.is_assigned is is_assigned]
+        return [(silo, [], []) for silo in silos]
+
+    async def find_by_id_with_line_info(
+        self, silo_id: SiloId
+    ) -> Optional[tuple[Silo, List[str], List[str]]]:
+        silo = self._silos.get(silo_id)
+        return (silo, [], []) if silo else None
 
 
 class MockSlotAssignmentRepository(ISlotAssignmentRepository):

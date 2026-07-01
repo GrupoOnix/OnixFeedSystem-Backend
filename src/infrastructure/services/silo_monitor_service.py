@@ -70,7 +70,7 @@ class SiloMonitorService:
         """
         # Calcular porcentaje de llenado
         capacity_kg = silo.capacity.as_kg
-        current_level_kg = silo.stock_level.as_kg
+        current_level_kg = silo.total_stock.as_kg
 
         # Evitar división por cero
         if capacity_kg == 0:

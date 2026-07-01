@@ -5,11 +5,17 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query, status
 
 from api.dependencies import (
+    CreateSiloBatchUseCaseDep,
     CreateSiloUseCaseDep,
     DeleteSiloUseCaseDep,
     GetSiloUseCaseDep,
+    ListSiloBatchesUseCaseDep,
     ListSilosUseCaseDep,
+    MoveSiloBatchUseCaseDep,
+    TransferSiloStockUseCaseDep,
+    UpdateSiloBatchUseCaseDep,
     UpdateSiloUseCaseDep,
+    WithdrawSiloBatchUseCaseDep,
 )
 from application.dtos.silo_dtos import (
     CreateSiloRequest,
@@ -18,6 +24,16 @@ from application.dtos.silo_dtos import (
     SiloDTO,
     UpdateSiloRequest,
 )
+from application.dtos.silo_inventory_dtos import (
+    CreateSiloBatchRequest,
+    ListSiloBatchesResponse,
+    MoveSiloBatchRequest,
+    TransferSiloStockRequest,
+    TransferSiloStockResponse,
+    UpdateSiloBatchRequest,
+    WithdrawSiloBatchRequest,
+)
+from application.dtos.silo_dtos import SiloInventoryBatchDTO
 from domain.exceptions import (
     DomainException,
     DuplicateSiloNameError,
@@ -26,6 +42,88 @@ from domain.exceptions import (
 )
 
 router = APIRouter(prefix="/silos", tags=["Silos"])
+
+
+@router.post(
+    "/{silo_id}/batches",
+    response_model=SiloInventoryBatchDTO,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_silo_batch(
+    silo_id: str,
+    request: CreateSiloBatchRequest,
+    use_case: CreateSiloBatchUseCaseDep,
+) -> SiloInventoryBatchDTO:
+    try:
+        return await use_case.execute(silo_id, request)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
+@router.get("/{silo_id}/batches", response_model=ListSiloBatchesResponse)
+async def list_silo_batches(
+    silo_id: str,
+    use_case: ListSiloBatchesUseCaseDep,
+    batch_status: Optional[str] = Query(None, alias="status"),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+) -> ListSiloBatchesResponse:
+    try:
+        return await use_case.execute(silo_id, batch_status, offset, limit)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
+@router.patch("/{silo_id}/batches/{batch_id}", response_model=SiloInventoryBatchDTO)
+async def update_silo_batch(
+    silo_id: str,
+    batch_id: str,
+    request: UpdateSiloBatchRequest,
+    use_case: UpdateSiloBatchUseCaseDep,
+) -> SiloInventoryBatchDTO:
+    try:
+        return await use_case.execute(silo_id, batch_id, request)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
+@router.post("/{silo_id}/batches/{batch_id}/move", response_model=SiloInventoryBatchDTO)
+async def move_silo_batch(
+    silo_id: str,
+    batch_id: str,
+    request: MoveSiloBatchRequest,
+    use_case: MoveSiloBatchUseCaseDep,
+) -> SiloInventoryBatchDTO:
+    try:
+        return await use_case.execute(silo_id, batch_id, request)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
+@router.post("/{silo_id}/batches/{batch_id}/withdraw", response_model=SiloInventoryBatchDTO)
+async def withdraw_silo_batch(
+    silo_id: str,
+    batch_id: str,
+    request: WithdrawSiloBatchRequest,
+    use_case: WithdrawSiloBatchUseCaseDep,
+) -> SiloInventoryBatchDTO:
+    try:
+        return await use_case.execute(silo_id, batch_id, request)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
+@router.post("/{silo_id}/transfer", response_model=TransferSiloStockResponse)
+async def transfer_silo_stock(
+    silo_id: str,
+    request: TransferSiloStockRequest,
+    use_case: TransferSiloStockUseCaseDep,
+) -> TransferSiloStockResponse:
+    """Trasvasija stock FIFO disponible desde un silo hacia otro."""
+    try:
+        return await use_case.execute(silo_id, request)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
 
 @router.get("", response_model=ListSilosResponse)
@@ -92,11 +190,7 @@ async def create_silo(
 
     - **name**: Nombre del silo (único)
     - **capacity_kg**: Capacidad en kilogramos
-    - **stock_level_kg**: Nivel de stock inicial en kilogramos (por defecto 0)
-
-    Validaciones:
-    - El nombre debe ser único
-    - El stock inicial no puede ser mayor que la capacidad
+    El silo se crea vacío. El inventario se carga mediante partidas.
     """
     try:
         return await use_case.execute(request)

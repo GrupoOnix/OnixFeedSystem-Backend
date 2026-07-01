@@ -517,3 +517,21 @@ async def test_cyclic_run_waits_after_intermediate_visits_only(monkeypatch):
 
     assert visits == [1, 2, 3]
     assert sleeps == [9, 9]
+
+@pytest.fixture(autouse=True)
+def _mock_inventory_repository(monkeypatch):
+    class _InventoryRepository:
+        def __init__(self, db):
+            self.db = db
+
+        async def consume(self, *args, **kwargs):
+            return None
+
+        async def release(self, *args, **kwargs):
+            return None
+
+    monkeypatch.setattr(
+        feeding_orchestrator,
+        "SiloInventoryRepository",
+        _InventoryRepository,
+    )

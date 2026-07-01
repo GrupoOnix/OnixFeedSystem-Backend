@@ -37,12 +37,15 @@ class TestListSilos:
             id=str(uuid4()),
             name="Silo 1",
             capacity_kg=10000.0,
-            stock_level_kg=5000.0,
+            total_stock_kg=5000.0,
+            reserved_stock_kg=0.0,
+            available_stock_kg=5000.0,
+            fill_percentage=50.0,
             is_assigned=False,
             created_at=datetime.now(),
             line_id=None,
             line_name=None,
-            food_id=None,
+            active_batches=[],
         )
         mock_use_case.execute = AsyncMock(
             return_value=ListSilosResponse(silos=[silo_dto])
@@ -77,12 +80,15 @@ class TestGetSilo:
                 id=silo_id,
                 name="Silo Test",
                 capacity_kg=10000.0,
-                stock_level_kg=5000.0,
+                total_stock_kg=5000.0,
+                reserved_stock_kg=0.0,
+                available_stock_kg=5000.0,
+                fill_percentage=50.0,
                 is_assigned=False,
                 created_at=datetime.now(),
                 line_id=None,
                 line_name=None,
-                food_id=None,
+                active_batches=[],
             )
         )
         app.dependency_overrides[get_get_silo_use_case] = lambda: mock_use_case
@@ -112,7 +118,6 @@ class TestCreateSilo:
         request_data = {
             "name": f"Silo Test {uuid4().hex[:8]}",
             "capacity_kg": 10000.0,
-            "stock_level_kg": 5000.0,
         }
         mock_use_case = MagicMock()
         mock_use_case.execute = AsyncMock(
@@ -120,12 +125,15 @@ class TestCreateSilo:
                 id=str(uuid4()),
                 name=request_data["name"],
                 capacity_kg=10000.0,
-                stock_level_kg=5000.0,
+                total_stock_kg=0.0,
+                reserved_stock_kg=0.0,
+                available_stock_kg=0.0,
+                fill_percentage=0.0,
                 is_assigned=False,
                 created_at=datetime.now(),
                 line_id=None,
                 line_name=None,
-                food_id=None,
+                active_batches=[],
             )
         )
         app.dependency_overrides[get_create_silo_use_case] = lambda: mock_use_case
@@ -164,12 +172,15 @@ class TestUpdateSilo:
                 id=silo_id,
                 name="Nuevo Nombre",
                 capacity_kg=10000.0,
-                stock_level_kg=5000.0,
+                total_stock_kg=5000.0,
+                reserved_stock_kg=0.0,
+                available_stock_kg=5000.0,
+                fill_percentage=50.0,
                 is_assigned=False,
                 created_at=datetime.now(),
                 line_id=None,
                 line_name=None,
-                food_id=None,
+                active_batches=[],
             )
         )
         app.dependency_overrides[get_update_silo_use_case] = lambda: mock_use_case

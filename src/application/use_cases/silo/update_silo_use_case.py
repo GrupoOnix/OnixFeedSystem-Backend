@@ -4,7 +4,8 @@ from application.dtos.silo_dtos import SiloDTO, UpdateSiloRequest
 from application.services.alert_trigger_service import AlertTriggerService
 from domain.exceptions import DuplicateSiloNameError, SiloNotFoundError
 from domain.repositories import ISiloRepository
-from domain.value_objects import FoodId, SiloId, SiloName, Weight
+from domain.value_objects import SiloId, SiloName, Weight
+from application.mappers.silo_inventory_mapper import to_batch_dto
 
 
 class UpdateSiloUseCase:
@@ -58,22 +59,6 @@ class UpdateSiloUseCase:
             # El setter valida que la nueva capacidad >= stock actual
             silo.capacity = new_capacity
 
-        # Actualizar stock si se proporciona
-        if request.stock_level_kg is not None:
-            new_stock_level = Weight.from_kg(request.stock_level_kg)
-            # El setter valida que el stock <= capacidad
-            silo.stock_level = new_stock_level
-
-        # Actualizar food_id si se proporciona
-        if request.food_id is not None:
-            if request.food_id == "":
-                # Si se envía un string vacío, remover la asignación de alimento
-                silo.remove_food()
-            else:
-                # Asignar el nuevo food_id
-                food_id = FoodId.from_string(request.food_id)
-                silo.assign_food(food_id)
-
         # Persistir cambios
         await self._silo_repository.save(silo)
 
@@ -104,7 +89,7 @@ class UpdateSiloUseCase:
             return
 
         # Calcular porcentaje de llenado
-        current_level_kg = silo.stock_level.as_kg
+        current_level_kg = silo.total_stock.as_kg
         capacity_kg = silo.capacity.as_kg
 
         # Evitar división por cero
@@ -130,10 +115,13 @@ class UpdateSiloUseCase:
             id=str(silo.id),
             name=str(silo.name),
             capacity_kg=silo.capacity.as_kg,
-            stock_level_kg=silo.stock_level.as_kg,
+            total_stock_kg=silo.total_stock.as_kg,
+            reserved_stock_kg=silo.reserved_stock.as_kg,
+            available_stock_kg=silo.available_stock.as_kg,
+            fill_percentage=silo.fill_percentage,
             is_assigned=silo.is_assigned,
             created_at=silo.created_at,
             line_id=line_id,
             line_name=line_name,
-            food_id=str(silo.food_id) if silo.food_id else None,
+            active_batches=[to_batch_dto(batch) for batch in silo.active_batches],
         )

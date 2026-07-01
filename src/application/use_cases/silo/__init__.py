@@ -3,6 +3,14 @@ from .delete_silo_use_case import DeleteSiloUseCase
 from .get_silo_use_case import GetSiloUseCase
 from .list_silos_use_case import ListSilosUseCase
 from .update_silo_use_case import UpdateSiloUseCase
+from .silo_inventory_use_cases import (
+    CreateSiloBatchUseCase,
+    ListSiloBatchesUseCase,
+    MoveSiloBatchUseCase,
+    TransferSiloStockUseCase,
+    UpdateSiloBatchUseCase,
+    WithdrawSiloBatchUseCase,
+)
 
 __all__ = [
     "ListSilosUseCase",
@@ -10,4 +18,10 @@ __all__ = [
     "CreateSiloUseCase",
     "UpdateSiloUseCase",
     "DeleteSiloUseCase",
+    "CreateSiloBatchUseCase",
+    "ListSiloBatchesUseCase",
+    "MoveSiloBatchUseCase",
+    "TransferSiloStockUseCase",
+    "UpdateSiloBatchUseCase",
+    "WithdrawSiloBatchUseCase",
 ]

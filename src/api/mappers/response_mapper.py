@@ -44,8 +44,6 @@ class ResponseMapper:
             id=str(silo.id),
             name=str(silo.name),
             capacity=silo.capacity.as_kg,
-            food_id=str(silo.food_id) if silo.food_id else None,
-            stock_level=silo.stock_level.as_kg,
         )
 
     @staticmethod

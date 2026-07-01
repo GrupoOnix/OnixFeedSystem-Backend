@@ -472,6 +472,20 @@ class RateChartPoint(BaseModel):
     rate_kg_per_min: float
 
 
+class BatchConsumptionItem(BaseModel):
+    id: str
+    cage_feeding_id: str
+    silo_id: str
+    batch_id: str
+    food_id: str
+    food_name: str
+    food_code: str
+    food_provider: str
+    quantity_kg: float
+    operator_id: str
+    created_at: datetime
+
+
 class SessionHistoryDetail(BaseModel):
     session_id: str
     type: str
@@ -487,6 +501,7 @@ class SessionHistoryDetail(BaseModel):
     cages: List[CageHistorySummary]
     timeline: List[TimelineEvent]
     rate_chart: List[RateChartPoint]
+    batch_consumptions: List[BatchConsumptionItem] = Field(default_factory=list)
 
 
 class VisitHistoryItem(BaseModel):

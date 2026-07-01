@@ -23,6 +23,9 @@ from domain.value_objects import CageId, LineId, SiloId
 from domain.value_objects.activity_log_entry import ActivityLogEntry
 from domain.value_objects.identifiers import DoserId
 from domain.value_objects.measurements import Weight
+from infrastructure.persistence.repositories.silo_inventory_repository import (
+    SiloInventoryRepository,
+)
 
 
 class StartManualFeedingUseCase:
@@ -39,6 +42,7 @@ class StartManualFeedingUseCase:
         orchestrator: FeedingOrchestrator,
         system_config_repository: ISystemConfigRepository,
         activity_log_repository: ICageActivityLogRepository,
+        inventory_repository: SiloInventoryRepository,
     ):
         self.session_repo = session_repository
         self.cage_feeding_repo = cage_feeding_repository
@@ -50,6 +54,7 @@ class StartManualFeedingUseCase:
         self.orchestrator = orchestrator
         self.system_config_repo = system_config_repository
         self.activity_log_repo = activity_log_repository
+        self.inventory_repo = inventory_repository
 
     async def execute(self, request: ManualFeedingRequest) -> ManualFeedingResponse:
         # Paso 1: VALIDACIÓN — retorna entidades ya cargadas para reutilizar
@@ -105,6 +110,11 @@ class StartManualFeedingUseCase:
         await self.session_repo.save(session)
         await self.cage_feeding_repo.save(cage_feeding)
         await self.event_repo.save(session_started_event)
+        await self.inventory_repo.reserve(
+            session.id,
+            SiloId.from_string(request.silo_id).value,
+            request.quantity_kg,
+        )
 
         await self.activity_log_repo.save(
             ActivityLogEntry.create(
@@ -117,6 +127,10 @@ class StartManualFeedingUseCase:
                 source_entity_id=session.id,
             )
         )
+
+        # El orquestador usa otra sesión de base de datos; publicar sesión y reservas
+        # atómicamente antes de iniciar la tarea evita que observe estado incompleto.
+        await self.inventory_repo.session.commit()
 
         # Paso 4: LANZAR ORQUESTADOR EN BACKGROUND
         asyncio.create_task(
@@ -211,9 +225,9 @@ class StartManualFeedingUseCase:
         if not silo:
             raise ValueError(f"El doser {request.doser_id} no tiene un silo asignado")
         required = Weight.from_kg(request.quantity_kg)
-        if silo.stock_level < required:
+        if silo.available_stock < required:
             raise ValueError(
-                f"Stock insuficiente en el silo: disponible {silo.stock_level.as_kg:.2f} kg, "
+                f"Stock insuficiente en el silo: disponible {silo.available_stock.as_kg:.2f} kg, "
                 f"requerido {request.quantity_kg:.2f} kg"
             )
 

@@ -28,6 +28,9 @@ from domain.value_objects import CageId, LineId, SiloId
 from domain.value_objects.activity_log_entry import ActivityLogEntry
 from domain.value_objects.identifiers import CageGroupId, DoserId
 from domain.value_objects.measurements import Weight
+from infrastructure.persistence.repositories.silo_inventory_repository import (
+    SiloInventoryRepository,
+)
 
 
 def _visits_for_config(request: CyclicFeedingRequest, cfg) -> int:
@@ -62,6 +65,7 @@ class StartCyclicFeedingUseCase:
         orchestrator: FeedingOrchestrator,
         system_config_repository: ISystemConfigRepository,
         activity_log_repository: ICageActivityLogRepository,
+        inventory_repository: SiloInventoryRepository,
     ):
         self.session_repo = session_repository
         self.cage_feeding_repo = cage_feeding_repository
@@ -74,6 +78,7 @@ class StartCyclicFeedingUseCase:
         self.orchestrator = orchestrator
         self.system_config_repo = system_config_repository
         self.activity_log_repo = activity_log_repository
+        self.inventory_repo = inventory_repository
 
     async def execute(self, request: CyclicFeedingRequest) -> CyclicFeedingResponse:
         # Paso 1: Validar y cargar todas las entidades necesarias
@@ -96,9 +101,9 @@ class StartCyclicFeedingUseCase:
         if not silo:
             raise ValueError(f"El silo {request.silo_id} no existe")
         required = Weight.from_kg(total_programmed_kg)
-        if silo.stock_level < required:
+        if silo.available_stock < required:
             raise ValueError(
-                f"Stock insuficiente en el silo: disponible {silo.stock_level.as_kg:.2f} kg, "
+                f"Stock insuficiente en el silo: disponible {silo.available_stock.as_kg:.2f} kg, "
                 f"requerido {total_programmed_kg:.2f} kg"
             )
 
@@ -209,6 +214,7 @@ class StartCyclicFeedingUseCase:
         for cf in cage_feedings:
             await self.cage_feeding_repo.save(cf)
         await self.event_repo.save(session_started_event)
+        await self.inventory_repo.reserve(session.id, silo_id.value, total_programmed_kg)
 
         # Crear log de actividad por cada jaula NORMAL
         for cf, cage, _assignment in cage_data:
@@ -228,6 +234,8 @@ class StartCyclicFeedingUseCase:
                     source_entity_id=session.id,
                 )
             )
+
+        await self.inventory_repo.session.commit()
 
         # Paso 7: Lanzar orquestador en background
         asyncio.create_task(

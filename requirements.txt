@@ -5,6 +5,7 @@ fastapi[standard]==0.121.0
 sqlmodel==0.0.27
 asyncpg==0.30.0
 alembic==1.17.1
+greenlet==3.2.4
 
 # UUID support
 uuid==1.30

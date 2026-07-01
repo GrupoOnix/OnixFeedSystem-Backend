@@ -11,6 +11,9 @@ from infrastructure.persistence.models.doser_model import DoserModel
 from infrastructure.persistence.models.doser_silo_model import DoserSiloModel
 from infrastructure.persistence.models.feeding_line_model import FeedingLineModel
 from infrastructure.persistence.models.silo_model import SiloModel
+from infrastructure.persistence.repositories.silo_inventory_repository import (
+    SiloInventoryRepository,
+)
 
 
 class SiloRepository(ISiloRepository):
@@ -23,9 +26,8 @@ class SiloRepository(ISiloRepository):
         if existing:
             existing.name = str(silo.name)
             existing.capacity_mg = silo.capacity.as_miligrams
-            existing.stock_level_mg = silo.stock_level.as_miligrams
-            existing.food_id = silo.food_id.value if silo.food_id else None
-            existing.is_assigned = silo.is_assigned
+            existing.warning_threshold_percentage = silo.warning_threshold_percentage
+            existing.critical_threshold_percentage = silo.critical_threshold_percentage
             existing.created_at = silo._created_at
         else:
             silo_model = SiloModel.from_domain(silo)
@@ -39,6 +41,7 @@ class SiloRepository(ISiloRepository):
             return None
         silo = silo_model.to_domain()
         silo._is_assigned = await self._has_doser_links(silo_id)
+        await self._load_inventory(silo)
         return silo
 
     async def find_by_name(self, name: SiloName) -> Optional[Silo]:
@@ -50,6 +53,7 @@ class SiloRepository(ISiloRepository):
             return None
         silo = silo_model.to_domain()
         silo._is_assigned = await self._has_doser_links(SiloId(silo_model.id))
+        await self._load_inventory(silo)
         return silo
 
     async def get_all(self) -> List[Silo]:
@@ -59,6 +63,7 @@ class SiloRepository(ISiloRepository):
         for model in silo_models:
             silo = model.to_domain()
             silo._is_assigned = await self._has_doser_links(SiloId(model.id))
+            await self._load_inventory(silo)
             silos.append(silo)
         return silos
 
@@ -106,6 +111,7 @@ class SiloRepository(ISiloRepository):
         for row in rows:
             silo = row.SiloModel.to_domain()
             silo._is_assigned = row.line_id is not None
+            await self._load_inventory(silo)
             entry = grouped.setdefault(row.SiloModel.id, (silo, set(), set()))
             if row.line_id:
                 entry[1].add(str(row.line_id))
@@ -150,6 +156,7 @@ class SiloRepository(ISiloRepository):
         line_ids = sorted({str(row.line_id) for row in rows if row.line_id})
         line_names = sorted({row.name for row in rows if row.name})
         silo._is_assigned = bool(line_ids)
+        await self._load_inventory(silo)
 
         return (
             silo,
@@ -164,3 +171,20 @@ class SiloRepository(ISiloRepository):
             )
         )
         return result.scalar_one() > 0
+
+    async def _load_inventory(self, silo: Silo) -> None:
+        inventory_repo = SiloInventoryRepository(self.session)
+        summary = await inventory_repo.get_summary(silo.id.value)
+        batches = await inventory_repo.list_batches(
+            silo.id.value,
+            statuses=[],
+            limit=10000,
+        )
+        active_batches = [batch for batch in batches if batch.status.value == "ACTIVE"]
+        from domain.value_objects import Weight
+
+        silo.load_inventory(
+            total_stock=Weight.from_miligrams(summary.total_stock_mg),
+            reserved_stock=Weight.from_miligrams(summary.reserved_stock_mg),
+            active_batches=active_batches,
+        )

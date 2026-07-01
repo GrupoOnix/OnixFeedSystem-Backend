@@ -35,6 +35,12 @@ from src.infrastructure.persistence.models.feeding_event_model import FeedingEve
 # from src.infrastructure.persistence.models.operation_event_model import OperationEventModel  # REMOVED - Old feeding system
 from src.infrastructure.persistence.models.cage_feeding_model import CageFeedingModel
 from src.infrastructure.persistence.models.system_config_model import SystemConfigModel
+from src.infrastructure.persistence.models.silo_inventory_model import (
+    FeedingBatchConsumptionModel,
+    SiloInventoryBatchModel,
+    SiloInventoryMovementModel,
+    SiloStockReservationModel,
+)
 
 config = context.config
 

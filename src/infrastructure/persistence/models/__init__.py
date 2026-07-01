@@ -25,12 +25,22 @@ from .scheduled_alert_model import ScheduledAlertModel
 from .selector_model import SelectorModel
 from .sensor_model import SensorModel
 from .silo_model import SiloModel
+from .silo_inventory_model import (
+    FeedingBatchConsumptionModel,
+    SiloInventoryBatchModel,
+    SiloInventoryMovementModel,
+    SiloStockReservationModel,
+)
 from .slot_assignment_model import SlotAssignmentModel
 from .system_config_model import SystemConfigModel
 
 __all__ = [
     "ActivityLogModel",
     "SiloModel",
+    "SiloInventoryBatchModel",
+    "SiloInventoryMovementModel",
+    "SiloStockReservationModel",
+    "FeedingBatchConsumptionModel",
     "CageModel",
     "CageFeedingModel",
     "CageGroupModel",

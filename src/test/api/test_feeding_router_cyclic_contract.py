@@ -1,5 +1,6 @@
 import os
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
@@ -283,12 +284,18 @@ async def test_history_detail_includes_cage_mode_change_and_per_cage_visit_total
         ),
     ]
 
+    inventory_repo = type(
+        "_InventoryRepo",
+        (),
+        {"list_session_consumptions": AsyncMock(return_value=[])},
+    )()
     response = await get_session_history_detail(
         session_id=session.id,
         session_repo=_SessionRepo(session),
         event_repo=_EventRepo(events),
         line_repo=_LineRepo(),
         cage_repo=_CageRepo(),
+        inventory_repo=inventory_repo,
     )
 
     assert response.type == "CYCLIC"

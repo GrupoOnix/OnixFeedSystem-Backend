@@ -1,5 +1,6 @@
 from application.dtos.silo_dtos import ListSilosRequest, ListSilosResponse, SiloDTO
 from domain.repositories import ISiloRepository
+from application.mappers.silo_inventory_mapper import to_batch_dto
 
 
 class ListSilosUseCase:
@@ -39,12 +40,15 @@ class ListSilosUseCase:
             id=str(silo.id),
             name=str(silo.name),
             capacity_kg=silo.capacity.as_kg,
-            stock_level_kg=silo.stock_level.as_kg,
+            total_stock_kg=silo.total_stock.as_kg,
+            reserved_stock_kg=silo.reserved_stock.as_kg,
+            available_stock_kg=silo.available_stock.as_kg,
+            fill_percentage=silo.fill_percentage,
             is_assigned=silo.is_assigned,
             created_at=silo.created_at,
             line_id=line_ids[0] if line_ids else None,
             line_name=line_names[0] if line_names else None,
             line_ids=line_ids,
             line_names=line_names,
-            food_id=str(silo.food_id) if silo.food_id else None,
+            active_batches=[to_batch_dto(batch) for batch in silo.active_batches],
         )

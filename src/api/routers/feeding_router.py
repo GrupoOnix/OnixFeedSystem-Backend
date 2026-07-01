@@ -25,6 +25,7 @@ from api.dependencies import (
     get_simulated_machine,
     get_start_cyclic_feeding_use_case,
     get_start_manual_feeding_use_case,
+    get_silo_inventory_repo,
     get_update_cage_mode_use_case,
     get_update_cyclic_cage_amount_use_case,
     get_update_cyclic_cage_rate_use_case,
@@ -47,6 +48,7 @@ from application.dtos.manual_feeding_config_dtos import (
 from api.models.feeding_models import (
     ActiveSessionItem,
     BatchStatusResponse,
+    BatchConsumptionItem,
     BatchStatusSessionCyclic,
     BatchStatusSessionManual,
     CageHistorySummary,
@@ -122,6 +124,9 @@ from infrastructure.persistence.repositories.cage_repository import CageReposito
 from infrastructure.persistence.repositories.feeding_event_repository import FeedingEventRepository
 from infrastructure.persistence.repositories.feeding_line_repository import FeedingLineRepository
 from infrastructure.persistence.repositories.feeding_session_repository import FeedingSessionRepository
+from infrastructure.persistence.repositories.silo_inventory_repository import (
+    SiloInventoryRepository,
+)
 from infrastructure.persistence.repositories.system_config_repository import SystemConfigRepository
 from infrastructure.services.simulated_machine import SimulatedMachine
 
@@ -671,6 +676,7 @@ async def get_session_history_detail(
     event_repo: Annotated[FeedingEventRepository, Depends(get_feeding_event_repo)],
     line_repo: Annotated[FeedingLineRepository, Depends(get_line_repo)],
     cage_repo: Annotated[CageRepository, Depends(get_cage_repo)],
+    inventory_repo: Annotated[SiloInventoryRepository, Depends(get_silo_inventory_repo)],
 ) -> SessionHistoryDetail:
     try:
         session = await session_repo.find_by_id(session_id)
@@ -751,6 +757,10 @@ async def get_session_history_detail(
         duration = None
         if session.actual_start and session.actual_end:
             duration = (session.actual_end - session.actual_start).total_seconds()
+        batch_consumptions = [
+            BatchConsumptionItem(**item)
+            for item in await inventory_repo.list_session_consumptions(session_id)
+        ]
 
         return SessionHistoryDetail(
             session_id=session.id,
@@ -767,6 +777,7 @@ async def get_session_history_detail(
             cages=cages,
             timeline=timeline,
             rate_chart=rate_chart,
+            batch_consumptions=batch_consumptions,
         )
     except HTTPException:
         raise

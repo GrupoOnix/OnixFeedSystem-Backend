@@ -19,12 +19,14 @@ from .mortality_log_repository import MortalityLogRepository
 from .population_event_repository import PopulationEventRepository
 from .scheduled_alert_repository import ScheduledAlertRepository
 from .silo_repository import SiloRepository
+from .silo_inventory_repository import SiloInventoryRepository
 from .slot_assignment_repository import SlotAssignmentRepository
 from .system_config_repository import SystemConfigRepository
 
 __all__ = [
     "ActivityLogRepository",
     "SiloRepository",
+    "SiloInventoryRepository",
     "CageRepository",
     "CageFeedingRepository",
     "CageGroupRepository",

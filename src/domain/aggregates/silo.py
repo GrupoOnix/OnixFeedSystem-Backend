@@ -1,7 +1,10 @@
 from datetime import datetime, timezone
-from typing import Optional
+from typing import TYPE_CHECKING
 
-from domain.value_objects import FoodId, SiloId, SiloName, Weight
+from domain.value_objects import SiloId, SiloName, Weight
+
+if TYPE_CHECKING:
+    from domain.entities.silo_inventory import SiloInventoryBatch
 
 
 class Silo:
@@ -9,14 +12,9 @@ class Silo:
         self,
         name: SiloName,
         capacity: Weight,
-        stock_level: Weight = Weight.zero(),
-        food_id: Optional[FoodId] = None,
         warning_threshold_percentage: float = 20.0,
         critical_threshold_percentage: float = 10.0,
     ):
-        if stock_level > capacity:
-            raise ValueError("El stock no puede ser mayor que la capacidad.")
-        
         if warning_threshold_percentage <= critical_threshold_percentage:
             raise ValueError(
                 "El umbral de advertencia debe ser mayor que el umbral crítico."
@@ -31,9 +29,10 @@ class Silo:
         self._id = SiloId.generate()
         self._name = name
         self._capacity = capacity
-        self._stock_level = stock_level
-        self._food_id = food_id
         self._is_assigned = False
+        self._total_stock = Weight.zero()
+        self._reserved_stock = Weight.zero()
+        self._active_batches: list["SiloInventoryBatch"] = []
         self._warning_threshold_percentage = warning_threshold_percentage
         self._critical_threshold_percentage = critical_threshold_percentage
         self._created_at = datetime.now(timezone.utc)
@@ -61,40 +60,53 @@ class Silo:
 
         Regla de negocio: La nueva capacidad no puede ser menor al stock actual.
         """
-        if new_capacity < self._stock_level:
+        if new_capacity < self._total_stock:
             raise ValueError(
                 f"La nueva capacidad ({new_capacity}) no puede ser menor "
-                f"al stock actual ({self._stock_level})"
+                f"al stock actual ({self._total_stock})"
             )
         self._capacity = new_capacity
 
     @property
-    def stock_level(self) -> Weight:
-        return self._stock_level
+    def total_stock(self) -> Weight:
+        return self._total_stock
 
-    @stock_level.setter
-    def stock_level(self, new_stock_level: Weight) -> None:
-        """
-        Actualiza el nivel de stock del silo.
+    @property
+    def reserved_stock(self) -> Weight:
+        return self._reserved_stock
 
-        Regla de negocio: El stock no puede ser mayor a la capacidad del silo.
-        """
-        if new_stock_level > self._capacity:
-            raise ValueError(
-                f"El stock ({new_stock_level}) no puede ser mayor "
-                f"a la capacidad del silo ({self._capacity})"
-            )
-        self._stock_level = new_stock_level
+    @property
+    def available_stock(self) -> Weight:
+        return self._total_stock - self._reserved_stock
+
+    @property
+    def fill_percentage(self) -> float:
+        if self._capacity.as_miligrams == 0:
+            return 0.0
+        return self._total_stock.as_miligrams / self._capacity.as_miligrams * 100
+
+    @property
+    def active_batches(self) -> list["SiloInventoryBatch"]:
+        return list(self._active_batches)
+
+    def load_inventory(
+        self,
+        total_stock: Weight,
+        reserved_stock: Weight,
+        active_batches: list["SiloInventoryBatch"],
+    ) -> None:
+        if total_stock > self._capacity:
+            raise ValueError("El stock total no puede superar la capacidad del silo")
+        if reserved_stock > total_stock:
+            raise ValueError("El stock reservado no puede superar el stock total")
+        self._total_stock = total_stock
+        self._reserved_stock = reserved_stock
+        self._active_batches = list(active_batches)
 
     @property
     def is_assigned(self) -> bool:
         """Indica si el silo ya está asignado a un dosificador."""
         return self._is_assigned
-
-    @property
-    def food_id(self) -> Optional[FoodId]:
-        """ID del alimento asignado al silo (opcional)."""
-        return self._food_id
 
     @property
     def created_at(self) -> datetime:
@@ -152,16 +164,3 @@ class Silo:
     def release_from_doser(self) -> None:
         """Marca el silo como sin dosificadores asignados."""
         self._is_assigned = False
-
-    def assign_food(self, food_id: FoodId) -> None:
-        """
-        Asigna un tipo de alimento al silo.
-
-        Args:
-            food_id: ID del alimento a asignar
-        """
-        self._food_id = food_id
-
-    def remove_food(self) -> None:
-        """Remueve la asignación de alimento del silo."""
-        self._food_id = None

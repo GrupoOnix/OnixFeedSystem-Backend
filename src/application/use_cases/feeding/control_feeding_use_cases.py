@@ -13,6 +13,9 @@ from domain.repositories import (
 from domain.value_objects import BlowerPowerPercentage, CageId, LineId
 from domain.value_objects.activity_log_entry import ActivityLogEntry
 from domain.value_objects.identifiers import DoserId
+from infrastructure.persistence.repositories.silo_inventory_repository import (
+    SiloInventoryRepository,
+)
 
 
 LIVE_SESSION_STATUSES = {"IN_PROGRESS", "PAUSED"}
@@ -117,11 +120,13 @@ class UpdateFeedingAmountUseCase:
         cage_feeding_repo: ICageFeedingRepository,
         event_repo: IFeedingEventRepository,
         machine: IMachine,
+        inventory_repo: SiloInventoryRepository | None = None,
     ):
         self._session_repo = session_repo
         self._cage_feeding_repo = cage_feeding_repo
         self._event_repo = event_repo
         self._machine = machine
+        self._inventory_repo = inventory_repo
 
     async def execute(self, session_id: str, new_amount_kg: float) -> float:
         session = await self._session_repo.find_by_id(session_id)
@@ -147,6 +152,8 @@ class UpdateFeedingAmountUseCase:
             )
 
         previous_amount_kg = current.programmed_kg
+        if self._inventory_repo:
+            await self._inventory_repo.resize_reservation(session_id, new_amount_kg)
         current.set_programmed_kg(new_amount_kg)
 
         await self._machine.set_target_amount(line_id, new_amount_kg)
@@ -238,11 +245,13 @@ class UpdateCyclicCageAmountUseCase:
         cage_feeding_repo: ICageFeedingRepository,
         event_repo: IFeedingEventRepository,
         machine: IMachine,
+        inventory_repo: SiloInventoryRepository | None = None,
     ):
         self._session_repo = session_repo
         self._cage_feeding_repo = cage_feeding_repo
         self._event_repo = event_repo
         self._machine = machine
+        self._inventory_repo = inventory_repo
 
     async def execute(self, session_id: str, cage_id: str, new_total_amount_kg: float) -> float:
         session = await self._session_repo.find_by_id(session_id)
@@ -270,6 +279,15 @@ class UpdateCyclicCageAmountUseCase:
             raise ValueError("La nueva cantidad debe dejar alimento pendiente para las visitas restantes")
 
         previous_amount_kg = cage_feeding.programmed_kg
+        new_session_total = self._recalculate_session_total(
+            cage_feedings=cage_feedings,
+            updated_cage_feeding=cage_feeding,
+            live_dispensed_kg=live_dispensed_kg,
+            applied_immediately=applied_immediately,
+            override_amount_per_visit=new_amount_per_visit,
+        )
+        if self._inventory_repo:
+            await self._inventory_repo.resize_reservation(session_id, new_session_total)
         cage_feeding.set_programmed_kg(new_amount_per_visit)
 
         if applied_immediately:
@@ -303,6 +321,7 @@ class UpdateCyclicCageAmountUseCase:
         updated_cage_feeding: CageFeeding,
         live_dispensed_kg: float,
         applied_immediately: bool,
+        override_amount_per_visit: float | None = None,
     ) -> float:
         total = 0.0
         for cf in cage_feedings:
@@ -311,7 +330,12 @@ class UpdateCyclicCageAmountUseCase:
                 continue
             remaining_visits = max(current.programmed_visits - current.completed_visits, 0)
             live_for_cage = live_dispensed_kg if applied_immediately and current.id == updated_cage_feeding.id else 0.0
-            total += current.dispensed_kg + live_for_cage + current.programmed_kg * remaining_visits
+            amount_per_visit = (
+                override_amount_per_visit
+                if override_amount_per_visit is not None and current.id == updated_cage_feeding.id
+                else current.programmed_kg
+            )
+            total += current.dispensed_kg + live_for_cage + amount_per_visit * remaining_visits
         return total
 
 
@@ -479,6 +503,7 @@ class CancelFeedingUseCase:
         line_repo: IFeedingLineRepository,
         machine: IMachine,
         activity_log_repository: ICageActivityLogRepository,
+        inventory_repo: SiloInventoryRepository | None = None,
     ):
         self._session_repo = session_repo
         self._cage_feeding_repo = cage_feeding_repo
@@ -486,6 +511,7 @@ class CancelFeedingUseCase:
         self._line_repo = line_repo
         self._machine = machine
         self._activity_log_repo = activity_log_repository
+        self._inventory_repo = inventory_repo
 
     async def execute(self, session_id: str, operator_id: str, reason: str) -> None:
         session = await self._session_repo.find_by_id(session_id)
@@ -493,11 +519,25 @@ class CancelFeedingUseCase:
             raise ValueError(f"Sesión {session_id} no encontrada")
 
         line_id = LineId.from_string(session.line_id)
+        cage_feedings = await self._cage_feeding_repo.find_by_session(session_id)
+        current = next((cf for cf in cage_feedings if cf.status.value == "IN_PROGRESS"), None)
+        machine_status = await self._machine.get_status(line_id)
+        if self._inventory_repo and current and machine_status.dispensed_kg > 0:
+            current.add_dispensed_amount(machine_status.dispensed_kg)
+            await self._cage_feeding_repo.save(current)
+            await self._inventory_repo.consume(
+                session_id,
+                current.id,
+                machine_status.dispensed_kg,
+                operator_id,
+            )
         session.cancel()
         await self._machine.stop(line_id)
         await self._turn_off_persisted_blower(line_id)
         await self._release_feeding_line(line_id)
         await self._session_repo.save(session)
+        if self._inventory_repo:
+            await self._inventory_repo.release(session_id)
 
         event = FeedingEvent.session_cancelled(
             feeding_session_id=session_id,

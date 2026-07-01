@@ -111,12 +111,15 @@ def sample_silo_response(sample_silo_id):
         "id": sample_silo_id,
         "name": "Silo Test",
         "capacity_kg": 10000.0,
-        "stock_level_kg": 5000.0,
+        "total_stock_kg": 5000.0,
+        "reserved_stock_kg": 0.0,
+        "available_stock_kg": 5000.0,
+        "fill_percentage": 50.0,
         "is_assigned": False,
         "created_at": datetime.now().isoformat(),
         "line_id": None,
         "line_name": None,
-        "food_id": None,
+        "active_batches": [],
     }
 
 
@@ -155,7 +158,6 @@ def create_silo_request_data():
     return {
         "name": "Nuevo Silo",
         "capacity_kg": 10000.0,
-        "stock_level_kg": 5000.0,
     }
 
 

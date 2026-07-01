@@ -151,11 +151,17 @@ from application.use_cases.sensors import (
     UpdateSensorUseCase,
 )
 from application.use_cases.silo import (
+    CreateSiloBatchUseCase,
     CreateSiloUseCase,
     DeleteSiloUseCase,
     GetSiloUseCase,
+    ListSiloBatchesUseCase,
     ListSilosUseCase,
+    MoveSiloBatchUseCase,
+    TransferSiloStockUseCase,
+    UpdateSiloBatchUseCase,
     UpdateSiloUseCase,
+    WithdrawSiloBatchUseCase,
 )
 from domain.factories import ComponentFactory
 from domain.interfaces import IFeedingMachine
@@ -178,6 +184,7 @@ from infrastructure.persistence.repositories import (
     MortalityLogRepository,
     ScheduledAlertRepository,
     SiloRepository,
+    SiloInventoryRepository,
 )
 from infrastructure.persistence.repositories.blower_repository import BlowerRepository
 from infrastructure.persistence.repositories.cooler_repository import CoolerRepository
@@ -207,6 +214,12 @@ from application.use_cases.system_config import CheckScheduleUseCase, GetSystemC
 async def get_silo_repo(session: AsyncSession = Depends(get_session)) -> SiloRepository:
     """Crea instancia del repositorio de silos."""
     return SiloRepository(session)
+
+
+async def get_silo_inventory_repo(
+    session: AsyncSession = Depends(get_session),
+) -> SiloInventoryRepository:
+    return SiloInventoryRepository(session)
 
 
 async def get_food_repo(session: AsyncSession = Depends(get_session)) -> FoodRepository:
@@ -698,6 +711,7 @@ async def get_start_manual_feeding_use_case(
     orchestrator: FeedingOrchestrator = Depends(get_feeding_orchestrator),
     system_config_repo: SystemConfigRepository = Depends(get_system_config_repo),
     activity_log_repo: ActivityLogRepository = Depends(get_activity_log_repo),
+    inventory_repo: SiloInventoryRepository = Depends(get_silo_inventory_repo),
 ) -> StartManualFeedingUseCase:
     """Crea instancia del caso de uso de inicio de alimentación manual."""
     return StartManualFeedingUseCase(
@@ -711,6 +725,7 @@ async def get_start_manual_feeding_use_case(
         orchestrator=orchestrator,
         system_config_repository=system_config_repo,
         activity_log_repository=activity_log_repo,
+        inventory_repository=inventory_repo,
     )
 
 
@@ -858,6 +873,7 @@ async def get_start_cyclic_feeding_use_case(
     orchestrator: FeedingOrchestrator = Depends(get_feeding_orchestrator),
     system_config_repo: SystemConfigRepository = Depends(get_system_config_repo),
     activity_log_repo: ActivityLogRepository = Depends(get_activity_log_repo),
+    inventory_repo: SiloInventoryRepository = Depends(get_silo_inventory_repo),
 ) -> StartCyclicFeedingUseCase:
     """Crea instancia del caso de uso de inicio de alimentación cíclica."""
     return StartCyclicFeedingUseCase(
@@ -872,6 +888,7 @@ async def get_start_cyclic_feeding_use_case(
         orchestrator=orchestrator,
         system_config_repository=system_config_repo,
         activity_log_repository=activity_log_repo,
+        inventory_repository=inventory_repo,
     )
 
 
@@ -925,12 +942,14 @@ async def get_update_feeding_amount_use_case(
     cage_feeding_repo: CageFeedingRepository = Depends(get_cage_feeding_repo),
     event_repo: FeedingEventRepository = Depends(get_feeding_event_repo),
     machine: SimulatedMachine = Depends(get_simulated_machine),
+    inventory_repo: SiloInventoryRepository = Depends(get_silo_inventory_repo),
 ) -> UpdateFeedingAmountUseCase:
     return UpdateFeedingAmountUseCase(
         session_repo=session_repo,
         cage_feeding_repo=cage_feeding_repo,
         event_repo=event_repo,
         machine=machine,
+        inventory_repo=inventory_repo,
     )
 
 
@@ -951,12 +970,14 @@ async def get_update_cyclic_cage_amount_use_case(
     cage_feeding_repo: CageFeedingRepository = Depends(get_cage_feeding_repo),
     event_repo: FeedingEventRepository = Depends(get_feeding_event_repo),
     machine: SimulatedMachine = Depends(get_simulated_machine),
+    inventory_repo: SiloInventoryRepository = Depends(get_silo_inventory_repo),
 ) -> UpdateCyclicCageAmountUseCase:
     return UpdateCyclicCageAmountUseCase(
         session_repo=session_repo,
         cage_feeding_repo=cage_feeding_repo,
         event_repo=event_repo,
         machine=machine,
+        inventory_repo=inventory_repo,
     )
 
 
@@ -1015,6 +1036,7 @@ async def get_cancel_feeding_use_case(
     line_repo: FeedingLineRepository = Depends(get_line_repo),
     machine: SimulatedMachine = Depends(get_simulated_machine),
     activity_log_repo: ActivityLogRepository = Depends(get_activity_log_repo),
+    inventory_repo: SiloInventoryRepository = Depends(get_silo_inventory_repo),
 ) -> CancelFeedingUseCase:
     return CancelFeedingUseCase(
         session_repo=session_repo,
@@ -1023,6 +1045,7 @@ async def get_cancel_feeding_use_case(
         line_repo=line_repo,
         machine=machine,
         activity_log_repository=activity_log_repo,
+        inventory_repo=inventory_repo,
     )
 
 
@@ -1127,6 +1150,42 @@ async def get_delete_silo_use_case(
     return DeleteSiloUseCase(silo_repository=silo_repo)
 
 
+async def get_create_silo_batch_use_case(
+    inventory_repo: SiloInventoryRepository = Depends(get_silo_inventory_repo),
+) -> CreateSiloBatchUseCase:
+    return CreateSiloBatchUseCase(inventory_repo)
+
+
+async def get_update_silo_batch_use_case(
+    inventory_repo: SiloInventoryRepository = Depends(get_silo_inventory_repo),
+) -> UpdateSiloBatchUseCase:
+    return UpdateSiloBatchUseCase(inventory_repo)
+
+
+async def get_move_silo_batch_use_case(
+    inventory_repo: SiloInventoryRepository = Depends(get_silo_inventory_repo),
+) -> MoveSiloBatchUseCase:
+    return MoveSiloBatchUseCase(inventory_repo)
+
+
+async def get_transfer_silo_stock_use_case(
+    inventory_repo: SiloInventoryRepository = Depends(get_silo_inventory_repo),
+) -> TransferSiloStockUseCase:
+    return TransferSiloStockUseCase(inventory_repo)
+
+
+async def get_withdraw_silo_batch_use_case(
+    inventory_repo: SiloInventoryRepository = Depends(get_silo_inventory_repo),
+) -> WithdrawSiloBatchUseCase:
+    return WithdrawSiloBatchUseCase(inventory_repo)
+
+
+async def get_list_silo_batches_use_case(
+    inventory_repo: SiloInventoryRepository = Depends(get_silo_inventory_repo),
+) -> ListSiloBatchesUseCase:
+    return ListSiloBatchesUseCase(inventory_repo)
+
+
 # ============================================================================
 # Dependencias de Casos de Uso - Food
 # ============================================================================
@@ -1162,9 +1221,13 @@ async def get_update_food_use_case(
 
 async def get_delete_food_use_case(
     food_repo: FoodRepository = Depends(get_food_repo),
+    inventory_repo: SiloInventoryRepository = Depends(get_silo_inventory_repo),
 ) -> DeleteFoodUseCase:
     """Crea instancia del caso de uso de eliminación de alimento."""
-    return DeleteFoodUseCase(food_repository=food_repo)
+    return DeleteFoodUseCase(
+        food_repository=food_repo,
+        inventory_repository=inventory_repo,
+    )
 
 
 async def get_toggle_food_active_use_case(
@@ -1501,6 +1564,25 @@ CreateSiloUseCaseDep = Annotated[CreateSiloUseCase, Depends(get_create_silo_use_
 UpdateSiloUseCaseDep = Annotated[UpdateSiloUseCase, Depends(get_update_silo_use_case)]
 
 DeleteSiloUseCaseDep = Annotated[DeleteSiloUseCase, Depends(get_delete_silo_use_case)]
+
+CreateSiloBatchUseCaseDep = Annotated[
+    CreateSiloBatchUseCase, Depends(get_create_silo_batch_use_case)
+]
+UpdateSiloBatchUseCaseDep = Annotated[
+    UpdateSiloBatchUseCase, Depends(get_update_silo_batch_use_case)
+]
+MoveSiloBatchUseCaseDep = Annotated[
+    MoveSiloBatchUseCase, Depends(get_move_silo_batch_use_case)
+]
+TransferSiloStockUseCaseDep = Annotated[
+    TransferSiloStockUseCase, Depends(get_transfer_silo_stock_use_case)
+]
+WithdrawSiloBatchUseCaseDep = Annotated[
+    WithdrawSiloBatchUseCase, Depends(get_withdraw_silo_batch_use_case)
+]
+ListSiloBatchesUseCaseDep = Annotated[
+    ListSiloBatchesUseCase, Depends(get_list_silo_batches_use_case)
+]
 
 
 # ============================================================================
