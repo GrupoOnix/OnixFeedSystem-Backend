@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from ..enums import EstadoVisita
@@ -30,7 +30,7 @@ class Visita:
         self._fecha_hora_inicio: Optional[datetime] = None
         self._fecha_hora_fin: Optional[datetime] = None
         self._historial_cambios_tasa: List[CambioTasa] = []
-        self._created_at = datetime.utcnow()
+        self._created_at = datetime.now(timezone.utc)
 
         if numero_visita <= 0:
             raise ValueError("El número de visita debe ser mayor a 0")
@@ -104,14 +104,14 @@ class Visita:
             raise ValueError(f"No se puede iniciar una visita en estado {self._estado.value}")
 
         self._estado = EstadoVisita.EN_CURSO
-        self._fecha_hora_inicio = datetime.utcnow()
+        self._fecha_hora_inicio = datetime.now(timezone.utc)
 
     def completar(self) -> None:
         if self._estado != EstadoVisita.EN_CURSO:
             raise ValueError(f"No se puede completar una visita en estado {self._estado.value}")
 
         self._estado = EstadoVisita.COMPLETADA
-        self._fecha_hora_fin = datetime.utcnow()
+        self._fecha_hora_fin = datetime.now(timezone.utc)
 
     def cancelar(self) -> None:
         if self._estado not in [EstadoVisita.EN_CURSO, EstadoVisita.PENDIENTE]:
@@ -119,14 +119,14 @@ class Visita:
 
         self._estado = EstadoVisita.CANCELADA
         if self._estado == EstadoVisita.EN_CURSO:
-            self._fecha_hora_fin = datetime.utcnow()
+            self._fecha_hora_fin = datetime.now(timezone.utc)
 
     def cambiar_tasa(self, nueva_tasa: TasaAlimentacion, operador_nombre: str) -> CambioTasa:
         if self._estado != EstadoVisita.EN_CURSO:
             raise ValueError(f"No se puede cambiar la tasa en una visita en estado {self._estado.value}")
 
         cambio = CambioTasa(
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             tasa_anterior=self._tasa_actual,
             tasa_nueva=nueva_tasa,
             operador_nombre=operador_nombre,
@@ -161,7 +161,7 @@ class Visita:
 
         if not self._fecha_hora_fin:
             if self._estado == EstadoVisita.EN_CURSO:
-                delta = datetime.utcnow() - self._fecha_hora_inicio
+                delta = datetime.now(timezone.utc) - self._fecha_hora_inicio
                 return delta.total_seconds()
             return None
 

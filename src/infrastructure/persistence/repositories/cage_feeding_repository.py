@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
@@ -61,7 +61,7 @@ class CageFeedingRepository(ICageFeedingRepository):
         Returns:
             Total de kg dispensados hoy (desde las 00:00 UTC)
         """
-        today_start = datetime.combine(date.today(), datetime.min.time())
+        today_start = datetime.combine(date.today(), datetime.min.time(), tzinfo=timezone.utc)
         cage_uuid = UUID(cage_id)
 
         query = select(func.coalesce(func.sum(col(CageFeedingModel.dispensed_kg)), 0)).where(
@@ -86,7 +86,7 @@ class CageFeedingRepository(ICageFeedingRepository):
         if not cage_ids:
             return {}
 
-        today_start = datetime.combine(date.today(), datetime.min.time())
+        today_start = datetime.combine(date.today(), datetime.min.time(), tzinfo=timezone.utc)
         cage_uuid_list: List[UUID] = [UUID(cid) for cid in cage_ids]
 
         query = (

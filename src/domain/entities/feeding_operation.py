@@ -3,7 +3,7 @@ Entidad FeedingOperation - Representa una operación atómica de alimentación.
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 
 from domain.enums import OperationStatus, OperationEventType
@@ -41,7 +41,7 @@ class FeedingOperation:
         self._target_amount: Weight = target_amount
         self._dispensed: Weight = Weight.zero()
         self._status: OperationStatus = OperationStatus.RUNNING
-        self._started_at: datetime = datetime.utcnow()
+        self._started_at: datetime = datetime.now(timezone.utc)
         self._ended_at: Optional[datetime] = None
         self._applied_config: Dict[str, Any] = applied_config
         self._events: List[OperationEvent] = []
@@ -101,7 +101,12 @@ class FeedingOperation:
 
     # Métodos de negocio
     def _log_event(self, type: OperationEventType, description: str, details: Optional[Dict[str, Any]] = None):
-        event = OperationEvent(timestamp=datetime.utcnow(), type=type, description=description, details=details or {})
+        event = OperationEvent(
+            timestamp=datetime.now(timezone.utc),
+            type=type,
+            description=description,
+            details=details or {},
+        )
         self._events.append(event)
         self._new_events.append(event)  # También a la cola de nuevos
 
@@ -139,7 +144,7 @@ class FeedingOperation:
             return  # Idempotente
 
         self._status = OperationStatus.COMPLETED
-        self._ended_at = datetime.utcnow()
+        self._ended_at = datetime.now(timezone.utc)
         self._log_event(
             OperationEventType.COMPLETED,
             f"Operación completada: {self._dispensed.as_kg}kg de {self._target_amount.as_kg}kg",
@@ -152,7 +157,7 @@ class FeedingOperation:
             return  # Idempotente
 
         self._status = OperationStatus.STOPPED
-        self._ended_at = datetime.utcnow()
+        self._ended_at = datetime.now(timezone.utc)
         self._log_event(
             OperationEventType.STOPPED,
             f"Operación detenida: {self._dispensed.as_kg}kg de {self._target_amount.as_kg}kg",
@@ -162,5 +167,5 @@ class FeedingOperation:
     def fail(self, error_code: str):
         """Marca la operación como fallida."""
         self._status = OperationStatus.FAILED
-        self._ended_at = datetime.utcnow()
+        self._ended_at = datetime.now(timezone.utc)
         self._log_event(OperationEventType.FAILED, "Operación fallida", {"error_code": error_code})

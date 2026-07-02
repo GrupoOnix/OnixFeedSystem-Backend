@@ -23,7 +23,7 @@ import asyncio
 import logging
 import random
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Dict, List, Optional
 
@@ -167,7 +167,7 @@ class LineState:
     selector: SelectorState = field(default_factory=SelectorState)
 
     # Tracking de tiempo
-    last_update: datetime = field(default_factory=datetime.utcnow)
+    last_update: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     session_start_time: Optional[datetime] = None
 
     # Ciclos (para modo automático multi-ciclo)
@@ -265,7 +265,7 @@ class PLCSimulator(IFeedingMachine):
             state.current_slot_index = 0
             state.target_amount_kg = config.target_amount_kg
             state.batch_amount_kg = config.batch_amount_kg
-            state.session_start_time = datetime.utcnow()
+            state.session_start_time = datetime.now(timezone.utc)
 
             # Configurar componentes
             state.blower.state = ComponentState.RUNNING
@@ -279,7 +279,7 @@ class PLCSimulator(IFeedingMachine):
             if state.slot_list:
                 state.selector.move_to_slot(state.slot_list[0])
 
-            state.last_update = datetime.utcnow()
+            state.last_update = datetime.now(timezone.utc)
 
             self._log_action(
                 line_id,
@@ -321,7 +321,7 @@ class PLCSimulator(IFeedingMachine):
         await asyncio.sleep(0.02)
 
         # Actualizar estado de componentes basado en tiempo transcurrido
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         delta_seconds = (now - state.last_update).total_seconds()
 
         if state.is_running and not state.is_paused:
@@ -392,7 +392,7 @@ class PLCSimulator(IFeedingMachine):
 
         if state.is_running and state.is_paused:
             state.is_paused = False
-            state.last_update = datetime.utcnow()  # Reset timer
+            state.last_update = datetime.now(timezone.utc)  # Reset timer
 
             # Restaurar velocidades configuradas
             # Nota: En implementación real, las velocidades deberían
@@ -609,7 +609,7 @@ class PLCSimulator(IFeedingMachine):
         is_feeding = state.is_running and not state.is_paused
 
         # Generar lecturas simuladas para cada tipo de sensor
-        timestamp = datetime.utcnow()
+        timestamp = datetime.now(timezone.utc)
         readings: List[SensorReading] = []
 
         # === SENSOR DE TEMPERATURA ===

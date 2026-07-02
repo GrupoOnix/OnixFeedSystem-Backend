@@ -1,6 +1,6 @@
 """Tests para el aggregate Alert."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -199,7 +199,7 @@ class TestAlertReconstitution:
     def test_reconstitute_alert_minimal(self):
         """Test reconstituir alerta con campos mínimos."""
         alert_id = AlertId.generate()
-        timestamp = datetime.utcnow()
+        timestamp = datetime.now(timezone.utc)
 
         alert = Alert.reconstitute(
             id=alert_id,
@@ -227,7 +227,7 @@ class TestAlertReconstitution:
     def test_reconstitute_alert_complete(self):
         """Test reconstituir alerta con todos los campos."""
         alert_id = AlertId.generate()
-        timestamp = datetime.utcnow()
+        timestamp = datetime.now(timezone.utc)
         read_at = timestamp + timedelta(minutes=5)
         resolved_at = timestamp + timedelta(minutes=10)
         metadata = {"device_id": "abc", "line_id": "xyz"}
@@ -263,7 +263,7 @@ class TestAlertReconstitution:
     def test_reconstitute_preserves_immutability(self):
         """Test que la reconstitución respeta la inmutabilidad de campos."""
         alert_id = AlertId.generate()
-        timestamp = datetime.utcnow()
+        timestamp = datetime.now(timezone.utc)
 
         alert = Alert.reconstitute(
             id=alert_id,

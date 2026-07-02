@@ -8,6 +8,7 @@ from uuid import UUID
 
 from sqlalchemy import Column, DateTime
 from sqlmodel import Field, SQLModel, Relationship
+from sqlmodel._compat import SQLModelConfig
 from sqlalchemy.dialects.postgresql import JSONB
 
 if TYPE_CHECKING:
@@ -45,5 +46,4 @@ class FeedingOperationModel(SQLModel, table=True):
         back_populates="operation", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = SQLModelConfig(arbitrary_types_allowed=True)

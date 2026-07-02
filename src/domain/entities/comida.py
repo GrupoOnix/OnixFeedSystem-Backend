@@ -5,7 +5,7 @@ Representa una operación completa de alimentación de inicio a fin.
 Una comida puede ser MANUAL, CICLICA o PROGRAMADA, y contiene una o más visitas.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from ..enums import EstadoComida, TipoComida
@@ -58,7 +58,7 @@ class Comida:
         self._fecha_hora_inicio_real: Optional[datetime] = None
         self._fecha_hora_fin: Optional[datetime] = None
         self._cantidad_total_programada = cantidad_total_programada
-        self._created_at = datetime.utcnow()
+        self._created_at = datetime.now(timezone.utc)
 
         # Validaciones
         if not operador_nombre or not operador_nombre.strip():
@@ -138,7 +138,7 @@ class Comida:
             raise ValueError(f"No se puede iniciar una comida en estado {self._estado.value}")
 
         self._estado = EstadoComida.EN_CURSO
-        self._fecha_hora_inicio_real = datetime.utcnow()
+        self._fecha_hora_inicio_real = datetime.now(timezone.utc)
 
     def pausar(self) -> None:
         """
@@ -181,7 +181,7 @@ class Comida:
             raise ValueError(f"No se puede completar una comida en estado {self._estado.value}")
 
         self._estado = EstadoComida.COMPLETADA
-        self._fecha_hora_fin = datetime.utcnow()
+        self._fecha_hora_fin = datetime.now(timezone.utc)
 
     def cancelar(self) -> None:
         """
@@ -196,7 +196,7 @@ class Comida:
             raise ValueError(f"No se puede cancelar una comida en estado {self._estado.value}")
 
         self._estado = EstadoComida.CANCELADA
-        self._fecha_hora_fin = datetime.utcnow()
+        self._fecha_hora_fin = datetime.now(timezone.utc)
 
     def interrumpir(self, motivo: str) -> None:
         """
@@ -217,7 +217,7 @@ class Comida:
             raise ValueError("El motivo de interrupción no puede estar vacío")
 
         self._estado = EstadoComida.INTERRUMPIDA
-        self._fecha_hora_fin = datetime.utcnow()
+        self._fecha_hora_fin = datetime.now(timezone.utc)
         # El motivo se guardará como evento del sistema
 
     # =========================================================================
@@ -250,7 +250,7 @@ class Comida:
         if not self._fecha_hora_inicio_real:
             return None
 
-        fecha_fin = self._fecha_hora_fin or datetime.utcnow()
+        fecha_fin = self._fecha_hora_fin or datetime.now(timezone.utc)
         delta = fecha_fin - self._fecha_hora_inicio_real
         return delta.total_seconds()
 

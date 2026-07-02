@@ -9,7 +9,7 @@ Estos tests verifican:
 - Integración con FeedingLine
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 import pytest
@@ -267,12 +267,12 @@ class TestCoolerCreation:
 
     def test_created_at_is_set_automatically(self):
         """created_at debe establecerse automáticamente."""
-        before = datetime.utcnow()
+        before = datetime.now(timezone.utc)
         cooler = Cooler(
             name=CoolerName("Cooler Test"),
             cooling_power_percentage=CoolerPowerPercentage(50.0),
         )
-        after = datetime.utcnow()
+        after = datetime.now(timezone.utc)
 
         assert before <= cooler.created_at <= after
 

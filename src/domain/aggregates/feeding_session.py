@@ -4,7 +4,7 @@ Representa una sesión operativa diaria de alimentación.
 """
 
 from dataclasses import asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 from enum import Enum
 
@@ -41,7 +41,7 @@ class FeedingSession:
     def __init__(self, line_id: LineId):
         self._id: SessionId = SessionId.generate()
         self._line_id: LineId = line_id
-        self._date: datetime = datetime.utcnow()
+        self._date: datetime = datetime.now(timezone.utc)
         self._status: SessionStatus = SessionStatus.ACTIVE  # Siempre ACTIVE al crear
 
         # Acumuladores globales del día
@@ -245,7 +245,12 @@ class FeedingSession:
         self._log_session_event(FeedingEventType.SYSTEM_STATUS, "Sesión cerrada (fin del día)")
 
     def _log_session_event(self, type: FeedingEventType, description: str, details: Optional[Dict[str, Any]] = None):
-        event = FeedingEvent(timestamp=datetime.utcnow(), type=type, description=description, details=details or {})
+        event = FeedingEvent(
+            timestamp=datetime.now(timezone.utc),
+            type=type,
+            description=description,
+            details=details or {},
+        )
         self._session_events.append(event)
 
     def pop_events(self) -> List[FeedingEvent]:

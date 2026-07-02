@@ -1,6 +1,6 @@
 """Tests para el aggregate ScheduledAlert."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -95,7 +95,7 @@ class TestScheduledAlertCreation:
             type=AlertType.WARNING,
             category=AlertCategory.DEVICE,
             frequency=ScheduledAlertFrequency.DAILY,
-            next_trigger_date=datetime.utcnow() + timedelta(days=1),
+            next_trigger_date=datetime.now(timezone.utc) + timedelta(days=1),
             device_id="device-001",
             device_name="Blower #1",
         )
@@ -112,7 +112,7 @@ class TestScheduledAlertCreation:
             type=AlertType.INFO,
             category=AlertCategory.MAINTENANCE,
             frequency=ScheduledAlertFrequency.WEEKLY,
-            next_trigger_date=datetime.utcnow() + timedelta(days=7),
+            next_trigger_date=datetime.now(timezone.utc) + timedelta(days=7),
             metadata=metadata,
         )
 
@@ -128,7 +128,7 @@ class TestScheduledAlertCreation:
                 type=AlertType.INFO,
                 category=AlertCategory.MAINTENANCE,
                 frequency=ScheduledAlertFrequency.CUSTOM_DAYS,
-                next_trigger_date=datetime.utcnow(),
+                next_trigger_date=datetime.now(timezone.utc),
                 custom_days_interval=None,
             )
 
@@ -359,7 +359,7 @@ class TestScheduledAlertActivation:
             type=AlertType.INFO,
             category=AlertCategory.MAINTENANCE,
             frequency=ScheduledAlertFrequency.DAILY,
-            next_trigger_date=datetime.utcnow(),
+            next_trigger_date=datetime.now(timezone.utc),
         )
 
         assert alert.is_active is True
@@ -382,7 +382,7 @@ class TestScheduledAlertActivation:
             type=AlertType.INFO,
             category=AlertCategory.MAINTENANCE,
             frequency=ScheduledAlertFrequency.DAILY,
-            next_trigger_date=datetime.utcnow(),
+            next_trigger_date=datetime.now(timezone.utc),
         )
 
         alert.deactivate()
@@ -464,7 +464,7 @@ class TestScheduledAlertUpdate:
             type=AlertType.INFO,
             category=AlertCategory.MAINTENANCE,
             frequency=ScheduledAlertFrequency.DAILY,
-            next_trigger_date=datetime.utcnow(),
+            next_trigger_date=datetime.now(timezone.utc),
         )
 
         with pytest.raises(ValueError, match="custom_days_interval es requerido"):
@@ -478,7 +478,7 @@ class TestScheduledAlertUpdate:
             type=AlertType.INFO,
             category=AlertCategory.DEVICE,
             frequency=ScheduledAlertFrequency.DAILY,
-            next_trigger_date=datetime.utcnow(),
+            next_trigger_date=datetime.now(timezone.utc),
         )
 
         alert.update(device_id="device-001", device_name="New Device")

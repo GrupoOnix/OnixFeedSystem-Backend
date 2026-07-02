@@ -2,7 +2,7 @@
 Repositorio para operaciones de alimentación.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import List, Optional
 from uuid import UUID, uuid4
 
@@ -141,7 +141,7 @@ class FeedingOperationRepository(IFeedingOperationRepository):
             Total de kg dispensados hoy (desde las 00:00 UTC)
         """
         # Inicio del día actual (naive datetime para compatibilidad con DB)
-        today_start = datetime.combine(date.today(), datetime.min.time())
+        today_start = datetime.combine(date.today(), datetime.min.time(), tzinfo=timezone.utc)
 
         query = select(func.coalesce(func.sum(col(FeedingOperationModel.dispensed_kg)), 0)).where(
             col(FeedingOperationModel.cage_id) == cage_id.value,
@@ -167,7 +167,7 @@ class FeedingOperationRepository(IFeedingOperationRepository):
             return {}
 
         # Inicio del día actual (naive datetime para compatibilidad con DB)
-        today_start = datetime.combine(date.today(), datetime.min.time())
+        today_start = datetime.combine(date.today(), datetime.min.time(), tzinfo=timezone.utc)
 
         # Convertir CageIds a UUIDs
         cage_uuid_list: List[UUID] = [cid.value for cid in cage_ids]

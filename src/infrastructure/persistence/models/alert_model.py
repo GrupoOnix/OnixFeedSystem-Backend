@@ -7,6 +7,7 @@ from uuid import UUID
 from sqlalchemy import Column, DateTime, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
+from sqlmodel._compat import SQLModelConfig
 
 from domain.aggregates.alert import Alert
 from domain.enums import AlertCategory, AlertStatus, AlertType
@@ -32,8 +33,7 @@ class AlertModel(SQLModel, table=True):
     snoozed_until: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
     metadata_json: Dict[str, Any] = Field(default_factory=dict, sa_column=Column("metadata", JSONB, nullable=False))
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = SQLModelConfig(arbitrary_types_allowed=True)
 
     @staticmethod
     def from_domain(alert: Alert) -> "AlertModel":

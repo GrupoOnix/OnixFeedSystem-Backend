@@ -8,6 +8,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import Column, DateTime
 from sqlmodel import Field, SQLModel, Relationship
+from sqlmodel._compat import SQLModelConfig
 from sqlalchemy.dialects.postgresql import JSONB
 
 if TYPE_CHECKING:
@@ -37,5 +38,4 @@ class OperationEventModel(SQLModel, table=True):
     # Relationship
     operation: Optional["FeedingOperationModel"] = Relationship(back_populates="events")
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = SQLModelConfig(arbitrary_types_allowed=True)

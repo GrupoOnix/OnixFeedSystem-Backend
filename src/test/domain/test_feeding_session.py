@@ -11,7 +11,7 @@ Estos tests verifican la lógica de negocio del agregado:
 - Cierre de sesión
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock
 
 import pytest
@@ -75,7 +75,7 @@ class TestFeedingSession_Creation:
         """Debe asignar fecha actual."""
         session = FeedingSession(line_id=line_id)
 
-        assert session.date.date() == datetime.utcnow().date()
+        assert session.date.date() == datetime.now(timezone.utc).date()
 
     def test_session_initializes_empty_dispensed_by_slot(self, line_id):
         """Debe inicializar dispensed_by_slot vacío."""

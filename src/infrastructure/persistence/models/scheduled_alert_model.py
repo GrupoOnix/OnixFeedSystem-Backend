@@ -7,6 +7,7 @@ from uuid import UUID
 from sqlalchemy import Column, DateTime, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
+from sqlmodel._compat import SQLModelConfig
 
 from domain.aggregates.scheduled_alert import ScheduledAlert
 from domain.enums import AlertCategory, AlertType, ScheduledAlertFrequency
@@ -36,8 +37,7 @@ class ScheduledAlertModel(SQLModel, table=True):
         default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
     )
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = SQLModelConfig(arbitrary_types_allowed=True)
 
     @staticmethod
     def from_domain(scheduled_alert: ScheduledAlert) -> "ScheduledAlertModel":
