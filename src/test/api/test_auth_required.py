@@ -1,14 +1,20 @@
 """Tests para verificar que endpoints protegidos requieren autenticación."""
 
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
+import jwt
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from main import app
+
+# main carga las variables de entorno, por lo que es seguro importar la
+# configuración de JWT después de importar main.
+from infrastructure.security.jwt_config import JWT_ALGORITHM, JWT_SECRET_KEY
 
 
 @pytest.fixture
@@ -77,3 +83,38 @@ def test_public_health_endpoints_are_open(client, method, path):
     """Endpoints de health deben ser accesibles sin token."""
     response = client.request(method, path)
     assert response.status_code == 200, f"{method.upper()} {path} retornó {response.status_code}"
+
+
+@pytest.mark.parametrize(
+    "description,token",
+    [
+        ("malformed", "invalid_token"),
+        (
+            "invalid_signature",
+            jwt.encode(
+                {"sub": str(uuid4()), "type": "access"},
+                "wrong_secret",
+                algorithm="HS256",
+            ),
+        ),
+        (
+            "expired",
+            jwt.encode(
+                {
+                    "sub": str(uuid4()),
+                    "username": "testuser",
+                    "role": "user",
+                    "is_superadmin": False,
+                    "type": "access",
+                    "exp": datetime.now(timezone.utc) - timedelta(minutes=1),
+                },
+                JWT_SECRET_KEY,
+                algorithm=JWT_ALGORITHM,
+            ),
+        ),
+    ],
+)
+def test_protected_endpoint_rejects_invalid_token(client, description, token):
+    """Endpoints protegidos deben retornar 401 ante tokens inválidos o expirados."""
+    response = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 401, f"Token {description} retornó {response.status_code}"

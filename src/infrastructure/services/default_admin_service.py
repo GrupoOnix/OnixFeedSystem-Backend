@@ -2,6 +2,7 @@
 
 import logging
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.aggregates.user import User, UserRole
@@ -25,6 +26,10 @@ async def seed_default_admin_if_needed(session: AsyncSession) -> None:
     - role: admin
     - is_superadmin: True
     - is_active: True
+
+    La operación es idempotente: si otro worker ya creó el usuario, el
+    IntegrityError del unique constraint se captura y se ignora, evitando
+    race conditions al levantar la app con multiples workers.
     """
     user_repository = UserRepository(session)
 
@@ -43,6 +48,13 @@ async def seed_default_admin_if_needed(session: AsyncSession) -> None:
         is_active=True,
     )
 
-    await user_repository.save(admin_user)
-    await session.commit()
-    logger.info("Administrador por defecto creado: %s", DEFAULT_ADMIN_USERNAME)
+    try:
+        await user_repository.save(admin_user)
+        await session.commit()
+        logger.info("Administrador por defecto creado: %s", DEFAULT_ADMIN_USERNAME)
+    except IntegrityError:
+        await session.rollback()
+        logger.info(
+            "El administrador por defecto ya fue creado por otro proceso: %s",
+            DEFAULT_ADMIN_USERNAME,
+        )

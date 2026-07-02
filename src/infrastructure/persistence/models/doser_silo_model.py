@@ -14,5 +14,6 @@ class DoserSiloModel(SQLModel, table=True):
     silo_id: UUID = Field(
         foreign_key="silos.id",
         primary_key=True,
+        index=True,
         ondelete="CASCADE",
     )

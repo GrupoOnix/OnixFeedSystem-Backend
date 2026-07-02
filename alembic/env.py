@@ -18,31 +18,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 from sqlmodel import SQLModel
 from src.infrastructure.persistence.database import DATABASE_URL
 
-from src.infrastructure.persistence.models.cage_model import CageModel
-from src.infrastructure.persistence.models.cage_group_activity_log_model import CageGroupActivityLogModel
-from src.infrastructure.persistence.models.silo_model import SiloModel
-from src.infrastructure.persistence.models.feeding_line_model import FeedingLineModel
-from src.infrastructure.persistence.models.blower_model import BlowerModel
-from src.infrastructure.persistence.models.doser_model import DoserModel
-from src.infrastructure.persistence.models.doser_calibration_model import DoserCalibrationModel
-from src.infrastructure.persistence.models.selector_model import SelectorModel
-from src.infrastructure.persistence.models.sensor_model import SensorModel
-from src.infrastructure.persistence.models.biometry_log_model import BiometryLogModel
-from src.infrastructure.persistence.models.mortality_log_model import MortalityLogModel
-from src.infrastructure.persistence.models.config_change_log_model import ConfigChangeLogModel
-from src.infrastructure.persistence.models.feeding_session_model import FeedingSessionModel
-from src.infrastructure.persistence.models.feeding_event_model import FeedingEventModel
-# from src.infrastructure.persistence.models.feeding_operation_model import FeedingOperationModel  # REMOVED - Old feeding system
-# from src.infrastructure.persistence.models.operation_event_model import OperationEventModel  # REMOVED - Old feeding system
-from src.infrastructure.persistence.models.cage_feeding_model import CageFeedingModel
-from src.infrastructure.persistence.models.system_config_model import SystemConfigModel
-from src.infrastructure.persistence.models.user_model import UserModel
-from src.infrastructure.persistence.models.silo_inventory_model import (
-    FeedingBatchConsumptionModel,
-    SiloInventoryBatchModel,
-    SiloInventoryMovementModel,
-    SiloStockReservationModel,
-)
+# Importa todos los modelos activos para que SQLModel.metadata esté completo
+# y alembic autogenerate no genere migraciones destructivas.
+from src.infrastructure.persistence.models import *  # noqa: F401,F403
 
 config = context.config
 

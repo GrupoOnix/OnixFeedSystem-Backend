@@ -2,11 +2,13 @@
 
 from .activity_log_model import ActivityLogModel
 from .alert_model import AlertModel
+from .biometry_log_model import BiometryLogModel
 from .cage_group_activity_log_model import CageGroupActivityLogModel
 from .blower_model import BlowerModel
 from .cage_feeding_model import CageFeedingModel
 from .cage_group_model import CageGroupModel
 from .cage_model import CageModel
+from .config_change_log_model import ConfigChangeLogModel
 from .cooler_model import CoolerModel
 from .doser_model import DoserModel
 from .doser_calibration_model import DoserCalibrationModel
@@ -19,6 +21,7 @@ from .food_model import FoodModel
 from .last_selected_feeding_mode_model import LastSelectedFeedingModeModel
 from .last_valid_cyclic_feeding_config_model import LastValidCyclicFeedingConfigModel
 from .last_valid_manual_feeding_config_model import LastValidManualFeedingConfigModel
+from .mortality_log_model import MortalityLogModel
 
 # from .operation_event_model import OperationEventModel  # REMOVED - Old feeding system
 from .population_event_model import PopulationEventModel
@@ -38,6 +41,8 @@ from .user_model import UserModel
 
 __all__ = [
     "ActivityLogModel",
+    "AlertModel",
+    "BiometryLogModel",
     "CageGroupActivityLogModel",
     "SiloModel",
     "SiloInventoryBatchModel",
@@ -47,6 +52,7 @@ __all__ = [
     "CageModel",
     "CageFeedingModel",
     "CageGroupModel",
+    "ConfigChangeLogModel",
     "PopulationEventModel",
     "SlotAssignmentModel",
     "FeedingLineModel",
@@ -63,9 +69,9 @@ __all__ = [
     "LastValidCyclicFeedingConfigModel",
     "LastSelectedFeedingModeModel",
     "FeedbackModel",
-    # "OperationEventModel",  # REMOVED - Old feeding system
     "FoodModel",
-    "AlertModel",
+    "MortalityLogModel",
+    # "OperationEventModel",  # REMOVED - Old feeding system
     "ScheduledAlertModel",
     "SystemConfigModel",
     "UserModel",

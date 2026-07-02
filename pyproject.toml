@@ -13,6 +13,7 @@ ignore = [
 # Allow imports not at top of file for scripts that need to load .env first
 "src/main.py" = ["E402"]
 "src/infrastructure/persistence/database.py" = ["E402"]
+"alembic/env.py" = ["E402"]
 "src/verify_*.py" = ["E402", "E501"]
 # Allow unused variables and long lines in tests
 "src/test/*" = ["F841", "E501"]
