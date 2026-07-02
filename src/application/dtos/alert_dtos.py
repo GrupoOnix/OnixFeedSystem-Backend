@@ -60,7 +60,6 @@ class UpdateAlertRequest:
     """Request para actualizar una alerta."""
 
     status: Optional[str] = None
-    resolved_by: Optional[str] = None
 
 
 @dataclass

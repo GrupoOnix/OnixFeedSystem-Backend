@@ -2,6 +2,7 @@
 
 from .activity_log_model import ActivityLogModel
 from .alert_model import AlertModel
+from .cage_group_activity_log_model import CageGroupActivityLogModel
 from .blower_model import BlowerModel
 from .cage_feeding_model import CageFeedingModel
 from .cage_group_model import CageGroupModel
@@ -33,9 +34,11 @@ from .silo_inventory_model import (
 )
 from .slot_assignment_model import SlotAssignmentModel
 from .system_config_model import SystemConfigModel
+from .user_model import UserModel
 
 __all__ = [
     "ActivityLogModel",
+    "CageGroupActivityLogModel",
     "SiloModel",
     "SiloInventoryBatchModel",
     "SiloInventoryMovementModel",
@@ -65,4 +68,5 @@ __all__ = [
     "AlertModel",
     "ScheduledAlertModel",
     "SystemConfigModel",
+    "UserModel",
 ]

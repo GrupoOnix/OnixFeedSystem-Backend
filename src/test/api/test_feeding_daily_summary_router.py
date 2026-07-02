@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -11,13 +12,25 @@ os.environ.setdefault("DB_USER", "postgres")
 os.environ.setdefault("DB_PASSWORD", "postgres")
 os.environ.setdefault("DB_NAME", "feedsystemdb")
 
-from api.dependencies import get_daily_feeding_summary_use_case
+from api.dependencies import get_current_user, get_daily_feeding_summary_use_case
+from application.dtos.auth_dtos import UserResponse
 from application.dtos.feeding_history_dtos import DailyFeedingSummaryDTO, DailyFeedingSummaryPointDTO
 from main import app
 
 
 @pytest.fixture
 def client():
+    fake_user = UserResponse(
+        id=str(uuid4()),
+        username="testuser",
+        full_name="Test User",
+        role="user",
+        is_superadmin=False,
+        is_active=True,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    app.dependency_overrides[get_current_user] = lambda: fake_user
     yield TestClient(app)
     app.dependency_overrides.clear()
 

@@ -8,7 +8,11 @@ from unittest.mock import AsyncMock, MagicMock
 from application.dtos.cage_group_dtos import CreateCageGroupRequest
 from application.use_cases.cage_group.create_cage_group import CreateCageGroupUseCase
 from domain.aggregates.cage import Cage
-from domain.repositories import ICageGroupRepository, ICageRepository
+from domain.repositories import (
+    ICageGroupActivityLogRepository,
+    ICageGroupRepository,
+    ICageRepository,
+)
 from domain.value_objects import CageName
 
 
@@ -27,11 +31,19 @@ def mock_cage_repo():
 
 
 @pytest.fixture
-def use_case(mock_group_repo, mock_cage_repo):
+def mock_activity_log_repo():
+    """Fixture que proporciona un repositorio mock de logs de actividad de grupos."""
+    repo = MagicMock(spec=ICageGroupActivityLogRepository)
+    return repo
+
+
+@pytest.fixture
+def use_case(mock_group_repo, mock_cage_repo, mock_activity_log_repo):
     """Fixture que proporciona una instancia del caso de uso."""
     return CreateCageGroupUseCase(
         group_repository=mock_group_repo,
         cage_repository=mock_cage_repo,
+        activity_log_repository=mock_activity_log_repo,
     )
 
 
@@ -39,9 +51,7 @@ def use_case(mock_group_repo, mock_cage_repo):
 class TestCreateCageGroup:
     """Tests para la creación de grupos de jaulas."""
 
-    async def test_create_group_successfully(
-        self, use_case, mock_group_repo, mock_cage_repo
-    ):
+    async def test_create_group_successfully(self, use_case, mock_group_repo, mock_cage_repo):
         """Debe crear un grupo exitosamente con datos válidos."""
         # Arrange: Configurar mocks
         cage1 = Cage(name=CageName("Jaula 1"))
@@ -58,7 +68,7 @@ class TestCreateCageGroup:
         )
 
         # Act: Ejecutar caso de uso
-        result = await use_case.execute(request)
+        result = await use_case.execute(request, actor="testuser")
 
         # Assert: Verificar resultado
         assert result.name == "Sector Norte"
@@ -73,9 +83,7 @@ class TestCreateCageGroup:
         assert mock_cage_repo.find_by_id.call_count == 2
         mock_group_repo.save.assert_called_once()
 
-    async def test_create_group_with_one_cage(
-        self, use_case, mock_group_repo, mock_cage_repo
-    ):
+    async def test_create_group_with_one_cage(self, use_case, mock_group_repo, mock_cage_repo):
         """Debe crear un grupo con una sola jaula (mínimo permitido)."""
         # Arrange
         cage = Cage(name=CageName("Jaula 1"))
@@ -90,16 +98,14 @@ class TestCreateCageGroup:
         )
 
         # Act
-        result = await use_case.execute(request)
+        result = await use_case.execute(request, actor="testuser")
 
         # Assert
         assert result.name == "Grupo Pequeño"
         assert len(result.cage_ids) == 1
         assert result.description is None
 
-    async def test_create_group_fails_with_duplicate_name(
-        self, use_case, mock_group_repo, mock_cage_repo
-    ):
+    async def test_create_group_fails_with_duplicate_name(self, use_case, mock_group_repo, mock_cage_repo):
         """Debe fallar si ya existe un grupo con el mismo nombre."""
         # Arrange
         mock_group_repo.exists_by_name = AsyncMock(return_value=True)
@@ -111,14 +117,12 @@ class TestCreateCageGroup:
 
         # Act & Assert
         with pytest.raises(ValueError, match="Ya existe un grupo con el nombre"):
-            await use_case.execute(request)
+            await use_case.execute(request, actor="testuser")
 
         # No debe intentar guardar
         mock_group_repo.save.assert_not_called()
 
-    async def test_create_group_fails_with_nonexistent_cage(
-        self, use_case, mock_group_repo, mock_cage_repo
-    ):
+    async def test_create_group_fails_with_nonexistent_cage(self, use_case, mock_group_repo, mock_cage_repo):
         """Debe fallar si alguna jaula no existe."""
         # Arrange
         cage_id = "00000000-0000-0000-0000-000000000001"
@@ -133,14 +137,12 @@ class TestCreateCageGroup:
 
         # Act & Assert
         with pytest.raises(ValueError, match=f"La jaula con ID '{cage_id}' no existe"):
-            await use_case.execute(request)
+            await use_case.execute(request, actor="testuser")
 
         # No debe guardar el grupo
         mock_group_repo.save.assert_not_called()
 
-    async def test_create_group_fails_with_empty_name(
-        self, use_case, mock_group_repo, mock_cage_repo
-    ):
+    async def test_create_group_fails_with_empty_name(self, use_case, mock_group_repo, mock_cage_repo):
         """Debe fallar con nombre vacío."""
         # Arrange
         mock_group_repo.exists_by_name = AsyncMock(return_value=False)
@@ -153,11 +155,9 @@ class TestCreateCageGroup:
 
         # Act & Assert
         with pytest.raises(ValueError, match="El nombre del grupo de jaulas no puede estar vacío"):
-            await use_case.execute(request)
+            await use_case.execute(request, actor="testuser")
 
-    async def test_create_group_fails_with_empty_cage_list(
-        self, use_case, mock_group_repo, mock_cage_repo
-    ):
+    async def test_create_group_fails_with_empty_cage_list(self, use_case, mock_group_repo, mock_cage_repo):
         """Debe fallar con lista de jaulas vacía."""
         # Arrange
         mock_group_repo.exists_by_name = AsyncMock(return_value=False)
@@ -169,11 +169,9 @@ class TestCreateCageGroup:
 
         # Act & Assert
         with pytest.raises(ValueError, match="debe contener al menos una jaula"):
-            await use_case.execute(request)
+            await use_case.execute(request, actor="testuser")
 
-    async def test_create_group_with_multiple_cages(
-        self, use_case, mock_group_repo, mock_cage_repo
-    ):
+    async def test_create_group_with_multiple_cages(self, use_case, mock_group_repo, mock_cage_repo):
         """Debe crear un grupo con múltiples jaulas."""
         # Arrange
         cages = [Cage(name=CageName(f"Jaula {i}")) for i in range(1, 6)]
@@ -190,15 +188,13 @@ class TestCreateCageGroup:
         )
 
         # Act
-        result = await use_case.execute(request)
+        result = await use_case.execute(request, actor="testuser")
 
         # Assert
         assert len(result.cage_ids) == 5
         assert mock_cage_repo.find_by_id.call_count == 5
 
-    async def test_create_group_name_is_case_insensitive(
-        self, use_case, mock_group_repo, mock_cage_repo
-    ):
+    async def test_create_group_name_is_case_insensitive(self, use_case, mock_group_repo, mock_cage_repo):
         """La validación de nombre debe ser case-insensitive."""
         # Arrange
         mock_group_repo.exists_by_name = AsyncMock(return_value=True)
@@ -210,14 +206,12 @@ class TestCreateCageGroup:
 
         # Act & Assert
         with pytest.raises(ValueError):
-            await use_case.execute(request)
+            await use_case.execute(request, actor="testuser")
 
         # Verificar que se buscó el nombre como se proporcionó
         mock_group_repo.exists_by_name.assert_called_once_with("SECTOR NORTE")
 
-    async def test_create_group_with_long_description(
-        self, use_case, mock_group_repo, mock_cage_repo
-    ):
+    async def test_create_group_with_long_description(self, use_case, mock_group_repo, mock_cage_repo):
         """Debe permitir descripciones largas."""
         # Arrange
         cage = Cage(name=CageName("Jaula 1"))
@@ -234,7 +228,7 @@ class TestCreateCageGroup:
         )
 
         # Act
-        result = await use_case.execute(request)
+        result = await use_case.execute(request, actor="testuser")
 
         # Assert
         assert result.description == long_description

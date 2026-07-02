@@ -60,16 +60,20 @@ async def main() -> None:
         tz = ZoneInfo(timezone_id)
 
         sessions = (
-            await session.execute(
-                select(FeedingSessionModel)
-                .where(col(FeedingSessionModel.operator_id) == SEED_OPERATOR_ID)
-                .options(
-                    selectinload(cast(Any, FeedingSessionModel.cage_feedings)),
-                    selectinload(cast(Any, FeedingSessionModel.events)),
+            (
+                await session.execute(
+                    select(FeedingSessionModel)
+                    .where(col(FeedingSessionModel.operator_id) == SEED_OPERATOR_ID)
+                    .options(
+                        selectinload(cast(Any, FeedingSessionModel.cage_feedings)),
+                        selectinload(cast(Any, FeedingSessionModel.events)),
+                    )
+                    .order_by(col(FeedingSessionModel.actual_start))
                 )
-                .order_by(col(FeedingSessionModel.actual_start))
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
         stats = RescaleStats(sessions_seen=len(sessions))
         for feeding_session in sessions:
@@ -108,9 +112,7 @@ def _parse_args() -> argparse.Namespace:
 
 
 async def _get_timezone_id(session) -> str:
-    config = (
-        await session.execute(select(SystemConfigModel).where(col(SystemConfigModel.id) == 1))
-    ).scalars().first()
+    config = (await session.execute(select(SystemConfigModel).where(col(SystemConfigModel.id) == 1))).scalars().first()
     return config.timezone_id if config else "America/Santiago"
 
 

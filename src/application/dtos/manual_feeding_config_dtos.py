@@ -111,9 +111,7 @@ class LastValidCyclicFeedingConfigPayload(BaseModel):
     def validate_visits_fallback(self) -> "LastValidCyclicFeedingConfigPayload":
         for cage_config in self.cage_configs:
             if cage_config.mode != "FASTING" and cage_config.visits is None and self.visits is None:
-                raise ValueError(
-                    "Cada jaula activa debe declarar visits o la configuración debe incluir visits global"
-                )
+                raise ValueError("Cada jaula activa debe declarar visits o la configuración debe incluir visits global")
         return self
 
 

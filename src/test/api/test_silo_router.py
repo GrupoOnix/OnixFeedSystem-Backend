@@ -11,11 +11,13 @@ from fastapi.testclient import TestClient
 
 from api.dependencies import (
     get_create_silo_use_case,
+    get_current_user,
     get_delete_silo_use_case,
     get_get_silo_use_case,
     get_list_silos_use_case,
     get_update_silo_use_case,
 )
+from application.dtos.auth_dtos import UserResponse
 from application.dtos.silo_dtos import ListSilosResponse, SiloDTO
 from domain.exceptions import DuplicateSiloNameError, SiloInUseError, SiloNotFoundError
 from main import app
@@ -23,6 +25,17 @@ from main import app
 
 @pytest.fixture
 def client():
+    fake_user = UserResponse(
+        id=str(uuid4()),
+        username="testuser",
+        full_name="Test User",
+        role="user",
+        is_superadmin=False,
+        is_active=True,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+    app.dependency_overrides[get_current_user] = lambda: fake_user
     yield TestClient(app)
     app.dependency_overrides.clear()
 
@@ -47,9 +60,7 @@ class TestListSilos:
             line_name=None,
             active_batches=[],
         )
-        mock_use_case.execute = AsyncMock(
-            return_value=ListSilosResponse(silos=[silo_dto])
-        )
+        mock_use_case.execute = AsyncMock(return_value=ListSilosResponse(silos=[silo_dto]))
         app.dependency_overrides[get_list_silos_use_case] = lambda: mock_use_case
 
         response = client.get("/api/silos")
@@ -59,9 +70,7 @@ class TestListSilos:
     def test_list_silos_with_assigned_filter_true(self, client):
         """Lista de silos con filtro is_assigned=true retorna 200."""
         mock_use_case = MagicMock()
-        mock_use_case.execute = AsyncMock(
-            return_value=ListSilosResponse(silos=[])
-        )
+        mock_use_case.execute = AsyncMock(return_value=ListSilosResponse(silos=[]))
         app.dependency_overrides[get_list_silos_use_case] = lambda: mock_use_case
 
         response = client.get("/api/silos?is_assigned=true")
@@ -101,9 +110,7 @@ class TestGetSilo:
         """Obtener silo inexistente retorna 404."""
         silo_id = str(uuid4())
         mock_use_case = MagicMock()
-        mock_use_case.execute = AsyncMock(
-            side_effect=SiloNotFoundError("Silo not found")
-        )
+        mock_use_case.execute = AsyncMock(side_effect=SiloNotFoundError("Silo not found"))
         app.dependency_overrides[get_get_silo_use_case] = lambda: mock_use_case
 
         response = client.get(f"/api/silos/{silo_id}")
@@ -151,9 +158,7 @@ class TestCreateSilo:
         """Crear silo con nombre duplicado retorna 409."""
         request_data = {"name": "Silo Existente", "capacity_kg": 10000.0}
         mock_use_case = MagicMock()
-        mock_use_case.execute = AsyncMock(
-            side_effect=DuplicateSiloNameError("Silo name already exists")
-        )
+        mock_use_case.execute = AsyncMock(side_effect=DuplicateSiloNameError("Silo name already exists"))
         app.dependency_overrides[get_create_silo_use_case] = lambda: mock_use_case
 
         response = client.post("/api/silos", json=request_data)
@@ -193,9 +198,7 @@ class TestUpdateSilo:
         """Actualizar silo inexistente retorna 404."""
         silo_id = str(uuid4())
         mock_use_case = MagicMock()
-        mock_use_case.execute = AsyncMock(
-            side_effect=SiloNotFoundError("Silo not found")
-        )
+        mock_use_case.execute = AsyncMock(side_effect=SiloNotFoundError("Silo not found"))
         app.dependency_overrides[get_update_silo_use_case] = lambda: mock_use_case
 
         response = client.patch(f"/api/silos/{silo_id}", json={"name": "Nuevo"})
@@ -219,9 +222,7 @@ class TestDeleteSilo:
         """Eliminar silo en uso retorna 409."""
         silo_id = str(uuid4())
         mock_use_case = MagicMock()
-        mock_use_case.execute = AsyncMock(
-            side_effect=SiloInUseError("Silo is assigned")
-        )
+        mock_use_case.execute = AsyncMock(side_effect=SiloInUseError("Silo is assigned"))
         app.dependency_overrides[get_delete_silo_use_case] = lambda: mock_use_case
 
         response = client.delete(f"/api/silos/{silo_id}")

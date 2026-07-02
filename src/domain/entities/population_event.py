@@ -47,18 +47,14 @@ class PopulationEvent:
             PopulationEventType.TRANSFER_IN,
         ):
             if self.fish_count_delta < 0:
-                raise ValueError(
-                    f"{self.event_type.value} debe tener delta positivo o cero"
-                )
+                raise ValueError(f"{self.event_type.value} debe tener delta positivo o cero")
 
         if self.event_type in (
             PopulationEventType.HARVEST,
             PopulationEventType.TRANSFER_OUT,
         ):
             if self.fish_count_delta > 0:
-                raise ValueError(
-                    f"{self.event_type.value} debe tener delta negativo o cero"
-                )
+                raise ValueError(f"{self.event_type.value} debe tener delta negativo o cero")
 
         if self.event_type == PopulationEventType.BIOMETRY:
             if self.fish_count_delta != 0:

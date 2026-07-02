@@ -30,9 +30,7 @@ class ResetSelectorPositionUseCase:
         feeding_line = await self._feeding_line_repository.find_by_id(LineId.from_string(line_id))
 
         if not feeding_line:
-            raise FeedingLineNotFoundException(
-                f"Línea de alimentación con ID {line_id} no encontrada"
-            )
+            raise FeedingLineNotFoundException(f"Línea de alimentación con ID {line_id} no encontrada")
 
         # Reiniciar posición del selector
         feeding_line.selector.reset_position()

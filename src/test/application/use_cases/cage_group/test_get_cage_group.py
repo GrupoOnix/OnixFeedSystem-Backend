@@ -40,9 +40,7 @@ def use_case(mock_group_repo, mock_cage_repo):
 class TestGetCageGroup:
     """Tests para la obtención de un grupo de jaulas por ID."""
 
-    async def test_get_existing_group_successfully(
-        self, use_case, mock_group_repo, mock_cage_repo
-    ):
+    async def test_get_existing_group_successfully(self, use_case, mock_group_repo, mock_cage_repo):
         """Debe obtener un grupo existente con sus datos completos."""
         # Arrange
         cage1 = Cage(name=CageName("Jaula 1"))
@@ -77,9 +75,7 @@ class TestGetCageGroup:
         mock_group_repo.find_by_id.assert_called_once_with(CageGroupId.from_string(group_id))
         assert mock_cage_repo.find_by_id.call_count == 2
 
-    async def test_get_group_fails_when_not_found(
-        self, use_case, mock_group_repo, mock_cage_repo
-    ):
+    async def test_get_group_fails_when_not_found(self, use_case, mock_group_repo, mock_cage_repo):
         """Debe fallar con error cuando el grupo no existe."""
         # Arrange
         group_id = "00000000-0000-0000-0000-000000000001"
@@ -89,9 +85,7 @@ class TestGetCageGroup:
         with pytest.raises(ValueError, match=f"No existe un grupo con ID '{group_id}'"):
             await use_case.execute(group_id)
 
-    async def test_get_group_with_metrics(
-        self, use_case, mock_group_repo, mock_cage_repo
-    ):
+    async def test_get_group_with_metrics(self, use_case, mock_group_repo, mock_cage_repo):
         """Debe calcular métricas correctamente."""
         # Arrange
         cage = Cage(name=CageName("Jaula 1"))
@@ -117,9 +111,7 @@ class TestGetCageGroup:
         assert result.metrics.avg_weight == 300.0
         assert result.metrics.total_volume == 1000.0
 
-    async def test_get_group_handles_missing_cages(
-        self, use_case, mock_group_repo, mock_cage_repo
-    ):
+    async def test_get_group_handles_missing_cages(self, use_case, mock_group_repo, mock_cage_repo):
         """Debe manejar jaulas faltantes sin fallar."""
         # Arrange
         cage1 = Cage(name=CageName("Jaula 1"))
@@ -145,9 +137,7 @@ class TestGetCageGroup:
         # Assert: Debe calcular métricas solo con jaulas existentes
         assert result.metrics.total_population == 1000
 
-    async def test_get_group_with_no_description(
-        self, use_case, mock_group_repo, mock_cage_repo
-    ):
+    async def test_get_group_with_no_description(self, use_case, mock_group_repo, mock_cage_repo):
         """Debe manejar grupos sin descripción."""
         # Arrange
         cage = Cage(name=CageName("Jaula 1"))
@@ -168,9 +158,7 @@ class TestGetCageGroup:
         # Assert
         assert result.description is None
 
-    async def test_get_group_with_multiple_cages(
-        self, use_case, mock_group_repo, mock_cage_repo
-    ):
+    async def test_get_group_with_multiple_cages(self, use_case, mock_group_repo, mock_cage_repo):
         """Debe obtener grupo con múltiples jaulas."""
         # Arrange
         cages = [Cage(name=CageName(f"Jaula {i}")) for i in range(1, 11)]
@@ -197,9 +185,7 @@ class TestGetCageGroup:
         assert result.metrics.total_population == 5000  # 500 * 10
         assert mock_cage_repo.find_by_id.call_count == 10
 
-    async def test_get_group_with_invalid_uuid_format(
-        self, use_case, mock_group_repo, mock_cage_repo
-    ):
+    async def test_get_group_with_invalid_uuid_format(self, use_case, mock_group_repo, mock_cage_repo):
         """Debe fallar con UUID inválido."""
         # Arrange
         invalid_id = "not-a-uuid"
@@ -208,9 +194,7 @@ class TestGetCageGroup:
         with pytest.raises(ValueError):
             await use_case.execute(invalid_id)
 
-    async def test_get_group_includes_timestamps(
-        self, use_case, mock_group_repo, mock_cage_repo
-    ):
+    async def test_get_group_includes_timestamps(self, use_case, mock_group_repo, mock_cage_repo):
         """Debe incluir timestamps de creación y actualización."""
         # Arrange
         cage = Cage(name=CageName("Jaula 1"))
@@ -231,9 +215,7 @@ class TestGetCageGroup:
         assert result.created_at is not None
         assert result.updated_at is not None
 
-    async def test_get_group_with_zero_population_cages(
-        self, use_case, mock_group_repo, mock_cage_repo
-    ):
+    async def test_get_group_with_zero_population_cages(self, use_case, mock_group_repo, mock_cage_repo):
         """Debe manejar jaulas sin población."""
         # Arrange
         cage = Cage(name=CageName("Jaula Vacía"))

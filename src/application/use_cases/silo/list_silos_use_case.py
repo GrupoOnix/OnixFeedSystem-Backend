@@ -20,15 +20,10 @@ class ListSilosUseCase:
             ListSilosResponse con la lista de silos y sus líneas asociadas
         """
         # Obtener silos con información de línea
-        silos_with_line = await self._silo_repository.find_all_with_line_info(
-            is_assigned=request.is_assigned
-        )
+        silos_with_line = await self._silo_repository.find_all_with_line_info(is_assigned=request.is_assigned)
 
         # Convertir a DTOs
-        silo_dtos = [
-            self._to_dto(silo, line_ids, line_names)
-            for silo, line_ids, line_names in silos_with_line
-        ]
+        silo_dtos = [self._to_dto(silo, line_ids, line_names) for silo, line_ids, line_names in silos_with_line]
 
         return ListSilosResponse(silos=silo_dtos)
 

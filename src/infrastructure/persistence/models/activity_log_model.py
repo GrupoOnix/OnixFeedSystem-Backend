@@ -22,12 +22,8 @@ class ActivityLogModel(SQLModel, table=True):
     actor: Optional[str] = Field(default=None)
     source_entity_type: Optional[str] = Field(default=None)
     source_entity_id: Optional[str] = Field(default=None)
-    event_at: datetime = Field(
-        sa_column=Column(DateTime(timezone=True), nullable=False, index=True)
-    )
-    created_at: datetime = Field(
-        sa_column=Column(DateTime(timezone=True), nullable=False)
-    )
+    event_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False, index=True))
+    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
 
     @staticmethod
     def from_domain(entry: ActivityLogEntry) -> "ActivityLogModel":

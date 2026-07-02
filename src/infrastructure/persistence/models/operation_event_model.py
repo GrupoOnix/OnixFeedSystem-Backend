@@ -1,6 +1,7 @@
 """
 Modelo de persistencia para eventos de operación.
 """
+
 from datetime import datetime
 from typing import Dict, Any, Optional, TYPE_CHECKING
 from uuid import UUID, uuid4
@@ -18,17 +19,14 @@ class OperationEventModel(SQLModel, table=True):
     Modelo de persistencia para eventos de operación.
     Registra el ciclo de vida detallado de cada operación.
     """
+
     __tablename__ = "operation_events"
 
     # Primary Key
     id: UUID = Field(primary_key=True, default_factory=uuid4)
 
     # Foreign Key
-    operation_id: UUID = Field(
-        foreign_key="feeding_operations.id",
-        index=True,
-        ondelete="CASCADE"
-    )
+    operation_id: UUID = Field(foreign_key="feeding_operations.id", index=True, ondelete="CASCADE")
 
     # Datos del evento
     timestamp: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False, index=True))

@@ -96,17 +96,19 @@ async def test_rate_timeline_can_group_individual_series_by_cage():
     line_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
     cage_id = "11111111-1111-1111-1111-111111111111"
     use_case = GetFeedingRateTimelineUseCase(
-        event_repository=FakeEventRepository([
-            FeedingRateTimelineVisit(
-                session_id="session-a",
-                feeding_type="CYCLIC",
-                line_id=line_id,
-                cage_id=cage_id,
-                completed_at=datetime(2026, 5, 28, 0, 1, tzinfo=timezone.utc),
-                duration_seconds=60,
-                dispensed_kg=1.5,
-            )
-        ]),
+        event_repository=FakeEventRepository(
+            [
+                FeedingRateTimelineVisit(
+                    session_id="session-a",
+                    feeding_type="CYCLIC",
+                    line_id=line_id,
+                    cage_id=cage_id,
+                    completed_at=datetime(2026, 5, 28, 0, 1, tzinfo=timezone.utc),
+                    duration_seconds=60,
+                    dispensed_kg=1.5,
+                )
+            ]
+        ),
         system_config_repository=FakeSystemConfigRepository(),
         line_repository=FakeLineRepository(),
         cage_repository=FakeCageRepository(),

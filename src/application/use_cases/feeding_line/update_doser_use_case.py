@@ -19,9 +19,7 @@ class UpdateDoserUseCase:
     def __init__(self, feeding_line_repository: IFeedingLineRepository):
         self._feeding_line_repository = feeding_line_repository
 
-    async def execute(
-        self, line_id: str, doser_id: str, request: UpdateDoserRequest
-    ) -> None:
+    async def execute(self, line_id: str, doser_id: str, request: UpdateDoserRequest) -> None:
         """
         Actualiza la configuración de un doser específico.
 
@@ -38,17 +36,13 @@ class UpdateDoserUseCase:
         feeding_line = await self._feeding_line_repository.find_by_id(LineId.from_string(line_id))
 
         if not feeding_line:
-            raise FeedingLineNotFoundException(
-                f"Línea de alimentación con ID {line_id} no encontrada"
-            )
+            raise FeedingLineNotFoundException(f"Línea de alimentación con ID {line_id} no encontrada")
 
         # Buscar el doser específico
         doser_id_obj = DoserId.from_string(doser_id)
         doser = feeding_line.get_doser_by_id(doser_id_obj)
         if not doser:
-            raise ValueError(
-                f"Doser con ID {doser_id} no encontrado en la línea {line_id}"
-            )
+            raise ValueError(f"Doser con ID {doser_id} no encontrado en la línea {line_id}")
 
         # Actualizar nombre si se proporciona
         if request.name is not None:
@@ -56,9 +50,7 @@ class UpdateDoserUseCase:
 
         # Actualizar silos asignados si se proporcionan
         if request.assigned_silo_ids is not None:
-            doser.assigned_silo_ids = tuple(
-                SiloId.from_string(silo_id) for silo_id in request.assigned_silo_ids
-            )
+            doser.assigned_silo_ids = tuple(SiloId.from_string(silo_id) for silo_id in request.assigned_silo_ids)
 
         # Actualizar rango de dosificación si se proporciona
         if request.dosing_range_min is not None or request.dosing_range_max is not None:
@@ -68,21 +60,11 @@ class UpdateDoserUseCase:
             current_unit = doser.dosing_range.unit
 
             # Usar nuevos valores o mantener los actuales
-            new_min = (
-                request.dosing_range_min
-                if request.dosing_range_min is not None
-                else current_min
-            )
-            new_max = (
-                request.dosing_range_max
-                if request.dosing_range_max is not None
-                else current_max
-            )
+            new_min = request.dosing_range_min if request.dosing_range_min is not None else current_min
+            new_max = request.dosing_range_max if request.dosing_range_max is not None else current_max
 
             # Crear nuevo rango
-            new_range = DosingRange(
-                min_rate=new_min, max_rate=new_max, unit=current_unit
-            )
+            new_range = DosingRange(min_rate=new_min, max_rate=new_max, unit=current_unit)
 
             # Actualizar el doser
             doser.dosing_range = new_range
@@ -94,9 +76,7 @@ class UpdateDoserUseCase:
         # Actualizar tasa actual si se proporciona
         if request.current_rate is not None:
             # La validación del rango se hace en el setter del doser
-            doser.current_rate = DosingRate(
-                value=request.current_rate, unit=doser.current_rate.unit
-            )
+            doser.current_rate = DosingRate(value=request.current_rate, unit=doser.current_rate.unit)
 
         # Persistir cambios
         await self._feeding_line_repository.save(feeding_line)

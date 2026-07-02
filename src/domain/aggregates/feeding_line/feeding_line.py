@@ -218,8 +218,7 @@ class FeedingLine:
         if self._status != FeedingLineStatus.AVAILABLE:
             lock_detail = f" por {self._locked_by}" if self._locked_by else ""
             raise FeedingLineUnavailableException(
-                f"No se puede {action}: la línea {self._name.value} está en estado "
-                f"{self._status.value}{lock_detail}"
+                f"No se puede {action}: la línea {self._name.value} está en estado {self._status.value}{lock_detail}"
             )
 
     def _set_lock(

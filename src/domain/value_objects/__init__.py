@@ -14,8 +14,9 @@ from .aquaculture import (
     FishCount,
 )
 
-# Activity Log Entry
+# Activity Log Entries
 from .activity_log_entry import ActivityLogEntry
+from .cage_group_activity_log_entry import CageGroupActivityLogEntry
 
 # Log Entries (legacy - kept for backward compatibility)
 from .biometry_log_entry import BiometryLogEntry
@@ -54,6 +55,7 @@ from .identifiers import (
     SensorId,
     SessionId,
     SiloId,
+    UserId,
     VisitaId,
 )
 
@@ -98,6 +100,7 @@ __all__ = [
     "ScheduledAlertId",
     "ComidaId",
     "VisitaId",
+    "UserId",
     # Names
     "LineName",
     "CageName",
@@ -131,6 +134,7 @@ __all__ = [
     "CageConfiguration",
     # Activity Log
     "ActivityLogEntry",
+    "CageGroupActivityLogEntry",
     # Log Entries (legacy)
     "BiometryLogEntry",
     "MortalityLogEntry",

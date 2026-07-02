@@ -24,9 +24,7 @@ class ToggleScheduledAlertUseCase:
         Raises:
             ValueError: Si la alerta no existe.
         """
-        scheduled_alert = await self._repo.find_by_id(
-            ScheduledAlertId.from_string(alert_id)
-        )
+        scheduled_alert = await self._repo.find_by_id(ScheduledAlertId.from_string(alert_id))
         if not scheduled_alert:
             raise ValueError(f"Alerta programada {alert_id} no encontrada")
 

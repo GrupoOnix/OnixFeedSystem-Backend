@@ -21,9 +21,7 @@ class LastValidManualFeedingConfigRepository:
 
     async def find_by_line_id(self, line_id: UUID) -> Optional[LastValidManualFeedingConfigModel]:
         result = await self.session.execute(
-            select(LastValidManualFeedingConfigModel).where(
-                col(LastValidManualFeedingConfigModel.line_id) == line_id
-            )
+            select(LastValidManualFeedingConfigModel).where(col(LastValidManualFeedingConfigModel.line_id) == line_id)
         )
         return result.scalar_one_or_none()
 

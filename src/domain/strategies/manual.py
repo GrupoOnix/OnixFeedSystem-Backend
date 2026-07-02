@@ -2,10 +2,11 @@ from domain.strategies.base import IFeedingStrategy
 from domain.dtos import MachineConfiguration
 from domain.enums import FeedingMode
 
+
 class ManualFeedingStrategy(IFeedingStrategy):
     """
     Estrategia para alimentación manual.
-    
+
     Características:
     - Se enfoca en UNA sola jaula/slot a la vez.
     - No tiene límite de cantidad (target_amount = 0.0 o infinito).
@@ -29,17 +30,13 @@ class ManualFeedingStrategy(IFeedingStrategy):
         return MachineConfiguration(
             start_command=True,
             mode=FeedingMode.MANUAL,
-
             # En manual, la lista es de un solo elemento
             slot_numbers=[self.target_slot],
-
             blower_speed_percentage=self.blower_speed,
             doser_speed_percentage=self.doser_speed,
-
             # Meta de alimentación
             target_amount_kg=self.target_amount_kg,
-
             # Parámetros cíclicos no aplican
             batch_amount_kg=0.0,
-            pause_time_seconds=0
+            pause_time_seconds=0,
         )

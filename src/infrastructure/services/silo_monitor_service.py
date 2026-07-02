@@ -20,7 +20,7 @@ class SiloMonitorService:
 
     Diseñado para ejecutarse periódicamente (cada 5 minutos)
     como un background task de FastAPI.
-    
+
     Usa los umbrales configurados de cada silo individual.
     """
 
@@ -89,9 +89,7 @@ class SiloMonitorService:
                 percentage=percentage,
                 critical_threshold=silo.critical_threshold_percentage,
             )
-            logger.info(
-                f"Alerta de nivel bajo procesada: {silo.name} ({percentage:.1f}%)"
-            )
+            logger.info(f"Alerta de nivel bajo procesada: {silo.name} ({percentage:.1f}%)")
             return True
 
         return False
@@ -99,7 +97,7 @@ class SiloMonitorService:
     def reset_alert_tracking(self) -> None:
         """
         Método mantenido por compatibilidad pero ya no es necesario.
-        
+
         El tracking de alertas ahora se maneja automáticamente
         buscando alertas existentes en la base de datos.
         """

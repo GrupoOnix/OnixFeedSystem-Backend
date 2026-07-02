@@ -2,11 +2,19 @@
 
 from typing import Annotated, Optional
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from application.dtos.auth_dtos import UserResponse
 from application.services import AlertTriggerService
 from application.use_cases import GetSystemLayoutUseCase, SyncSystemLayoutUseCase
+from application.use_cases.auth import (
+    AuthenticateUserUseCase,
+    ChangePasswordUseCase,
+    GetCurrentUserUseCase,
+    RegisterUserUseCase,
+)
 from application.use_cases.alerts import (
     CreateAlertUseCase,
     CreateScheduledAlertUseCase,
@@ -24,6 +32,12 @@ from application.use_cases.alerts import (
     UnsnoozeAlertUseCase,
     UpdateAlertUseCase,
     UpdateScheduledAlertUseCase,
+)
+from application.use_cases.users import (
+    ListUsersUseCase,
+    ResetUserPasswordUseCase,
+    UpdateUserRoleUseCase,
+    UpdateUserStatusUseCase,
 )
 from application.use_cases.cage import (
     AdjustPopulationUseCase,
@@ -171,6 +185,7 @@ from infrastructure.persistence.repositories import (
     AlertRepository,
     BiometryLogRepository,
     CageFeedingRepository,
+    CageGroupActivityLogRepository,
     CageGroupRepository,
     CageRepository,
     ConfigChangeLogRepository,
@@ -185,6 +200,7 @@ from infrastructure.persistence.repositories import (
     ScheduledAlertRepository,
     SiloRepository,
     SiloInventoryRepository,
+    UserRepository,
 )
 from infrastructure.persistence.repositories.blower_repository import BlowerRepository
 from infrastructure.persistence.repositories.cooler_repository import CoolerRepository
@@ -202,6 +218,8 @@ from infrastructure.persistence.repositories.slot_assignment_repository import (
     SlotAssignmentRepository,
 )
 from infrastructure.persistence.repositories.system_config_repository import SystemConfigRepository
+from infrastructure.security.password_service import PasswordService
+from infrastructure.security.token_service import TokenError, TokenService
 from infrastructure.services.plc_simulator import PLCSimulator
 from infrastructure.services.simulated_machine import SimulatedMachine
 from application.use_cases.system_config import CheckScheduleUseCase, GetSystemConfigUseCase, UpdateSystemConfigUseCase
@@ -321,6 +339,13 @@ async def get_activity_log_repo(
     return ActivityLogRepository(session)
 
 
+async def get_cage_group_activity_log_repo(
+    session: AsyncSession = Depends(get_session),
+) -> CageGroupActivityLogRepository:
+    """Crea instancia del repositorio de logs de actividad de grupos de jaulas."""
+    return CageGroupActivityLogRepository(session)
+
+
 async def get_feeding_event_repo(
     session: AsyncSession = Depends(get_session),
 ) -> FeedingEventRepository:
@@ -356,6 +381,13 @@ async def get_last_selected_feeding_mode_repo(
     return LastSelectedFeedingModeRepository(session)
 
 
+async def get_user_repo(
+    session: AsyncSession = Depends(get_session),
+) -> UserRepository:
+    """Crea instancia del repositorio de usuarios."""
+    return UserRepository(session)
+
+
 # ============================================================================
 # Servicios de Infraestructura
 # ============================================================================
@@ -383,6 +415,16 @@ def get_simulated_machine() -> SimulatedMachine:
     if _simulated_machine_instance is None:
         _simulated_machine_instance = SimulatedMachine()
     return _simulated_machine_instance
+
+
+def get_password_service() -> PasswordService:
+    """Crea instancia del servicio de hashing de contraseñas."""
+    return PasswordService()
+
+
+def get_token_service() -> TokenService:
+    """Crea instancia del servicio de tokens JWT."""
+    return TokenService()
 
 
 def get_feeding_orchestrator(
@@ -1470,9 +1512,14 @@ async def get_list_activity_log_use_case(
 async def get_create_cage_group_use_case(
     group_repo: CageGroupRepository = Depends(get_cage_group_repo),
     cage_repo: CageRepository = Depends(get_cage_repo),
+    activity_log_repo: CageGroupActivityLogRepository = Depends(get_cage_group_activity_log_repo),
 ) -> CreateCageGroupUseCase:
     """Crea instancia del caso de uso de creación de grupo de jaulas."""
-    return CreateCageGroupUseCase(group_repository=group_repo, cage_repository=cage_repo)
+    return CreateCageGroupUseCase(
+        group_repository=group_repo,
+        cage_repository=cage_repo,
+        activity_log_repository=activity_log_repo,
+    )
 
 
 async def get_list_cage_groups_use_case(
@@ -1494,16 +1541,25 @@ async def get_get_cage_group_use_case(
 async def get_update_cage_group_use_case(
     group_repo: CageGroupRepository = Depends(get_cage_group_repo),
     cage_repo: CageRepository = Depends(get_cage_repo),
+    activity_log_repo: CageGroupActivityLogRepository = Depends(get_cage_group_activity_log_repo),
 ) -> UpdateCageGroupUseCase:
     """Crea instancia del caso de uso de actualización de grupo de jaulas."""
-    return UpdateCageGroupUseCase(group_repository=group_repo, cage_repository=cage_repo)
+    return UpdateCageGroupUseCase(
+        group_repository=group_repo,
+        cage_repository=cage_repo,
+        activity_log_repository=activity_log_repo,
+    )
 
 
 async def get_delete_cage_group_use_case(
     group_repo: CageGroupRepository = Depends(get_cage_group_repo),
+    activity_log_repo: CageGroupActivityLogRepository = Depends(get_cage_group_activity_log_repo),
 ) -> DeleteCageGroupUseCase:
     """Crea instancia del caso de uso de eliminación de grupo de jaulas."""
-    return DeleteCageGroupUseCase(group_repository=group_repo)
+    return DeleteCageGroupUseCase(
+        group_repository=group_repo,
+        activity_log_repository=activity_log_repo,
+    )
 
 
 # ============================================================================
@@ -1565,24 +1621,12 @@ UpdateSiloUseCaseDep = Annotated[UpdateSiloUseCase, Depends(get_update_silo_use_
 
 DeleteSiloUseCaseDep = Annotated[DeleteSiloUseCase, Depends(get_delete_silo_use_case)]
 
-CreateSiloBatchUseCaseDep = Annotated[
-    CreateSiloBatchUseCase, Depends(get_create_silo_batch_use_case)
-]
-UpdateSiloBatchUseCaseDep = Annotated[
-    UpdateSiloBatchUseCase, Depends(get_update_silo_batch_use_case)
-]
-MoveSiloBatchUseCaseDep = Annotated[
-    MoveSiloBatchUseCase, Depends(get_move_silo_batch_use_case)
-]
-TransferSiloStockUseCaseDep = Annotated[
-    TransferSiloStockUseCase, Depends(get_transfer_silo_stock_use_case)
-]
-WithdrawSiloBatchUseCaseDep = Annotated[
-    WithdrawSiloBatchUseCase, Depends(get_withdraw_silo_batch_use_case)
-]
-ListSiloBatchesUseCaseDep = Annotated[
-    ListSiloBatchesUseCase, Depends(get_list_silo_batches_use_case)
-]
+CreateSiloBatchUseCaseDep = Annotated[CreateSiloBatchUseCase, Depends(get_create_silo_batch_use_case)]
+UpdateSiloBatchUseCaseDep = Annotated[UpdateSiloBatchUseCase, Depends(get_update_silo_batch_use_case)]
+MoveSiloBatchUseCaseDep = Annotated[MoveSiloBatchUseCase, Depends(get_move_silo_batch_use_case)]
+TransferSiloStockUseCaseDep = Annotated[TransferSiloStockUseCase, Depends(get_transfer_silo_stock_use_case)]
+WithdrawSiloBatchUseCaseDep = Annotated[WithdrawSiloBatchUseCase, Depends(get_withdraw_silo_batch_use_case)]
+ListSiloBatchesUseCaseDep = Annotated[ListSiloBatchesUseCase, Depends(get_list_silo_batches_use_case)]
 
 
 # ============================================================================
@@ -1948,3 +1992,201 @@ async def get_create_feedback_use_case(
 # ============================================================================
 
 CreateFeedbackUseCaseDep = Annotated[CreateFeedbackUseCase, Depends(get_create_feedback_use_case)]
+
+
+# ============================================================================
+# Dependencias de Casos de Uso - Auth
+# ============================================================================
+
+
+async def get_authenticate_user_use_case(
+    user_repo: UserRepository = Depends(get_user_repo),
+    password_service: PasswordService = Depends(get_password_service),
+    token_service: TokenService = Depends(get_token_service),
+) -> AuthenticateUserUseCase:
+    """Crea instancia del caso de uso de autenticación."""
+    return AuthenticateUserUseCase(
+        user_repository=user_repo,
+        password_service=password_service,
+        token_service=token_service,
+    )
+
+
+async def get_register_user_use_case(
+    user_repo: UserRepository = Depends(get_user_repo),
+    password_service: PasswordService = Depends(get_password_service),
+) -> RegisterUserUseCase:
+    """Crea instancia del caso de uso de registro de usuario."""
+    return RegisterUserUseCase(
+        user_repository=user_repo,
+        password_service=password_service,
+    )
+
+
+async def get_change_password_use_case(
+    user_repo: UserRepository = Depends(get_user_repo),
+    password_service: PasswordService = Depends(get_password_service),
+) -> ChangePasswordUseCase:
+    """Crea instancia del caso de uso de cambio de contraseña."""
+    return ChangePasswordUseCase(
+        user_repository=user_repo,
+        password_service=password_service,
+    )
+
+
+async def get_get_current_user_use_case(
+    user_repo: UserRepository = Depends(get_user_repo),
+    token_service: TokenService = Depends(get_token_service),
+) -> GetCurrentUserUseCase:
+    """Crea instancia del caso de uso de obtención del usuario actual."""
+    return GetCurrentUserUseCase(
+        user_repository=user_repo,
+        token_service=token_service,
+    )
+
+
+# ============================================================================
+# Dependencias de Casos de Uso - Users
+# ============================================================================
+
+
+async def get_list_users_use_case(
+    user_repo: UserRepository = Depends(get_user_repo),
+) -> ListUsersUseCase:
+    """Crea instancia del caso de uso de listado de usuarios."""
+    return ListUsersUseCase(user_repository=user_repo)
+
+
+async def get_update_user_status_use_case(
+    user_repo: UserRepository = Depends(get_user_repo),
+) -> UpdateUserStatusUseCase:
+    """Crea instancia del caso de uso de cambio de estado de usuario."""
+    return UpdateUserStatusUseCase(user_repository=user_repo)
+
+
+async def get_update_user_role_use_case(
+    user_repo: UserRepository = Depends(get_user_repo),
+) -> UpdateUserRoleUseCase:
+    """Crea instancia del caso de uso de cambio de rol de usuario."""
+    return UpdateUserRoleUseCase(user_repository=user_repo)
+
+
+async def get_reset_user_password_use_case(
+    user_repo: UserRepository = Depends(get_user_repo),
+    password_service: PasswordService = Depends(get_password_service),
+) -> ResetUserPasswordUseCase:
+    """Crea instancia del caso de uso de reseteo de contraseña."""
+    return ResetUserPasswordUseCase(
+        user_repository=user_repo,
+        password_service=password_service,
+    )
+
+
+# ============================================================================
+# Dependencias de Seguridad - Current User
+# ============================================================================
+
+
+# Bearer token opcional para permitir manejo manual del header Authorization
+_bearer_scheme = HTTPBearer(auto_error=False)
+
+
+async def _extract_token(
+    request: Request,
+    token: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+) -> str:
+    """Extrae el token JWT del header Authorization."""
+    if token is not None:
+        return token.credentials
+
+    header = request.headers.get("Authorization")
+    if header is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No se proporcionó token de autenticación",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    parts = header.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Formato de token inválido. Usa 'Bearer <token>'",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return parts[1]
+
+
+async def get_current_user(
+    token: str = Depends(_extract_token),
+    use_case: GetCurrentUserUseCase = Depends(get_get_current_user_use_case),
+) -> UserResponse:
+    """Dependencia que devuelve el usuario autenticado."""
+    try:
+        return await use_case.execute(token)
+    except TokenError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
+async def get_current_admin_user(
+    current_user: UserResponse = Depends(get_current_user),
+) -> UserResponse:
+    """Dependencia que exige usuario autenticado con rol admin o superadmin."""
+    if not current_user.is_superadmin and current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Se requieren permisos de administrador",
+        )
+    return current_user
+
+
+async def get_current_superadmin_user(
+    current_user: UserResponse = Depends(get_current_user),
+) -> UserResponse:
+    """Dependencia que exige usuario autenticado con rol superadmin."""
+    if not current_user.is_superadmin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Se requieren permisos de superadministrador",
+        )
+    return current_user
+
+
+# ============================================================================
+# Type Aliases para Endpoints - Auth
+# ============================================================================
+
+AuthenticateUserUseCaseDep = Annotated[AuthenticateUserUseCase, Depends(get_authenticate_user_use_case)]
+
+RegisterUserUseCaseDep = Annotated[RegisterUserUseCase, Depends(get_register_user_use_case)]
+
+ChangePasswordUseCaseDep = Annotated[ChangePasswordUseCase, Depends(get_change_password_use_case)]
+
+GetCurrentUserUseCaseDep = Annotated[GetCurrentUserUseCase, Depends(get_get_current_user_use_case)]
+
+# ============================================================================
+# Type Aliases para Endpoints - Users
+# ============================================================================
+
+ListUsersUseCaseDep = Annotated[ListUsersUseCase, Depends(get_list_users_use_case)]
+
+UpdateUserStatusUseCaseDep = Annotated[UpdateUserStatusUseCase, Depends(get_update_user_status_use_case)]
+
+UpdateUserRoleUseCaseDep = Annotated[UpdateUserRoleUseCase, Depends(get_update_user_role_use_case)]
+
+ResetUserPasswordUseCaseDep = Annotated[ResetUserPasswordUseCase, Depends(get_reset_user_password_use_case)]
+
+# ============================================================================
+# Type Aliases para Endpoints - Security
+# ============================================================================
+
+CurrentUserDep = Annotated[UserResponse, Depends(get_current_user)]
+
+CurrentAdminUserDep = Annotated[UserResponse, Depends(get_current_admin_user)]
+
+CurrentSuperAdminUserDep = Annotated[UserResponse, Depends(get_current_superadmin_user)]

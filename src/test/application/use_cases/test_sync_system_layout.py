@@ -33,10 +33,10 @@ from infrastructure.persistence.mock_repositories import (
 def repositories():
     """Fixture que proporciona repositorios mock limpios."""
     return {
-        'line_repo': MockFeedingLineRepository(),
-        'silo_repo': MockSiloRepository(),
-        'cage_repo': MockCageRepository(),
-        'slot_assignment_repo': MockSlotAssignmentRepository(),
+        "line_repo": MockFeedingLineRepository(),
+        "silo_repo": MockSiloRepository(),
+        "cage_repo": MockCageRepository(),
+        "slot_assignment_repo": MockSlotAssignmentRepository(),
     }
 
 
@@ -44,11 +44,11 @@ def repositories():
 def use_case(repositories):
     """Fixture que proporciona una instancia del caso de uso."""
     return SyncSystemLayoutUseCase(
-        repositories['line_repo'],
-        repositories['silo_repo'],
-        repositories['cage_repo'],
-        repositories['slot_assignment_repo'],
-        ComponentFactory()
+        repositories["line_repo"],
+        repositories["silo_repo"],
+        repositories["cage_repo"],
+        repositories["slot_assignment_repo"],
+        ComponentFactory(),
     )
 
 
@@ -58,11 +58,7 @@ class TestSyncSystemLayout_Create:
     @pytest.mark.asyncio
     async def test_create_empty_layout(self, use_case):
         """Debe crear un layout vacío sin errores."""
-        request = SystemLayoutModel(
-            silos=[],
-            cages=[],
-            feeding_lines=[]
-        )
+        request = SystemLayoutModel(silos=[], cages=[], feeding_lines=[])
 
         silos, cages, lines, _ = await use_case.execute(request)
 
@@ -74,15 +70,7 @@ class TestSyncSystemLayout_Create:
     async def test_create_single_silo(self, use_case):
         """Debe crear un silo y devolver su ID real."""
         request = SystemLayoutModel(
-            silos=[
-                SiloConfigModel(
-                    id="temp-silo-1",
-                    name="Silo A",
-                    capacity=1000.0
-                )
-            ],
-            cages=[],
-            feeding_lines=[]
+            silos=[SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)], cages=[], feeding_lines=[]
         )
 
         silos, cages, lines, _ = await use_case.execute(request)
@@ -96,14 +84,7 @@ class TestSyncSystemLayout_Create:
     async def test_create_single_cage(self, use_case):
         """Debe crear una jaula y devolver su ID real."""
         request = SystemLayoutModel(
-            silos=[],
-            cages=[
-                CageConfigModel(
-                    id="temp-cage-1",
-                    name="Jaula 1"
-                )
-            ],
-            feeding_lines=[]
+            silos=[], cages=[CageConfigModel(id="temp-cage-1", name="Jaula 1")], feeding_lines=[]
         )
 
         silos, cages, lines, _ = await use_case.execute(request)
@@ -116,12 +97,8 @@ class TestSyncSystemLayout_Create:
     async def test_create_complete_feeding_line(self, use_case):
         """Debe crear una línea completa con todos sus componentes."""
         request = SystemLayoutModel(
-            silos=[
-                SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)
-            ],
-            cages=[
-                CageConfigModel(id="temp-cage-1", name="Jaula 1")
-            ],
+            silos=[SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)],
+            cages=[CageConfigModel(id="temp-cage-1", name="Jaula 1")],
             feeding_lines=[
                 FeedingLineConfigModel(
                     id="temp-line-1",
@@ -131,7 +108,7 @@ class TestSyncSystemLayout_Create:
                         name="Soplador 1",
                         non_feeding_power=50.0,
                         blow_before_time=5,
-                        blow_after_time=3
+                        blow_after_time=3,
                     ),
                     sensors_config=[],
                     dosers_config=[
@@ -142,21 +119,15 @@ class TestSyncSystemLayout_Create:
                             doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
-                            current_rate=50.0
+                            current_rate=50.0,
                         )
                     ],
                     selector_config=SelectorConfigModel(
-                        id="temp-selector-1",
-                        name="Selectora 1",
-                        capacity=4,
-                        fast_speed=80.0,
-                        slow_speed=20.0
+                        id="temp-selector-1", name="Selectora 1", capacity=4, fast_speed=80.0, slow_speed=20.0
                     ),
-                    slot_assignments=[
-                        SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")
-                    ]
+                    slot_assignments=[SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")],
                 )
-            ]
+            ],
         )
 
         silos, cages, lines, slots_by_line = await use_case.execute(request)
@@ -178,18 +149,14 @@ class TestSyncSystemLayout_Update:
         """Debe actualizar el nombre de un silo existente."""
         # Crear silo inicial
         create_request = SystemLayoutModel(
-            silos=[SiloConfigModel(id="temp-1", name="Silo Original", capacity=1000.0)],
-            cages=[],
-            feeding_lines=[]
+            silos=[SiloConfigModel(id="temp-1", name="Silo Original", capacity=1000.0)], cages=[], feeding_lines=[]
         )
         create_silos, _, _, _ = await use_case.execute(create_request)
         silo_id = str(create_silos[0].id)
 
         # Actualizar nombre
         update_request = SystemLayoutModel(
-            silos=[SiloConfigModel(id=silo_id, name="Silo Actualizado", capacity=1000.0)],
-            cages=[],
-            feeding_lines=[]
+            silos=[SiloConfigModel(id=silo_id, name="Silo Actualizado", capacity=1000.0)], cages=[], feeding_lines=[]
         )
         update_silos, _, _, _ = await use_case.execute(update_request)
 
@@ -202,18 +169,14 @@ class TestSyncSystemLayout_Update:
         """Debe actualizar la capacidad de un silo existente."""
         # Crear silo inicial
         create_request = SystemLayoutModel(
-            silos=[SiloConfigModel(id="temp-1", name="Silo A", capacity=1000.0)],
-            cages=[],
-            feeding_lines=[]
+            silos=[SiloConfigModel(id="temp-1", name="Silo A", capacity=1000.0)], cages=[], feeding_lines=[]
         )
         create_silos, _, _, _ = await use_case.execute(create_request)
         silo_id = str(create_silos[0].id)
 
         # Actualizar capacidad
         update_request = SystemLayoutModel(
-            silos=[SiloConfigModel(id=silo_id, name="Silo A", capacity=2000.0)],
-            cages=[],
-            feeding_lines=[]
+            silos=[SiloConfigModel(id=silo_id, name="Silo A", capacity=2000.0)], cages=[], feeding_lines=[]
         )
         update_silos, _, _, _ = await use_case.execute(update_request)
 
@@ -228,9 +191,7 @@ class TestSyncSystemLayout_Delete:
         """Debe eliminar un silo que no está en el request."""
         # Crear silo
         create_request = SystemLayoutModel(
-            silos=[SiloConfigModel(id="temp-1", name="Silo A", capacity=1000.0)],
-            cages=[],
-            feeding_lines=[]
+            silos=[SiloConfigModel(id="temp-1", name="Silo A", capacity=1000.0)], cages=[], feeding_lines=[]
         )
         await use_case.execute(create_request)
 
@@ -245,9 +206,7 @@ class TestSyncSystemLayout_Delete:
         """Debe eliminar una jaula que no está en el request."""
         # Crear jaula
         create_request = SystemLayoutModel(
-            silos=[],
-            cages=[CageConfigModel(id="temp-1", name="Jaula 1")],
-            feeding_lines=[]
+            silos=[], cages=[CageConfigModel(id="temp-1", name="Jaula 1")], feeding_lines=[]
         )
         await use_case.execute(create_request)
 
@@ -266,9 +225,7 @@ class TestSyncSystemLayout_BusinessRules:
         """FA2: No debe permitir crear silos con nombres duplicados."""
         # Crear primer silo
         request1 = SystemLayoutModel(
-            silos=[SiloConfigModel(id="temp-1", name="Silo A", capacity=1000.0)],
-            cages=[],
-            feeding_lines=[]
+            silos=[SiloConfigModel(id="temp-1", name="Silo A", capacity=1000.0)], cages=[], feeding_lines=[]
         )
         await use_case.execute(request1)
 
@@ -276,10 +233,10 @@ class TestSyncSystemLayout_BusinessRules:
         request2 = SystemLayoutModel(
             silos=[
                 SiloConfigModel(id="temp-1", name="Silo A", capacity=1000.0),
-                SiloConfigModel(id="temp-2", name="Silo A", capacity=2000.0)
+                SiloConfigModel(id="temp-2", name="Silo A", capacity=2000.0),
             ],
             cages=[],
-            feeding_lines=[]
+            feeding_lines=[],
         )
 
         with pytest.raises(Exception) as exc_info:
@@ -291,21 +248,14 @@ class TestSyncSystemLayout_BusinessRules:
     async def test_fa2_duplicate_cage_name_on_create(self, use_case):
         """FA2: No debe permitir crear jaulas con nombres duplicados."""
         # Crear primera jaula
-        request1 = SystemLayoutModel(
-            silos=[],
-            cages=[CageConfigModel(id="temp-1", name="Jaula 1")],
-            feeding_lines=[]
-        )
+        request1 = SystemLayoutModel(silos=[], cages=[CageConfigModel(id="temp-1", name="Jaula 1")], feeding_lines=[])
         await use_case.execute(request1)
 
         # Intentar crear otra jaula con el mismo nombre
         request2 = SystemLayoutModel(
             silos=[],
-            cages=[
-                CageConfigModel(id="temp-1", name="Jaula 1"),
-                CageConfigModel(id="temp-2", name="Jaula 1")
-            ],
-            feeding_lines=[]
+            cages=[CageConfigModel(id="temp-1", name="Jaula 1"), CageConfigModel(id="temp-2", name="Jaula 1")],
+            feeding_lines=[],
         )
 
         with pytest.raises(Exception) as exc_info:
@@ -329,7 +279,7 @@ class TestSyncSystemLayout_BusinessRules:
                         name="Soplador 1",
                         non_feeding_power=50.0,
                         blow_before_time=5,
-                        blow_after_time=3
+                        blow_after_time=3,
                     ),
                     sensors_config=[],
                     dosers_config=[
@@ -340,21 +290,15 @@ class TestSyncSystemLayout_BusinessRules:
                             doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
-                            current_rate=50.0
+                            current_rate=50.0,
                         )
                     ],
                     selector_config=SelectorConfigModel(
-                        id="temp-selector-1",
-                        name="Selectora 1",
-                        capacity=4,
-                        fast_speed=80.0,
-                        slow_speed=20.0
+                        id="temp-selector-1", name="Selectora 1", capacity=4, fast_speed=80.0, slow_speed=20.0
                     ),
-                    slot_assignments=[
-                        SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")
-                    ]
+                    slot_assignments=[SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")],
                 )
-            ]
+            ],
         )
         r1_silos, r1_cages, r1_lines, _ = await use_case.execute(base_request)
 
@@ -362,11 +306,11 @@ class TestSyncSystemLayout_BusinessRules:
         duplicate_request = SystemLayoutModel(
             silos=[
                 SiloConfigModel(id=str(r1_silos[0].id), name="Silo A", capacity=1000.0),
-                SiloConfigModel(id="temp-silo-2", name="Silo B", capacity=1000.0)
+                SiloConfigModel(id="temp-silo-2", name="Silo B", capacity=1000.0),
             ],
             cages=[
                 CageConfigModel(id=str(r1_cages[0].id), name="Jaula 1"),
-                CageConfigModel(id="temp-cage-2", name="Jaula 2")
+                CageConfigModel(id="temp-cage-2", name="Jaula 2"),
             ],
             feeding_lines=[
                 FeedingLineConfigModel(
@@ -377,7 +321,7 @@ class TestSyncSystemLayout_BusinessRules:
                         name="Soplador 1",
                         non_feeding_power=50.0,
                         blow_before_time=5,
-                        blow_after_time=3
+                        blow_after_time=3,
                     ),
                     sensors_config=[],
                     dosers_config=[
@@ -388,19 +332,13 @@ class TestSyncSystemLayout_BusinessRules:
                             doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
-                            current_rate=50.0
+                            current_rate=50.0,
                         )
                     ],
                     selector_config=SelectorConfigModel(
-                        id="temp-selector-1",
-                        name="Selectora 1",
-                        capacity=4,
-                        fast_speed=80.0,
-                        slow_speed=20.0
+                        id="temp-selector-1", name="Selectora 1", capacity=4, fast_speed=80.0, slow_speed=20.0
                     ),
-                    slot_assignments=[
-                        SlotAssignmentModel(slot_number=1, cage_id=str(r1_cages[0].id))
-                    ]
+                    slot_assignments=[SlotAssignmentModel(slot_number=1, cage_id=str(r1_cages[0].id))],
                 ),
                 FeedingLineConfigModel(
                     id="temp-line-2",
@@ -410,7 +348,7 @@ class TestSyncSystemLayout_BusinessRules:
                         name="Soplador 2",
                         non_feeding_power=50.0,
                         blow_before_time=5,
-                        blow_after_time=3
+                        blow_after_time=3,
                     ),
                     sensors_config=[],
                     dosers_config=[
@@ -421,21 +359,15 @@ class TestSyncSystemLayout_BusinessRules:
                             doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
-                            current_rate=50.0
+                            current_rate=50.0,
                         )
                     ],
                     selector_config=SelectorConfigModel(
-                        id="temp-selector-2",
-                        name="Selectora 2",
-                        capacity=4,
-                        fast_speed=80.0,
-                        slow_speed=20.0
+                        id="temp-selector-2", name="Selectora 2", capacity=4, fast_speed=80.0, slow_speed=20.0
                     ),
-                    slot_assignments=[
-                        SlotAssignmentModel(slot_number=1, cage_id="temp-cage-2")
-                    ]
-                )
-            ]
+                    slot_assignments=[SlotAssignmentModel(slot_number=1, cage_id="temp-cage-2")],
+                ),
+            ],
         )
 
         with pytest.raises(Exception) as exc_info:
@@ -451,12 +383,8 @@ class TestSyncSystemLayout_IDMapping:
     async def test_id_mapping_silo_to_doser(self, use_case):
         """Debe mapear correctamente el ID temporal del silo al doser."""
         request = SystemLayoutModel(
-            silos=[
-                SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)
-            ],
-            cages=[
-                CageConfigModel(id="temp-cage-1", name="Jaula 1")
-            ],
+            silos=[SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)],
+            cages=[CageConfigModel(id="temp-cage-1", name="Jaula 1")],
             feeding_lines=[
                 FeedingLineConfigModel(
                     id="temp-line-1",
@@ -466,7 +394,7 @@ class TestSyncSystemLayout_IDMapping:
                         name="Soplador 1",
                         non_feeding_power=50.0,
                         blow_before_time=5,
-                        blow_after_time=3
+                        blow_after_time=3,
                     ),
                     sensors_config=[],
                     dosers_config=[
@@ -477,21 +405,15 @@ class TestSyncSystemLayout_IDMapping:
                             doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
-                            current_rate=50.0
+                            current_rate=50.0,
                         )
                     ],
                     selector_config=SelectorConfigModel(
-                        id="temp-selector-1",
-                        name="Selectora 1",
-                        capacity=4,
-                        fast_speed=80.0,
-                        slow_speed=20.0
+                        id="temp-selector-1", name="Selectora 1", capacity=4, fast_speed=80.0, slow_speed=20.0
                     ),
-                    slot_assignments=[
-                        SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")
-                    ]
+                    slot_assignments=[SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")],
                 )
-            ]
+            ],
         )
 
         silos, cages, lines, _ = await use_case.execute(request)
@@ -541,9 +463,7 @@ class TestSyncSystemLayout_IDMapping:
                         fast_speed=80.0,
                         slow_speed=20.0,
                     ),
-                    slot_assignments=[
-                        SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")
-                    ],
+                    slot_assignments=[SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")],
                 )
             ],
         )
@@ -598,9 +518,7 @@ class TestSyncSystemLayout_IDMapping:
                         fast_speed=80.0,
                         slow_speed=20.0,
                     ),
-                    slot_assignments=[
-                        SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")
-                    ],
+                    slot_assignments=[SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")],
                 )
             ],
         )
@@ -614,12 +532,8 @@ class TestSyncSystemLayout_IDMapping:
     async def test_id_mapping_cage_to_slot(self, use_case):
         """Debe mapear correctamente el ID temporal de la jaula al slot."""
         request = SystemLayoutModel(
-            silos=[
-                SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)
-            ],
-            cages=[
-                CageConfigModel(id="temp-cage-1", name="Jaula 1")
-            ],
+            silos=[SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)],
+            cages=[CageConfigModel(id="temp-cage-1", name="Jaula 1")],
             feeding_lines=[
                 FeedingLineConfigModel(
                     id="temp-line-1",
@@ -629,7 +543,7 @@ class TestSyncSystemLayout_IDMapping:
                         name="Soplador 1",
                         non_feeding_power=50.0,
                         blow_before_time=5,
-                        blow_after_time=3
+                        blow_after_time=3,
                     ),
                     sensors_config=[],
                     dosers_config=[
@@ -640,21 +554,17 @@ class TestSyncSystemLayout_IDMapping:
                             doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
-                            current_rate=50.0
+                            current_rate=50.0,
                         )
                     ],
                     selector_config=SelectorConfigModel(
-                        id="temp-selector-1",
-                        name="Selectora 1",
-                        capacity=4,
-                        fast_speed=80.0,
-                        slow_speed=20.0
+                        id="temp-selector-1", name="Selectora 1", capacity=4, fast_speed=80.0, slow_speed=20.0
                     ),
                     slot_assignments=[
                         SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")  # ID temporal
-                    ]
+                    ],
                 )
-            ]
+            ],
         )
 
         silos, cages, lines, slots_by_line = await use_case.execute(request)

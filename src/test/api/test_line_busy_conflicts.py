@@ -20,14 +20,19 @@ class BusyUseCase:
 
 
 class ManualControlRequest:
-    operator_id = "operator"
     reason = "test"
+
+
+class FakeCurrentUser:
+    id = "123e4567-e89b-12d3-a456-426614174000"
+    full_name = "Test User"
+    username = "testuser"
 
 
 @pytest.mark.asyncio
 async def test_manual_feeding_line_unavailable_maps_to_409():
     with pytest.raises(HTTPException) as exc_info:
-        await start_manual_feeding(object(), BusyUseCase())
+        await start_manual_feeding(FakeCurrentUser(), object(), BusyUseCase())
 
     assert exc_info.value.status_code == 409
 
@@ -35,7 +40,7 @@ async def test_manual_feeding_line_unavailable_maps_to_409():
 @pytest.mark.asyncio
 async def test_cyclic_feeding_line_unavailable_maps_to_409():
     with pytest.raises(HTTPException) as exc_info:
-        await start_cyclic_feeding(object(), BusyUseCase())
+        await start_cyclic_feeding(FakeCurrentUser(), object(), BusyUseCase())
 
     assert exc_info.value.status_code == 409
 
@@ -43,6 +48,6 @@ async def test_cyclic_feeding_line_unavailable_maps_to_409():
 @pytest.mark.asyncio
 async def test_acquire_manual_control_line_unavailable_maps_to_409():
     with pytest.raises(HTTPException) as exc_info:
-        await acquire_manual_control("line-id", ManualControlRequest(), BusyUseCase())
+        await acquire_manual_control(FakeCurrentUser(), "line-id", ManualControlRequest(), BusyUseCase())
 
     assert exc_info.value.status_code == 409

@@ -1,6 +1,7 @@
 """
 Value Objects específicos del dominio de acuicultura.
 """
+
 from __future__ import annotations
 from dataclasses import dataclass
 
@@ -8,6 +9,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class FishCount:
     """Cantidad de peces en una jaula."""
+
     value: int
 
     def __post_init__(self):
@@ -30,6 +32,7 @@ class FCR:
     Feed Conversion Ratio - Factor de conversión alimenticia.
     Indica cuántos kg de alimento se necesitan para producir 1 kg de biomasa.
     """
+
     value: float
 
     def __post_init__(self):

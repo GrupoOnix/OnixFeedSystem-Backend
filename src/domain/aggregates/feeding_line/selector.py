@@ -63,9 +63,7 @@ class Selector(ISelector):
     def current_slot(self, slot: Optional[int]) -> None:
         if slot is not None:
             if not self.validate_slot(slot):
-                raise ValueError(
-                    f"Slot {slot} está fuera del rango válido (1-{self._capacity.value})"
-                )
+                raise ValueError(f"Slot {slot} está fuera del rango válido (1-{self._capacity.value})")
         self._current_slot = slot
 
     def validate_slot(self, slot_number: int) -> bool:
@@ -83,8 +81,7 @@ class Selector(ISelector):
         """
         if not self.validate_slot(slot_number):
             raise ValueError(
-                f"No se puede mover a slot {slot_number}. "
-                f"El slot debe estar entre 1 y {self._capacity.value}"
+                f"No se puede mover a slot {slot_number}. El slot debe estar entre 1 y {self._capacity.value}"
             )
         self._current_slot = slot_number
 

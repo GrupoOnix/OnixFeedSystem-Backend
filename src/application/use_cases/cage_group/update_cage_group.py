@@ -9,7 +9,13 @@ from application.dtos.cage_group_dtos import (
 )
 from domain.aggregates.cage import Cage
 from domain.aggregates.cage_group import CageGroup
-from domain.repositories import ICageGroupRepository, ICageRepository
+from domain.enums import ActivityLogCategory, ActivityLogEventType
+from domain.repositories import (
+    ICageGroupActivityLogRepository,
+    ICageGroupRepository,
+    ICageRepository,
+)
+from domain.value_objects import CageGroupActivityLogEntry
 from domain.value_objects.identifiers import CageGroupId, CageId
 from domain.value_objects.names import CageGroupName
 
@@ -21,19 +27,20 @@ class UpdateCageGroupUseCase:
         self,
         group_repository: ICageGroupRepository,
         cage_repository: ICageRepository,
+        activity_log_repository: ICageGroupActivityLogRepository,
     ):
         self.group_repository = group_repository
         self.cage_repository = cage_repository
+        self.activity_log_repository = activity_log_repository
 
-    async def execute(
-        self, group_id: str, request: UpdateCageGroupRequest
-    ) -> CageGroupResponse:
+    async def execute(self, group_id: str, request: UpdateCageGroupRequest, actor: str) -> CageGroupResponse:
         """
         Actualiza un grupo de jaulas.
 
         Args:
             group_id: ID del grupo a actualizar
             request: Datos a actualizar (nombre, descripción y/o cage_ids)
+            actor: Usuario que realiza la acción
 
         Returns:
             CageGroupResponse con los datos actualizados
@@ -48,12 +55,14 @@ class UpdateCageGroupUseCase:
         if not group:
             raise ValueError(f"No existe un grupo con ID '{group_id}'")
 
+        old_name = str(group.name)
+        old_cage_ids = [str(cage_id.value) for cage_id in group.cage_ids]
+        old_description = group.description
+
         # 2. Actualizar nombre si se proporciona
         if request.name is not None:
             # Validar que el nuevo nombre no exista (excepto el actual)
-            if await self.group_repository.exists_by_name(
-                request.name, exclude_id=group_id_obj
-            ):
+            if await self.group_repository.exists_by_name(request.name, exclude_id=group_id_obj):
                 raise ValueError(f"Ya existe un grupo con el nombre '{request.name}'")
 
             group.update_name(CageGroupName(request.name))
@@ -74,7 +83,32 @@ class UpdateCageGroupUseCase:
         # 5. Persistir cambios
         await self.group_repository.save(group)
 
-        # 6. Cargar jaulas y retornar
+        # 6. Registrar actividad por cambios relevantes
+        new_name = str(group.name)
+        new_cage_ids = [str(cage_id.value) for cage_id in group.cage_ids]
+        new_description = group.description
+
+        changes = []
+        if request.name is not None and old_name != new_name:
+            changes.append(f"nombre: {old_name} → {new_name}")
+        if request.cage_ids is not None and old_cage_ids != new_cage_ids:
+            changes.append(f"jaulas: {len(old_cage_ids)} → {len(new_cage_ids)}")
+        if request.description is not None and old_description != new_description:
+            changes.append("descripción actualizada")
+
+        if changes:
+            await self.activity_log_repository.save(
+                CageGroupActivityLogEntry.create(
+                    cage_group_id=group.id,
+                    event_type=ActivityLogEventType.CONFIG,
+                    category=ActivityLogCategory.CONFIG,
+                    message="Grupo de jaulas actualizado",
+                    details="; ".join(changes),
+                    actor=actor,
+                )
+            )
+
+        # 7. Cargar jaulas y retornar
         cages = await self._load_cages(group.cage_ids)
         return self._to_response(group, cages)
 
@@ -102,9 +136,7 @@ class UpdateCageGroupUseCase:
                 cages.append(cage)
         return cages
 
-    def _to_response(
-        self, cage_group: CageGroup, cages: List[Cage]
-    ) -> CageGroupResponse:
+    def _to_response(self, cage_group: CageGroup, cages: List[Cage]) -> CageGroupResponse:
         """Convierte la entidad a response DTO."""
         metrics = cage_group.calculate_metrics(cages)
 

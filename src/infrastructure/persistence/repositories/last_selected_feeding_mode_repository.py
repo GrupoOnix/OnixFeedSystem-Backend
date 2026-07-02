@@ -21,9 +21,7 @@ class LastSelectedFeedingModeRepository:
 
     async def find_by_line_id(self, line_id: UUID) -> Optional[LastSelectedFeedingModeModel]:
         result = await self.session.execute(
-            select(LastSelectedFeedingModeModel).where(
-                col(LastSelectedFeedingModeModel.line_id) == line_id
-            )
+            select(LastSelectedFeedingModeModel).where(col(LastSelectedFeedingModeModel.line_id) == line_id)
         )
         return result.scalar_one_or_none()
 

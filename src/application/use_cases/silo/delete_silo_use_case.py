@@ -29,9 +29,7 @@ class DeleteSiloUseCase:
 
         # Validar que no esté asignado a un dosificador
         if silo.is_assigned:
-            raise SiloInUseError(
-                f"No se puede eliminar el silo '{silo.name}' porque está asignado a un dosificador"
-            )
+            raise SiloInUseError(f"No se puede eliminar el silo '{silo.name}' porque está asignado a un dosificador")
 
         # Eliminar el silo
         await self._silo_repository.delete(silo_id_vo)

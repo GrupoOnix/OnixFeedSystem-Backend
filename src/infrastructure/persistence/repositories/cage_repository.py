@@ -66,9 +66,7 @@ class CageRepository(ICageRepository):
         cage_models = result.scalars().all()
         return [model.to_domain() for model in cage_models]
 
-    async def list_with_line_info(
-        self, line_id: Optional[LineId] = None
-    ) -> List[Tuple[Cage, Optional[str]]]:
+    async def list_with_line_info(self, line_id: Optional[LineId] = None) -> List[Tuple[Cage, Optional[str]]]:
         """Lista jaulas con el nombre de la línea asignada, si existe."""
         stmt = (
             select(CageModel, col(FeedingLineModel.name))
@@ -87,10 +85,7 @@ class CageRepository(ICageRepository):
             stmt = stmt.where(col(SlotAssignmentModel.line_id) == line_id.value)
 
         result = await self.session.execute(stmt)
-        return [
-            (cage_model.to_domain(), line_name)
-            for cage_model, line_name in result.all()
-        ]
+        return [(cage_model.to_domain(), line_name) for cage_model, line_name in result.all()]
 
     async def delete(self, cage_id: CageId) -> None:
         """Elimina una jaula."""

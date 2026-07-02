@@ -7,6 +7,7 @@ from domain.value_objects import SiloId, CageId, LineId
 @dataclass
 class Delta:
     """Representa las diferencias entre el estado deseado y el actual."""
+
     silos_to_create: List[Any]
     silos_to_update: Dict[SiloId, Any]
     silos_to_delete: Set[SiloId]
@@ -25,10 +26,7 @@ class DeltaCalculator:
 
     @staticmethod
     async def calculate(
-        request: Any,
-        line_repo: IFeedingLineRepository,
-        silo_repo: ISiloRepository,
-        cage_repo: ICageRepository
+        request: Any, line_repo: IFeedingLineRepository, silo_repo: ISiloRepository, cage_repo: ICageRepository
     ) -> Delta:
         """Calcula qué crear, actualizar y eliminar."""
 
@@ -86,13 +84,14 @@ class DeltaCalculator:
             cages_to_delete=cage_ids_to_delete,
             lines_to_create=lines_to_create,
             lines_to_update=lines_to_update,
-            lines_to_delete=line_ids_to_delete
+            lines_to_delete=line_ids_to_delete,
         )
 
     @staticmethod
     def _is_uuid(id_str: str) -> bool:
         """Verifica si un string es un UUID válido."""
         import uuid
+
         try:
             uuid.UUID(id_str)
             return True

@@ -35,9 +35,7 @@ class PopulationEventRepository(IPopulationEventRepository):
         offset: int = 0,
     ) -> List[PopulationEvent]:
         """Lista eventos de población de una jaula."""
-        query = select(PopulationEventModel).where(
-            col(PopulationEventModel.cage_id) == cage_id.value
-        )
+        query = select(PopulationEventModel).where(col(PopulationEventModel.cage_id) == cage_id.value)
 
         if event_types:
             type_values = [et.value for et in event_types]

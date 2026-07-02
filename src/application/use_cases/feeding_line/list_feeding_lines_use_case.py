@@ -17,9 +17,7 @@ from infrastructure.persistence.models import SlotAssignmentModel
 class ListFeedingLinesUseCase:
     """Caso de uso para listar todas las líneas de alimentación."""
 
-    def __init__(
-        self, feeding_line_repository: IFeedingLineRepository, session: AsyncSession
-    ):
+    def __init__(self, feeding_line_repository: IFeedingLineRepository, session: AsyncSession):
         self._feeding_line_repository = feeding_line_repository
         self._session = session
 
@@ -37,22 +35,16 @@ class ListFeedingLinesUseCase:
         cage_counts = await self._get_cage_counts_by_line()
 
         # Convertir a DTOs
-        line_dtos = [
-            self._to_dto(line, cage_counts.get(str(line.id.value), 0))
-            for line in feeding_lines
-        ]
+        line_dtos = [self._to_dto(line, cage_counts.get(str(line.id.value), 0)) for line in feeding_lines]
 
         return ListFeedingLinesResponse(feeding_lines=line_dtos)
 
     async def _get_cage_counts_by_line(self) -> dict[str, int]:
         """Obtiene el conteo de jaulas por línea."""
-        stmt = (
-            select(
-                col(SlotAssignmentModel.line_id),
-                func.count(col(SlotAssignmentModel.cage_id)),
-            )
-            .group_by(col(SlotAssignmentModel.line_id))
-        )
+        stmt = select(
+            col(SlotAssignmentModel.line_id),
+            func.count(col(SlotAssignmentModel.cage_id)),
+        ).group_by(col(SlotAssignmentModel.line_id))
 
         result = await self._session.execute(stmt)
         return {str(line_id): count for line_id, count in result.all()}

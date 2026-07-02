@@ -36,9 +36,7 @@ class CoolerRepository:
         cooler_model = result.scalar_one_or_none()
         return cooler_model.to_domain() if cooler_model else None
 
-    async def find_by_id_with_context(
-        self, cooler_id: UUID
-    ) -> Optional[CoolerWithContext]:
+    async def find_by_id_with_context(self, cooler_id: UUID) -> Optional[CoolerWithContext]:
         """Busca un cooler por su ID y devuelve también información de la línea."""
         stmt = (
             select(CoolerModel)

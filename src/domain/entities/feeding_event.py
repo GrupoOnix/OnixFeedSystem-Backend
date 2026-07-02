@@ -6,6 +6,7 @@ from enum import Enum
 
 class FeedingEventType(Enum):
     """Tipos de eventos que ocurren durante una sesión de alimentación."""
+
     # Eventos de sesión
     SESSION_STARTED = "session_started"
     SESSION_PAUSED = "session_paused"
@@ -35,6 +36,7 @@ class FeedingEvent:
     Entidad inmutable que representa un evento durante una sesión de alimentación.
     Los eventos se registran para trazabilidad y auditoría.
     """
+
     def __init__(
         self,
         feeding_session_id: str,
@@ -79,7 +81,7 @@ class FeedingEvent:
         return cls(
             feeding_session_id=feeding_session_id,
             event_type=FeedingEventType.SESSION_STARTED,
-            data={"operator_id": operator_id}
+            data={"operator_id": operator_id},
         )
 
     @classmethod
@@ -88,7 +90,7 @@ class FeedingEvent:
         return cls(
             feeding_session_id=feeding_session_id,
             event_type=FeedingEventType.SESSION_PAUSED,
-            data={"operator_id": operator_id, "reason": reason}
+            data={"operator_id": operator_id, "reason": reason},
         )
 
     @classmethod
@@ -97,7 +99,7 @@ class FeedingEvent:
         return cls(
             feeding_session_id=feeding_session_id,
             event_type=FeedingEventType.SESSION_RESUMED,
-            data={"operator_id": operator_id}
+            data={"operator_id": operator_id},
         )
 
     @classmethod
@@ -106,10 +108,7 @@ class FeedingEvent:
         return cls(
             feeding_session_id=feeding_session_id,
             event_type=FeedingEventType.SESSION_COMPLETED,
-            data={
-                "total_dispensed_kg": total_dispensed_kg,
-                "duration_seconds": duration_seconds
-            }
+            data={"total_dispensed_kg": total_dispensed_kg, "duration_seconds": duration_seconds},
         )
 
     @classmethod
@@ -118,7 +117,7 @@ class FeedingEvent:
         return cls(
             feeding_session_id=feeding_session_id,
             event_type=FeedingEventType.SESSION_CANCELLED,
-            data={"operator_id": operator_id, "reason": reason}
+            data={"operator_id": operator_id, "reason": reason},
         )
 
     @classmethod
@@ -127,7 +126,7 @@ class FeedingEvent:
         return cls(
             feeding_session_id=feeding_session_id,
             event_type=FeedingEventType.SESSION_INTERRUPTED,
-            data={"reason": reason, "pending_visits": pending_visits}
+            data={"reason": reason, "pending_visits": pending_visits},
         )
 
     # Factory methods para eventos de visita
@@ -150,7 +149,7 @@ class FeedingEvent:
                 "visit_number": visit_number,
                 "cycle_number": cycle_number,
                 "is_empty_visit": is_empty_visit,
-            }
+            },
         )
 
     @classmethod
@@ -175,7 +174,7 @@ class FeedingEvent:
                 "dispensed_grams": dispensed_grams,
                 "duration_seconds": duration_seconds,
                 "is_empty_visit": is_empty_visit,
-            }
+            },
         )
 
     @classmethod
@@ -185,7 +184,7 @@ class FeedingEvent:
         cage_id: str,
         visit_number: int,
         cycle_number: int,
-        simulated_duration_seconds: float
+        simulated_duration_seconds: float,
     ):
         """Evento de visita simulada (modo PAUSE)."""
         return cls(
@@ -195,20 +194,15 @@ class FeedingEvent:
                 "cage_id": cage_id,
                 "visit_number": visit_number,
                 "cycle_number": cycle_number,
-                "simulated_duration_seconds": simulated_duration_seconds
-            }
+                "simulated_duration_seconds": simulated_duration_seconds,
+            },
         )
 
     # Factory methods para eventos de configuración
 
     @classmethod
     def rate_changed(
-        cls,
-        feeding_session_id: str,
-        cage_id: str,
-        previous_rate: float,
-        new_rate: float,
-        applied_immediately: bool
+        cls, feeding_session_id: str, cage_id: str, previous_rate: float, new_rate: float, applied_immediately: bool
     ):
         """Evento de cambio de tasa de alimentación."""
         return cls(
@@ -218,8 +212,8 @@ class FeedingEvent:
                 "cage_id": cage_id,
                 "previous_rate": previous_rate,
                 "new_rate": new_rate,
-                "applied_immediately": applied_immediately
-            }
+                "applied_immediately": applied_immediately,
+            },
         )
 
     @classmethod
@@ -230,7 +224,7 @@ class FeedingEvent:
         previous_amount_kg: float,
         new_amount_kg: float,
         live_dispensed_kg: float,
-        applied_immediately: bool
+        applied_immediately: bool,
     ):
         """Evento de cambio de cantidad objetivo de alimentación."""
         return cls(
@@ -241,8 +235,8 @@ class FeedingEvent:
                 "previous_amount_kg": previous_amount_kg,
                 "new_amount_kg": new_amount_kg,
                 "live_dispensed_kg": live_dispensed_kg,
-                "applied_immediately": applied_immediately
-            }
+                "applied_immediately": applied_immediately,
+            },
         )
 
     @classmethod
@@ -265,38 +259,24 @@ class FeedingEvent:
                 "new_mode": new_mode,
                 "operator_id": operator_id,
                 "applied_immediately": applied_immediately,
-            }
+            },
         )
 
     # Factory methods para eventos de alarma y PLC
 
     @classmethod
-    def alarm_triggered(
-        cls,
-        feeding_session_id: str,
-        alarm_type: str,
-        sensor_value: float,
-        threshold: float
-    ):
+    def alarm_triggered(cls, feeding_session_id: str, alarm_type: str, sensor_value: float, threshold: float):
         """Evento de alarma activada."""
         return cls(
             feeding_session_id=feeding_session_id,
             event_type=FeedingEventType.ALARM,
-            data={
-                "alarm_type": alarm_type,
-                "sensor_value": sensor_value,
-                "threshold": threshold
-            }
+            data={"alarm_type": alarm_type, "sensor_value": sensor_value, "threshold": threshold},
         )
 
     @classmethod
     def plc_connection_lost(cls, feeding_session_id: str):
         """Evento de pérdida de conexión con el PLC."""
-        return cls(
-            feeding_session_id=feeding_session_id,
-            event_type=FeedingEventType.PLC_CONNECTION_LOST,
-            data={}
-        )
+        return cls(feeding_session_id=feeding_session_id, event_type=FeedingEventType.PLC_CONNECTION_LOST, data={})
 
     @classmethod
     def plc_safe_mode_activated(cls, feeding_session_id: str, reason: str):
@@ -304,5 +284,5 @@ class FeedingEvent:
         return cls(
             feeding_session_id=feeding_session_id,
             event_type=FeedingEventType.PLC_SAFE_MODE_ACTIVATED,
-            data={"reason": reason}
+            data={"reason": reason},
         )

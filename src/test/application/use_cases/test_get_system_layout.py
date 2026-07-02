@@ -33,10 +33,10 @@ from infrastructure.persistence.mock_repositories import (
 def repositories():
     """Fixture que proporciona repositorios mock limpios."""
     return {
-        'line_repo': MockFeedingLineRepository(),
-        'silo_repo': MockSiloRepository(),
-        'cage_repo': MockCageRepository(),
-        'slot_assignment_repo': MockSlotAssignmentRepository(),
+        "line_repo": MockFeedingLineRepository(),
+        "silo_repo": MockSiloRepository(),
+        "cage_repo": MockCageRepository(),
+        "slot_assignment_repo": MockSlotAssignmentRepository(),
     }
 
 
@@ -44,10 +44,10 @@ def repositories():
 def get_use_case(repositories):
     """Fixture que proporciona una instancia del caso de uso GetSystemLayout."""
     return GetSystemLayoutUseCase(
-        repositories['line_repo'],
-        repositories['silo_repo'],
-        repositories['cage_repo'],
-        repositories['slot_assignment_repo'],
+        repositories["line_repo"],
+        repositories["silo_repo"],
+        repositories["cage_repo"],
+        repositories["slot_assignment_repo"],
     )
 
 
@@ -55,11 +55,11 @@ def get_use_case(repositories):
 def sync_use_case(repositories):
     """Fixture que proporciona una instancia del caso de uso SyncSystemLayout."""
     return SyncSystemLayoutUseCase(
-        repositories['line_repo'],
-        repositories['silo_repo'],
-        repositories['cage_repo'],
-        repositories['slot_assignment_repo'],
-        ComponentFactory()
+        repositories["line_repo"],
+        repositories["silo_repo"],
+        repositories["cage_repo"],
+        repositories["slot_assignment_repo"],
+        ComponentFactory(),
     )
 
 
@@ -85,10 +85,10 @@ class TestGetSystemLayout_WithData:
         create_request = SystemLayoutModel(
             silos=[
                 SiloConfigModel(id="temp-1", name="Silo A", capacity=1000.0),
-                SiloConfigModel(id="temp-2", name="Silo B", capacity=2000.0)
+                SiloConfigModel(id="temp-2", name="Silo B", capacity=2000.0),
             ],
             cages=[],
-            feeding_lines=[]
+            feeding_lines=[],
         )
         await sync_use_case.execute(create_request)
 
@@ -107,11 +107,8 @@ class TestGetSystemLayout_WithData:
         """Debe devolver solo jaulas cuando solo hay jaulas en BD."""
         create_request = SystemLayoutModel(
             silos=[],
-            cages=[
-                CageConfigModel(id="temp-1", name="Jaula 1"),
-                CageConfigModel(id="temp-2", name="Jaula 2")
-            ],
-            feeding_lines=[]
+            cages=[CageConfigModel(id="temp-1", name="Jaula 1"), CageConfigModel(id="temp-2", name="Jaula 2")],
+            feeding_lines=[],
         )
         await sync_use_case.execute(create_request)
 
@@ -128,12 +125,8 @@ class TestGetSystemLayout_WithData:
     async def test_get_complete_layout(self, get_use_case, sync_use_case):
         """Debe devolver el layout completo con todos los tipos de agregados."""
         create_request = SystemLayoutModel(
-            silos=[
-                SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)
-            ],
-            cages=[
-                CageConfigModel(id="temp-cage-1", name="Jaula 1")
-            ],
+            silos=[SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)],
+            cages=[CageConfigModel(id="temp-cage-1", name="Jaula 1")],
             feeding_lines=[
                 FeedingLineConfigModel(
                     id="temp-line-1",
@@ -144,7 +137,7 @@ class TestGetSystemLayout_WithData:
                         blower_type="standard",
                         non_feeding_power=50.0,
                         blow_before_time=5,
-                        blow_after_time=3
+                        blow_after_time=3,
                     ),
                     sensors_config=[],
                     dosers_config=[
@@ -155,7 +148,7 @@ class TestGetSystemLayout_WithData:
                             doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
-                            current_rate=50.0
+                            current_rate=50.0,
                         )
                     ],
                     selector_config=SelectorConfigModel(
@@ -164,13 +157,11 @@ class TestGetSystemLayout_WithData:
                         selector_type="standard",
                         capacity=4,
                         fast_speed=80.0,
-                        slow_speed=20.0
+                        slow_speed=20.0,
                     ),
-                    slot_assignments=[
-                        SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")
-                    ]
+                    slot_assignments=[SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")],
                 )
-            ]
+            ],
         )
         await sync_use_case.execute(create_request)
 
@@ -204,13 +195,10 @@ class TestGetSystemLayout_Consistency:
         request = SystemLayoutModel(
             silos=[
                 SiloConfigModel(id="temp-1", name="Silo A", capacity=1000.0),
-                SiloConfigModel(id="temp-2", name="Silo B", capacity=2000.0)
+                SiloConfigModel(id="temp-2", name="Silo B", capacity=2000.0),
             ],
-            cages=[
-                CageConfigModel(id="temp-1", name="Jaula 1"),
-                CageConfigModel(id="temp-2", name="Jaula 2")
-            ],
-            feeding_lines=[]
+            cages=[CageConfigModel(id="temp-1", name="Jaula 1"), CageConfigModel(id="temp-2", name="Jaula 2")],
+            feeding_lines=[],
         )
 
         sync_silos, sync_cages, sync_lines, _ = await sync_use_case.execute(request)
@@ -232,17 +220,13 @@ class TestGetSystemLayout_Consistency:
     async def test_multiple_sync_then_get(self, get_use_case, sync_use_case):
         """Get debe reflejar el último estado después de múltiples Sync."""
         request1 = SystemLayoutModel(
-            silos=[SiloConfigModel(id="temp-1", name="Silo Original", capacity=1000.0)],
-            cages=[],
-            feeding_lines=[]
+            silos=[SiloConfigModel(id="temp-1", name="Silo Original", capacity=1000.0)], cages=[], feeding_lines=[]
         )
         result_silos, _, _, _ = await sync_use_case.execute(request1)
         silo_id = str(result_silos[0].id)
 
         request2 = SystemLayoutModel(
-            silos=[SiloConfigModel(id=silo_id, name="Silo Actualizado", capacity=2000.0)],
-            cages=[],
-            feeding_lines=[]
+            silos=[SiloConfigModel(id=silo_id, name="Silo Actualizado", capacity=2000.0)], cages=[], feeding_lines=[]
         )
         await sync_use_case.execute(request2)
 

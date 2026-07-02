@@ -107,9 +107,7 @@ class DoserState:
                 self.current_speed_percentage = self.target_speed_percentage
 
             # Calcular dispensado basado en velocidad actual
-            flow_rate_kg_per_sec = (self.max_flow_rate_kg_per_hour / 3600.0) * (
-                self.current_speed_percentage / 100.0
-            )
+            flow_rate_kg_per_sec = (self.max_flow_rate_kg_per_hour / 3600.0) * (self.current_speed_percentage / 100.0)
 
             dispensed = flow_rate_kg_per_sec * delta_seconds
             self.total_dispensed_kg += dispensed
@@ -247,9 +245,7 @@ class PLCSimulator(IFeedingMachine):
                 msg += f" | {details}"
             logger.info(msg)
 
-    async def send_configuration(
-        self, line_id: LineId, config: MachineConfiguration
-    ) -> None:
+    async def send_configuration(self, line_id: LineId, config: MachineConfiguration) -> None:
         """
         Envía configuración al PLC simulado.
 
@@ -402,9 +398,7 @@ class PLCSimulator(IFeedingMachine):
             # Nota: En implementación real, las velocidades deberían
             # estar guardadas antes de la pausa
 
-            self._log_action(
-                line_id, "RESUMED", f"From {state.doser.total_dispensed_kg:.2f}kg"
-            )
+            self._log_action(line_id, "RESUMED", f"From {state.doser.total_dispensed_kg:.2f}kg")
 
     async def stop(self, line_id: LineId) -> None:
         """
@@ -432,9 +426,7 @@ class PLCSimulator(IFeedingMachine):
 
         state.selector.state = ComponentState.OFF
 
-        self._log_action(
-            line_id, "STOPPED (Hard)", f"Final dispensed: {final_dispensed:.2f}kg"
-        )
+        self._log_action(line_id, "STOPPED (Hard)", f"Final dispensed: {final_dispensed:.2f}kg")
 
     # ============================================================================
     # Métodos auxiliares para testing y debugging
@@ -473,9 +465,7 @@ class PLCSimulator(IFeedingMachine):
             },
         }
 
-    def simulate_error(
-        self, line_id: LineId, error_code: int, enable: bool = True
-    ) -> None:
+    def simulate_error(self, line_id: LineId, error_code: int, enable: bool = True) -> None:
         """
         Simula un error en la línea (solo para testing).
         No forma parte de la interfaz IFeedingMachine.
@@ -485,9 +475,7 @@ class PLCSimulator(IFeedingMachine):
         state.error_code = error_code if enable else None
 
         if enable:
-            logger.warning(
-                f"[PLC-SIM] Line {line_id}: ERROR SIMULATED - Code {error_code}"
-            )
+            logger.warning(f"[PLC-SIM] Line {line_id}: ERROR SIMULATED - Code {error_code}")
 
     # =========================================================================
     # Control individual de dispositivos (IFeedingMachine interface)
@@ -571,10 +559,7 @@ class PLCSimulator(IFeedingMachine):
         print(f"  Destino:  {destino}")
         print(f"{'=' * 65}\n")
 
-        logger.info(
-            f"[PLC-SIM] SELECTOR '{command.selector_name}' en '{command.line_name}': "
-            f"{action} -> {destino}"
-        )
+        logger.info(f"[PLC-SIM] SELECTOR '{command.selector_name}' en '{command.line_name}': {action} -> {destino}")
 
     async def set_cooler_power(self, command: CoolerCommand) -> None:
         """
@@ -705,6 +690,4 @@ class PLCSimulator(IFeedingMachine):
                 f"(feeding={is_feeding})"
             )
 
-        return SensorReadings(
-            line_id=str(line_id), readings=readings, timestamp=timestamp
-        )
+        return SensorReadings(line_id=str(line_id), readings=readings, timestamp=timestamp)

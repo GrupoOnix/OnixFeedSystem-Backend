@@ -131,7 +131,7 @@ async def test_cancel_feeding_stops_machine_and_turns_off_persisted_blower():
         activity_log_repository=_ActivityLogRepo(),
     )
 
-    await use_case.execute(session.id, operator_id="operator-2", reason="manual stop")
+    await use_case.execute(session.id, operator_id="operator-2", actor="operator-2", reason="manual stop")
 
     assert machine.stopped_line_id == line_id
     assert line.blower.current_power.value == 0.0

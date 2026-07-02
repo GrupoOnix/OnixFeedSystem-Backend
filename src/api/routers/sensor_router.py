@@ -5,13 +5,13 @@ Proporciona acceso a las lecturas en tiempo real de los sensores
 y gestión de configuración de sensores en las líneas de alimentación.
 """
 
-
 from fastapi import APIRouter, HTTPException, status
 
 from api.dependencies import (
     GetLineSensorsUseCaseDep,
     GetSensorReadingsUseCaseDep,
     UpdateSensorUseCaseDep,
+    CurrentUserDep,
 )
 from api.models.sensors import (
     SensorDetailResponse,
@@ -95,6 +95,7 @@ router = APIRouter(prefix="/feeding-lines", tags=["sensors"])
     },
 )
 async def get_sensor_readings(
+    current_user: CurrentUserDep,
     line_id: str,
     use_case: GetSensorReadingsUseCaseDep,
 ) -> SensorReadingsResponse:
@@ -154,6 +155,7 @@ async def get_sensor_readings(
     },
 )
 async def list_sensors(
+    current_user: CurrentUserDep,
     line_id: str,
     use_case: GetLineSensorsUseCaseDep,
 ) -> SensorsListResponse:
@@ -200,6 +202,7 @@ async def list_sensors(
     },
 )
 async def update_sensor(
+    current_user: CurrentUserDep,
     line_id: str,
     sensor_id: str,
     request: UpdateSensorRequest,

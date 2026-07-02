@@ -1,6 +1,7 @@
 """
 Modelo de persistencia para operaciones de alimentación.
 """
+
 from datetime import datetime
 from typing import Optional, Dict, Any, List, TYPE_CHECKING
 from uuid import UUID
@@ -19,6 +20,7 @@ class FeedingOperationModel(SQLModel, table=True):
     Modelo de persistencia para operaciones de alimentación.
     Una operación representa una visita a una jaula (de START a STOP).
     """
+
     __tablename__ = "feeding_operations"
 
     # Primary Key
@@ -40,8 +42,7 @@ class FeedingOperationModel(SQLModel, table=True):
     # Relationships
     session: "FeedingSessionModel" = Relationship()
     events: List["OperationEventModel"] = Relationship(
-        back_populates="operation",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        back_populates="operation", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
 
     class Config:

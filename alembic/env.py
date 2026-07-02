@@ -19,6 +19,7 @@ from sqlmodel import SQLModel
 from src.infrastructure.persistence.database import DATABASE_URL
 
 from src.infrastructure.persistence.models.cage_model import CageModel
+from src.infrastructure.persistence.models.cage_group_activity_log_model import CageGroupActivityLogModel
 from src.infrastructure.persistence.models.silo_model import SiloModel
 from src.infrastructure.persistence.models.feeding_line_model import FeedingLineModel
 from src.infrastructure.persistence.models.blower_model import BlowerModel
@@ -35,6 +36,7 @@ from src.infrastructure.persistence.models.feeding_event_model import FeedingEve
 # from src.infrastructure.persistence.models.operation_event_model import OperationEventModel  # REMOVED - Old feeding system
 from src.infrastructure.persistence.models.cage_feeding_model import CageFeedingModel
 from src.infrastructure.persistence.models.system_config_model import SystemConfigModel
+from src.infrastructure.persistence.models.user_model import UserModel
 from src.infrastructure.persistence.models.silo_inventory_model import (
     FeedingBatchConsumptionModel,
     SiloInventoryBatchModel,

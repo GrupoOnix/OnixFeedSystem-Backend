@@ -43,7 +43,7 @@ class FeedingEventRepository(IFeedingEventRepository):
             .where(
                 and_(
                     col(FeedingEventModel.feeding_session_id) == session_id,
-                    col(FeedingEventModel.event_type) == event_type.value
+                    col(FeedingEventModel.event_type) == event_type.value,
                 )
             )
             .order_by(col(FeedingEventModel.timestamp).desc())

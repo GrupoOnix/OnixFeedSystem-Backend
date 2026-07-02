@@ -40,9 +40,7 @@ class GetLineSensorsUseCase:
 
         line = await self._feeding_line_repo.find_by_id(line_id)
         if not line:
-            raise FeedingLineNotFoundException(
-                f"No se encontró la línea de alimentación con ID: {line_id}"
-            )
+            raise FeedingLineNotFoundException(f"No se encontró la línea de alimentación con ID: {line_id}")
 
         sensors_dto = [
             SensorDetailDTO(

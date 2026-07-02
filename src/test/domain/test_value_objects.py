@@ -14,12 +14,19 @@ from uuid import UUID
 import pytest
 
 from domain.value_objects import (
-    LineId, LineName,
-    CageId, CageName,
-    SiloId, SiloName,
-    SessionId, OperationId,
-    Weight, Volume, Density,
-    FCR, FishCount
+    LineId,
+    LineName,
+    CageId,
+    CageName,
+    SiloId,
+    SiloName,
+    SessionId,
+    OperationId,
+    Weight,
+    Volume,
+    Density,
+    FCR,
+    FishCount,
 )
 
 

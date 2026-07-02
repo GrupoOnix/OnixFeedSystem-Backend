@@ -55,8 +55,7 @@ class FeedingLineRepository(IFeedingLineRepository):
             current_status = await self._get_current_status(feeding_line.id)
             status_detail = current_status or "desconocido"
             raise FeedingLineUnavailableException(
-                f"No se puede reservar la línea {feeding_line.name.value}: "
-                f"estado actual {status_detail}"
+                f"No se puede reservar la línea {feeding_line.name.value}: estado actual {status_detail}"
             )
 
         await self.session.flush()
@@ -124,9 +123,7 @@ class FeedingLineRepository(IFeedingLineRepository):
         if not doser_ids:
             return
 
-        await self.session.execute(
-            delete(DoserSiloModel).where(col(DoserSiloModel.doser_id).in_(doser_ids))
-        )
+        await self.session.execute(delete(DoserSiloModel).where(col(DoserSiloModel.doser_id).in_(doser_ids)))
 
         for doser in feeding_line.dosers:
             for silo_id in doser.assigned_silo_ids:

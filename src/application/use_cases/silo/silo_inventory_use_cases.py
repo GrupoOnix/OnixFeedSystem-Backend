@@ -39,9 +39,7 @@ class UpdateSiloBatchUseCase:
     def __init__(self, inventory_repository: SiloInventoryRepository):
         self._repository = inventory_repository
 
-    async def execute(
-        self, silo_id: str, batch_id: str, request: UpdateSiloBatchRequest
-    ) -> SiloInventoryBatchDTO:
+    async def execute(self, silo_id: str, batch_id: str, request: UpdateSiloBatchRequest) -> SiloInventoryBatchDTO:
         batch = await self._repository.update_batch(
             UUID(silo_id),
             UUID(batch_id),
@@ -57,9 +55,7 @@ class MoveSiloBatchUseCase:
     def __init__(self, inventory_repository: SiloInventoryRepository):
         self._repository = inventory_repository
 
-    async def execute(
-        self, silo_id: str, batch_id: str, request: MoveSiloBatchRequest
-    ) -> SiloInventoryBatchDTO:
+    async def execute(self, silo_id: str, batch_id: str, request: MoveSiloBatchRequest) -> SiloInventoryBatchDTO:
         batch = await self._repository.move_batch(
             UUID(silo_id),
             UUID(batch_id),
@@ -75,9 +71,7 @@ class WithdrawSiloBatchUseCase:
     def __init__(self, inventory_repository: SiloInventoryRepository):
         self._repository = inventory_repository
 
-    async def execute(
-        self, silo_id: str, batch_id: str, request: WithdrawSiloBatchRequest
-    ) -> SiloInventoryBatchDTO:
+    async def execute(self, silo_id: str, batch_id: str, request: WithdrawSiloBatchRequest) -> SiloInventoryBatchDTO:
         batch = await self._repository.withdraw_batch(
             UUID(silo_id),
             UUID(batch_id),

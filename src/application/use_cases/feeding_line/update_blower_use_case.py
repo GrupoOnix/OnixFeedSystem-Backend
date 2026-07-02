@@ -33,9 +33,7 @@ class UpdateBlowerUseCase:
         feeding_line = await self._feeding_line_repository.find_by_id(LineId.from_string(line_id))
 
         if not feeding_line:
-            raise FeedingLineNotFoundException(
-                f"Línea de alimentación con ID {line_id} no encontrada"
-            )
+            raise FeedingLineNotFoundException(f"Línea de alimentación con ID {line_id} no encontrada")
 
         # Actualizar nombre si se proporciona
         if request.name is not None:
@@ -43,27 +41,19 @@ class UpdateBlowerUseCase:
 
         # Actualizar potencia sin alimentación si se proporciona
         if request.non_feeding_power is not None:
-            feeding_line.blower.non_feeding_power = BlowerPowerPercentage(
-                request.non_feeding_power
-            )
+            feeding_line.blower.non_feeding_power = BlowerPowerPercentage(request.non_feeding_power)
 
         # Actualizar potencia actual si se proporciona
         if request.current_power is not None:
-            feeding_line.blower.current_power = BlowerPowerPercentage(
-                request.current_power
-            )
+            feeding_line.blower.current_power = BlowerPowerPercentage(request.current_power)
 
         # Actualizar tiempo de soplado antes si se proporciona
         if request.blow_before_feeding_time is not None:
-            feeding_line.blower.blow_before_feeding_time = BlowDurationInSeconds(
-                request.blow_before_feeding_time
-            )
+            feeding_line.blower.blow_before_feeding_time = BlowDurationInSeconds(request.blow_before_feeding_time)
 
         # Actualizar tiempo de soplado después si se proporciona
         if request.blow_after_feeding_time is not None:
-            feeding_line.blower.blow_after_feeding_time = BlowDurationInSeconds(
-                request.blow_after_feeding_time
-            )
+            feeding_line.blower.blow_after_feeding_time = BlowDurationInSeconds(request.blow_after_feeding_time)
 
         # Persistir cambios
         await self._feeding_line_repository.save(feeding_line)

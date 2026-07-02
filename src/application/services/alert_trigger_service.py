@@ -58,15 +58,10 @@ class AlertTriggerService:
             ID de la alerta (existente o nueva), o None si está silenciada.
         """
         # Determinar tipo de alerta usando el umbral crítico del silo
-        alert_type = (
-            AlertType.CRITICAL if percentage < critical_threshold else AlertType.WARNING
-        )
+        alert_type = AlertType.CRITICAL if percentage < critical_threshold else AlertType.WARNING
 
         # Preparar mensaje y metadata
-        message = (
-            f"El silo está al {percentage:.1f}% de capacidad "
-            f"({current_level:.0f}/{max_capacity:.0f} kg)"
-        )
+        message = f"El silo está al {percentage:.1f}% de capacidad ({current_level:.0f}/{max_capacity:.0f} kg)"
         metadata = {
             "silo_id": silo_id,
             "current_level": current_level,
@@ -261,8 +256,7 @@ class AlertTriggerService:
             category=AlertCategory.FEEDING,
             title="Fallo en operación de alimentación",
             message=(
-                f"La operación falló: {reason}. "
-                f"Dispensado: {amount_dispensed:.1f}kg de {amount_target:.1f}kg objetivo"
+                f"La operación falló: {reason}. Dispensado: {amount_dispensed:.1f}kg de {amount_target:.1f}kg objetivo"
             ),
             source=f"{line_name} - {cage_name}",
             metadata={

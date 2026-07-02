@@ -4,6 +4,7 @@ from enum import Enum
 
 class CageFeedingMode(Enum):
     """Modos de alimentación de una jaula."""
+
     NORMAL = "NORMAL"
     PAUSE = "PAUSE"
     FASTING = "FASTING"
@@ -11,6 +12,7 @@ class CageFeedingMode(Enum):
 
 class CageFeedingStatus(Enum):
     """Estados de alimentación de una jaula."""
+
     PENDING = "PENDING"
     IN_PROGRESS = "IN_PROGRESS"
     COMPLETED = "COMPLETED"
@@ -18,7 +20,6 @@ class CageFeedingStatus(Enum):
 
 
 class CageFeeding:
-
     def __init__(
         self,
         feeding_session_id: str,

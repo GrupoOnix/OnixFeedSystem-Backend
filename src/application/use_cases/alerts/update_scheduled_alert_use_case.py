@@ -12,9 +12,7 @@ class UpdateScheduledAlertUseCase:
     def __init__(self, scheduled_alert_repository: IScheduledAlertRepository):
         self._repo = scheduled_alert_repository
 
-    async def execute(
-        self, alert_id: str, request: UpdateScheduledAlertRequest
-    ) -> ScheduledAlertDTO:
+    async def execute(self, alert_id: str, request: UpdateScheduledAlertRequest) -> ScheduledAlertDTO:
         """
         Actualiza una alerta programada existente.
 
@@ -29,9 +27,7 @@ class UpdateScheduledAlertUseCase:
             ValueError: Si la alerta no existe o los datos son inválidos.
         """
         # Buscar alerta
-        scheduled_alert = await self._repo.find_by_id(
-            ScheduledAlertId.from_string(alert_id)
-        )
+        scheduled_alert = await self._repo.find_by_id(ScheduledAlertId.from_string(alert_id))
         if not scheduled_alert:
             raise ValueError(f"Alerta programada {alert_id} no encontrada")
 

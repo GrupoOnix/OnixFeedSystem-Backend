@@ -37,9 +37,7 @@ class GetCageGroupUseCase:
             ValueError: Si el grupo no existe
         """
         # 1. Buscar el grupo
-        group = await self.group_repository.find_by_id(
-            CageGroupId.from_string(group_id)
-        )
+        group = await self.group_repository.find_by_id(CageGroupId.from_string(group_id))
 
         if not group:
             raise ValueError(f"No existe un grupo con ID '{group_id}'")
@@ -58,9 +56,7 @@ class GetCageGroupUseCase:
                 cages.append(cage)
         return cages
 
-    def _to_response(
-        self, cage_group: CageGroup, cages: List[Cage]
-    ) -> CageGroupResponse:
+    def _to_response(self, cage_group: CageGroup, cages: List[Cage]) -> CageGroupResponse:
         """Convierte la entidad a response DTO."""
         metrics = cage_group.calculate_metrics(cages)
 

@@ -44,17 +44,13 @@ class UpdateFoodUseCase:
             new_name = FoodName(request.name)
             existing_by_name = await self._food_repository.find_by_name(new_name)
             if existing_by_name and str(existing_by_name.id) != food_id_str:
-                raise DuplicateFoodNameError(
-                    f"Ya existe un alimento con el nombre '{request.name}'"
-                )
+                raise DuplicateFoodNameError(f"Ya existe un alimento con el nombre '{request.name}'")
 
         # Validar código si se está actualizando
         if request.code is not None:
             existing_by_code = await self._food_repository.find_by_code(request.code)
             if existing_by_code and str(existing_by_code.id) != food_id_str:
-                raise DuplicateFoodCodeError(
-                    f"Ya existe un alimento con el código '{request.code}'"
-                )
+                raise DuplicateFoodCodeError(f"Ya existe un alimento con el código '{request.code}'")
 
         # Actualizar información básica
         if request.name or request.provider or request.code:

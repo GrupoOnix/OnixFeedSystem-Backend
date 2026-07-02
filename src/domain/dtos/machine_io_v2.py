@@ -67,8 +67,7 @@ class SensorReading:
         expected = expected_units.get(self.sensor_type)
         if expected and self.unit != expected:
             raise ValueError(
-                f"Unidad incorrecta para sensor {self.sensor_type.value}: "
-                f"esperado '{expected}', recibido '{self.unit}'"
+                f"Unidad incorrecta para sensor {self.sensor_type.value}: esperado '{expected}', recibido '{self.unit}'"
             )
 
 

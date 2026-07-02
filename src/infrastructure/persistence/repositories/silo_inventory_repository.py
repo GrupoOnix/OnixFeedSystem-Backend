@@ -313,15 +313,11 @@ class SiloInventoryRepository:
         source_available: list[tuple[SiloInventoryBatchModel, int]] = []
         for batch in source_batches:
             reserved_mg = await self._reserved_for_batch(batch.id)
-            source_available.append(
-                (batch, max(batch.remaining_quantity_mg - reserved_mg, 0))
-            )
+            source_available.append((batch, max(batch.remaining_quantity_mg - reserved_mg, 0)))
         if sum(available_mg for _, available_mg in source_available) < quantity_mg:
             raise ValueError("Stock disponible insuficiente en el silo de origen")
 
-        destination_batches = await self._active_models(
-            destination_silo_id, lock=True
-        )
+        destination_batches = await self._active_models(destination_silo_id, lock=True)
         next_position = len(destination_batches) + 1
         pending_mg = quantity_mg
         now = datetime.now(timezone.utc)
@@ -381,10 +377,7 @@ class SiloInventoryRepository:
 
         await self._normalize_positions(source_silo_id)
         await self.session.flush()
-        return [
-            await self.get_batch(destination_silo_id, batch_id)
-            for batch_id in transferred_ids
-        ]
+        return [await self.get_batch(destination_silo_id, batch_id) for batch_id in transferred_ids]
 
     async def reserve(self, session_id: str, silo_id: UUID, quantity_kg: float) -> None:
         quantity_mg = self._to_mg(quantity_kg)
@@ -648,9 +641,7 @@ class SiloInventoryRepository:
             raise ValueError("Stock disponible insuficiente para ampliar la reserva")
         await self.session.flush()
 
-    async def _session_reservations(
-        self, session_id: str, *, lock: bool = False
-    ) -> list[SiloStockReservationModel]:
+    async def _session_reservations(self, session_id: str, *, lock: bool = False) -> list[SiloStockReservationModel]:
         query = (
             select(SiloStockReservationModel)
             .join(
@@ -669,9 +660,7 @@ class SiloInventoryRepository:
         return list(result.scalars().all())
 
     async def _lock_silo(self, silo_id: UUID) -> SiloModel:
-        result = await self.session.execute(
-            select(SiloModel).where(col(SiloModel.id) == silo_id).with_for_update()
-        )
+        result = await self.session.execute(select(SiloModel).where(col(SiloModel.id) == silo_id).with_for_update())
         silo = result.scalar_one_or_none()
         if not silo:
             raise ValueError("Silo no encontrado")
@@ -680,10 +669,7 @@ class SiloInventoryRepository:
     async def _lock_silos(self, *silo_ids: UUID) -> dict[UUID, SiloModel]:
         ordered_ids = sorted(set(silo_ids), key=str)
         result = await self.session.execute(
-            select(SiloModel)
-            .where(col(SiloModel.id).in_(ordered_ids))
-            .order_by(col(SiloModel.id))
-            .with_for_update()
+            select(SiloModel).where(col(SiloModel.id).in_(ordered_ids)).order_by(col(SiloModel.id)).with_for_update()
         )
         silos = {silo.id: silo for silo in result.scalars().all()}
         if len(silos) != len(ordered_ids):
@@ -698,9 +684,7 @@ class SiloInventoryRepository:
             raise ValueError("No se puede asignar un alimento inactivo")
         return food
 
-    async def _batch_model(
-        self, silo_id: UUID, batch_id: UUID, *, lock: bool = False
-    ) -> SiloInventoryBatchModel:
+    async def _batch_model(self, silo_id: UUID, batch_id: UUID, *, lock: bool = False) -> SiloInventoryBatchModel:
         query = select(SiloInventoryBatchModel).where(
             col(SiloInventoryBatchModel.id) == batch_id,
             col(SiloInventoryBatchModel.silo_id) == silo_id,

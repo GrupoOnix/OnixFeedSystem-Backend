@@ -6,6 +6,7 @@ from typing import Optional
 @dataclass
 class UpdateCageConfigRequest:
     """Request para actualizar configuración de una jaula."""
+
     fcr: Optional[float] = None
     volume_m3: Optional[float] = None
     max_density_kg_m3: Optional[float] = None
@@ -17,6 +18,7 @@ class UpdateCageConfigRequest:
 @dataclass
 class ConfigChangeLogItemResponse:
     """Response item para listado de cambios de configuración."""
+
     change_id: str
     cage_id: str
     field_name: str
@@ -29,6 +31,7 @@ class ConfigChangeLogItemResponse:
 @dataclass
 class PaginationInfo:
     """Información de paginación."""
+
     total: int
     limit: int
     offset: int
@@ -39,5 +42,6 @@ class PaginationInfo:
 @dataclass
 class PaginatedConfigChangesResponse:
     """Response paginado para listado de cambios de configuración."""
+
     logs: list[ConfigChangeLogItemResponse]
     pagination: PaginationInfo

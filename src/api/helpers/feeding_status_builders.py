@@ -20,11 +20,7 @@ def _calculate_pulse_metrics(
     programmed_visits: int,
     doser: Optional[IDoser],
 ) -> Dict[str, Optional[float | int]]:
-    if (
-        not doser
-        or doser.calibrated_grams_per_second is None
-        or doser.pulse_on_time is None
-    ):
+    if not doser or doser.calibrated_grams_per_second is None or doser.pulse_on_time is None:
         return {
             "grams_per_pulse": None,
             "pulses_per_visit": None,
@@ -48,9 +44,7 @@ def _calculate_pulse_metrics(
 
 
 async def build_manual_status(
-    session: FeedingSession,
-    cage_repo: CageRepository,
-    machine: SimulatedMachine
+    session: FeedingSession, cage_repo: CageRepository, machine: SimulatedMachine
 ) -> Dict[str, Any]:
     cf_list = session.cage_feedings
     current_cf = next((cf for cf in cf_list if cf.status.value == "IN_PROGRESS"), None)
@@ -97,7 +91,7 @@ async def build_cyclic_status(
     cage_feeding_repo: CageFeedingRepository,
     cage_repo: CageRepository,
     line_repo: FeedingLineRepository,
-    machine: SimulatedMachine
+    machine: SimulatedMachine,
 ) -> Dict[str, Any]:
     cf_list = await cage_feeding_repo.find_by_session(session.id)
     if not cf_list:
@@ -105,10 +99,7 @@ async def build_cyclic_status(
 
     machine_status = await machine.get_status(LineId.from_string(session.line_id))
     line = await line_repo.find_by_id(LineId.from_string(session.line_id))
-    doser_by_id = {
-        str(doser.id): doser
-        for doser in (line.dosers if line else ())
-    }
+    doser_by_id = {str(doser.id): doser for doser in (line.dosers if line else ())}
 
     active_cfs = [cf for cf in cf_list if cf.mode != CageFeedingMode.FASTING]
     total_rounds = max((cf.programmed_visits for cf in active_cfs), default=0)
@@ -125,26 +116,22 @@ async def build_cyclic_status(
     if status_has_visit_context:
         machine_active_cf = next(
             (
-                cf for cf in cf_list
-                if (
-                    status_cage_feeding_id
-                    and cf.id == status_cage_feeding_id
-                )
-                or (
-                    not status_cage_feeding_id
-                    and status_cage_id
-                    and cf.cage_id == status_cage_id
-                )
+                cf
+                for cf in cf_list
+                if (status_cage_feeding_id and cf.id == status_cage_feeding_id)
+                or (not status_cage_feeding_id and status_cage_id and cf.cage_id == status_cage_id)
             ),
             None,
         )
 
-    active_cf = machine_active_cf or (next(
-        (cf for cf in cf_list
-         if cf.mode != CageFeedingMode.FASTING
-         and cf.status.value == "IN_PROGRESS"),
-        None,
-    ) if session.status.value in LIVE_SESSION_STATUSES else None)
+    active_cf = machine_active_cf or (
+        next(
+            (cf for cf in cf_list if cf.mode != CageFeedingMode.FASTING and cf.status.value == "IN_PROGRESS"),
+            None,
+        )
+        if session.status.value in LIVE_SESSION_STATUSES
+        else None
+    )
 
     if session.status.value == "COMPLETED":
         current_round = total_rounds
@@ -168,9 +155,7 @@ async def build_cyclic_status(
     if active_cf:
         total_dispensed_kg += machine_status.dispensed_kg
     overall_completion_percentage = (
-        (total_dispensed_kg / session.total_programmed_kg * 100)
-        if session.total_programmed_kg > 0
-        else 0.0
+        (total_dispensed_kg / session.total_programmed_kg * 100) if session.total_programmed_kg > 0 else 0.0
     )
 
     active_cage_info = None
@@ -187,9 +172,7 @@ async def build_cyclic_status(
         current_visit_dispensed_kg = machine_status.dispensed_kg
         current_visit_programmed_kg = 0.0 if is_empty_visit else active_cf.programmed_kg
         current_visit_completion_percentage = (
-            (current_visit_dispensed_kg / current_visit_programmed_kg * 100)
-            if current_visit_programmed_kg > 0
-            else 0.0
+            (current_visit_dispensed_kg / current_visit_programmed_kg * 100) if current_visit_programmed_kg > 0 else 0.0
         )
         active_pulse_metrics = _calculate_pulse_metrics(
             programmed_kg_per_visit=current_visit_programmed_kg,
@@ -238,20 +221,22 @@ async def build_cyclic_status(
             doser=doser_by_id.get(cf.doser_id),
         )
 
-        cages_summary.append({
-            "cage_id": cf.cage_id,
-            "cage_name": cage_name_cache[cf.cage_id],
-            "mode": cf.mode.value,
-            "status": cf.status.value,
-            "execution_order": cf.execution_order,
-            "programmed_kg_per_visit": programmed_kg_per_visit,
-            "total_programmed_kg": total_programmed_kg_for_cage,
-            "total_dispensed_kg": round(total_dispensed_kg_for_cage, 3),
-            "programmed_visits": cf.programmed_visits,
-            "completed_visits": cf.completed_visits,
-            "overall_completion_percentage": round(overall_completion_percentage_cage, 2),
-            **pulse_metrics,
-        })
+        cages_summary.append(
+            {
+                "cage_id": cf.cage_id,
+                "cage_name": cage_name_cache[cf.cage_id],
+                "mode": cf.mode.value,
+                "status": cf.status.value,
+                "execution_order": cf.execution_order,
+                "programmed_kg_per_visit": programmed_kg_per_visit,
+                "total_programmed_kg": total_programmed_kg_for_cage,
+                "total_dispensed_kg": round(total_dispensed_kg_for_cage, 3),
+                "programmed_visits": cf.programmed_visits,
+                "completed_visits": cf.completed_visits,
+                "overall_completion_percentage": round(overall_completion_percentage_cage, 2),
+                **pulse_metrics,
+            }
+        )
 
     return {
         "session_id": session.id,

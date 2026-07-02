@@ -35,7 +35,6 @@ class BiometryLogRepository(IBiometryLogRepository):
     async def count_by_cage(self, cage_id: CageId) -> int:
         """Cuenta total de registros de biometría de una jaula."""
         result = await self.session.execute(
-            select(func.count(col(BiometryLogModel.biometry_id)))
-            .where(col(BiometryLogModel.cage_id) == cage_id.value)
+            select(func.count(col(BiometryLogModel.biometry_id))).where(col(BiometryLogModel.cage_id) == cage_id.value)
         )
         return result.scalar() or 0

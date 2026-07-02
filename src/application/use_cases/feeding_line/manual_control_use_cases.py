@@ -14,13 +14,9 @@ class AcquireManualControlUseCase:
         operator_id: str | None = None,
         reason: str | None = None,
     ) -> FeedingLineStatusResponse:
-        feeding_line = await self._feeding_line_repository.find_by_id(
-            LineId.from_string(line_id)
-        )
+        feeding_line = await self._feeding_line_repository.find_by_id(LineId.from_string(line_id))
         if not feeding_line:
-            raise FeedingLineNotFoundException(
-                f"Línea de alimentación con ID {line_id} no encontrada"
-            )
+            raise FeedingLineNotFoundException(f"Línea de alimentación con ID {line_id} no encontrada")
 
         feeding_line.acquire_manual_control(operator_id=operator_id, reason=reason)
         await self._feeding_line_repository.save_available_status_transition(feeding_line)
@@ -32,13 +28,9 @@ class ReleaseManualControlUseCase:
         self._feeding_line_repository = feeding_line_repository
 
     async def execute(self, line_id: str) -> FeedingLineStatusResponse:
-        feeding_line = await self._feeding_line_repository.find_by_id(
-            LineId.from_string(line_id)
-        )
+        feeding_line = await self._feeding_line_repository.find_by_id(LineId.from_string(line_id))
         if not feeding_line:
-            raise FeedingLineNotFoundException(
-                f"Línea de alimentación con ID {line_id} no encontrada"
-            )
+            raise FeedingLineNotFoundException(f"Línea de alimentación con ID {line_id} no encontrada")
 
         feeding_line.release_manual_control()
         await self._feeding_line_repository.save(feeding_line)

@@ -27,9 +27,7 @@ class MoveSelectorToSlotUseCase:
         feeding_line = await self._feeding_line_repository.find_by_id(LineId.from_string(line_id))
 
         if not feeding_line:
-            raise FeedingLineNotFoundException(
-                f"Línea de alimentación con ID {line_id} no encontrada"
-            )
+            raise FeedingLineNotFoundException(f"Línea de alimentación con ID {line_id} no encontrada")
 
         # Mover selector (la validación se hace en el método del dominio)
         feeding_line.selector.move_to_slot(slot_number)

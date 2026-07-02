@@ -12,13 +12,14 @@ class UpdateAlertUseCase:
     def __init__(self, alert_repository: IAlertRepository):
         self._alert_repo = alert_repository
 
-    async def execute(self, alert_id: str, request: UpdateAlertRequest) -> AlertDTO:
+    async def execute(self, alert_id: str, request: UpdateAlertRequest, resolved_by_username: str) -> AlertDTO:
         """
         Actualiza una alerta existente.
 
         Args:
             alert_id: ID de la alerta a actualizar.
-            request: Datos a actualizar (status, resolved_by).
+            request: Datos a actualizar (status).
+            resolved_by_username: Usuario que resuelve la alerta.
 
         Returns:
             Alerta actualizada.
@@ -35,14 +36,11 @@ class UpdateAlertUseCase:
         if request.status:
             new_status = AlertStatus(request.status)
             if new_status == AlertStatus.RESOLVED:
-                alert.resolve(resolved_by=request.resolved_by)
+                alert.resolve(resolved_by=resolved_by_username)
             elif new_status == AlertStatus.ARCHIVED:
                 alert.archive()
             else:
                 alert.update_status(new_status)
-        elif request.resolved_by and alert.status == AlertStatus.RESOLVED:
-            # Solo actualizar resolved_by si ya está resuelto
-            alert._resolved_by = request.resolved_by
 
         # Guardar
         await self._alert_repo.save(alert)

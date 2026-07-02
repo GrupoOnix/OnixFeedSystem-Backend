@@ -28,10 +28,7 @@ class FeedingSessionRepository(IFeedingSessionRepository):
         query = (
             select(FeedingSessionModel)
             .where(col(FeedingSessionModel.id) == session_id)
-            .options(
-                selectinload(_cage_feedings_rel),
-                selectinload(_events_rel)
-            )
+            .options(selectinload(_cage_feedings_rel), selectinload(_events_rel))
         )
         result = await self.session.execute(query)
         model = result.scalars().first()
@@ -45,16 +42,10 @@ class FeedingSessionRepository(IFeedingSessionRepository):
             .where(
                 and_(
                     col(FeedingSessionModel.line_id) == line_id,
-                    col(FeedingSessionModel.status).in_([
-                        SessionStatus.IN_PROGRESS.value,
-                        SessionStatus.PAUSED.value
-                    ])
+                    col(FeedingSessionModel.status).in_([SessionStatus.IN_PROGRESS.value, SessionStatus.PAUSED.value]),
                 )
             )
-            .options(
-                selectinload(_cage_feedings_rel),
-                selectinload(_events_rel)
-            )
+            .options(selectinload(_cage_feedings_rel), selectinload(_events_rel))
         )
         result = await self.session.execute(query)
         model = result.scalars().first()
@@ -68,15 +59,9 @@ class FeedingSessionRepository(IFeedingSessionRepository):
         query = (
             select(FeedingSessionModel)
             .where(
-                and_(
-                    col(FeedingSessionModel.line_id) == line_id,
-                    col(FeedingSessionModel.actual_start) >= today_start
-                )
+                and_(col(FeedingSessionModel.line_id) == line_id, col(FeedingSessionModel.actual_start) >= today_start)
             )
-            .options(
-                selectinload(_cage_feedings_rel),
-                selectinload(_events_rel)
-            )
+            .options(selectinload(_cage_feedings_rel), selectinload(_events_rel))
         )
         result = await self.session.execute(query)
         model = result.scalars().first()
@@ -87,16 +72,8 @@ class FeedingSessionRepository(IFeedingSessionRepository):
     async def list_by_date_range(self, start: datetime, end: datetime) -> List[FeedingSession]:
         query = (
             select(FeedingSessionModel)
-            .where(
-                and_(
-                    col(FeedingSessionModel.actual_start) >= start,
-                    col(FeedingSessionModel.actual_start) <= end
-                )
-            )
-            .options(
-                selectinload(_cage_feedings_rel),
-                selectinload(_events_rel)
-            )
+            .where(and_(col(FeedingSessionModel.actual_start) >= start, col(FeedingSessionModel.actual_start) <= end))
+            .options(selectinload(_cage_feedings_rel), selectinload(_events_rel))
             .order_by(col(FeedingSessionModel.actual_start).desc())
         )
         result = await self.session.execute(query)
@@ -110,17 +87,11 @@ class FeedingSessionRepository(IFeedingSessionRepository):
             select(FeedingSessionModel)
             .where(
                 and_(
-                    col(FeedingSessionModel.status).in_([
-                        SessionStatus.IN_PROGRESS.value,
-                        SessionStatus.PAUSED.value
-                    ]),
-                    col(FeedingSessionModel.actual_start) >= cutoff_time
+                    col(FeedingSessionModel.status).in_([SessionStatus.IN_PROGRESS.value, SessionStatus.PAUSED.value]),
+                    col(FeedingSessionModel.actual_start) >= cutoff_time,
                 )
             )
-            .options(
-                selectinload(_cage_feedings_rel),
-                selectinload(_events_rel)
-            )
+            .options(selectinload(_cage_feedings_rel), selectinload(_events_rel))
             .order_by(col(FeedingSessionModel.actual_start).desc())
         )
         result = await self.session.execute(query)

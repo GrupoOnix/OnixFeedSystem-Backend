@@ -57,7 +57,6 @@ def _validate_cyclic_cage_feeding(
 
 
 class UpdateFeedingRateUseCase:
-
     def __init__(
         self,
         session_repo: IFeedingSessionRepository,
@@ -113,7 +112,6 @@ class UpdateFeedingRateUseCase:
 
 
 class UpdateFeedingAmountUseCase:
-
     def __init__(
         self,
         session_repo: IFeedingSessionRepository,
@@ -159,10 +157,7 @@ class UpdateFeedingAmountUseCase:
         await self._machine.set_target_amount(line_id, new_amount_kg)
         await self._cage_feeding_repo.save(current)
 
-        total_programmed_kg = sum(
-            cf.programmed_kg * cf.programmed_visits
-            for cf in cage_feedings
-        )
+        total_programmed_kg = sum(cf.programmed_kg * cf.programmed_visits for cf in cage_feedings)
         session.set_total_programmed_kg(total_programmed_kg)
         await self._session_repo.save(session)
 
@@ -180,7 +175,6 @@ class UpdateFeedingAmountUseCase:
 
 
 class UpdateCyclicCageRateUseCase:
-
     def __init__(
         self,
         session_repo: IFeedingSessionRepository,
@@ -238,7 +232,6 @@ class UpdateCyclicCageRateUseCase:
 
 
 class UpdateCyclicCageAmountUseCase:
-
     def __init__(
         self,
         session_repo: IFeedingSessionRepository,
@@ -402,7 +395,6 @@ class UpdateCageModeUseCase:
 
 
 class PauseFeedingUseCase:
-
     def __init__(
         self,
         session_repo: IFeedingSessionRepository,
@@ -417,7 +409,7 @@ class PauseFeedingUseCase:
         self._machine = machine
         self._activity_log_repo = activity_log_repository
 
-    async def execute(self, session_id: str, operator_id: str, reason: str) -> None:
+    async def execute(self, session_id: str, operator_id: str, actor: str, reason: str) -> None:
         session = await self._session_repo.find_by_id(session_id)
         if not session:
             raise ValueError(f"Sesión {session_id} no encontrada")
@@ -442,6 +434,7 @@ class PauseFeedingUseCase:
                     category=ActivityLogCategory.FEEDING,
                     message="Alimentación pausada",
                     details=reason if reason else None,
+                    actor=actor,
                     source_entity_type="feeding_session",
                     source_entity_id=session_id,
                 )
@@ -449,7 +442,6 @@ class PauseFeedingUseCase:
 
 
 class ResumeFeedingUseCase:
-
     def __init__(
         self,
         session_repo: IFeedingSessionRepository,
@@ -464,7 +456,7 @@ class ResumeFeedingUseCase:
         self._machine = machine
         self._activity_log_repo = activity_log_repository
 
-    async def execute(self, session_id: str, operator_id: str) -> None:
+    async def execute(self, session_id: str, operator_id: str, actor: str) -> None:
         session = await self._session_repo.find_by_id(session_id)
         if not session:
             raise ValueError(f"Sesión {session_id} no encontrada")
@@ -487,6 +479,7 @@ class ResumeFeedingUseCase:
                     event_type=ActivityLogEventType.INFO,
                     category=ActivityLogCategory.FEEDING,
                     message="Alimentación reanudada",
+                    actor=actor,
                     source_entity_type="feeding_session",
                     source_entity_id=session_id,
                 )
@@ -494,7 +487,6 @@ class ResumeFeedingUseCase:
 
 
 class CancelFeedingUseCase:
-
     def __init__(
         self,
         session_repo: IFeedingSessionRepository,
@@ -513,7 +505,7 @@ class CancelFeedingUseCase:
         self._activity_log_repo = activity_log_repository
         self._inventory_repo = inventory_repo
 
-    async def execute(self, session_id: str, operator_id: str, reason: str) -> None:
+    async def execute(self, session_id: str, operator_id: str, actor: str, reason: str) -> None:
         session = await self._session_repo.find_by_id(session_id)
         if not session:
             raise ValueError(f"Sesión {session_id} no encontrada")
@@ -555,6 +547,7 @@ class CancelFeedingUseCase:
                     category=ActivityLogCategory.FEEDING,
                     message="Alimentación cancelada",
                     details=reason if reason else None,
+                    actor=actor,
                     source_entity_type="feeding_session",
                     source_entity_id=session_id,
                 )
@@ -578,7 +571,6 @@ class CancelFeedingUseCase:
 
 
 class UpdateBlowerPowerUseCase:
-
     def __init__(
         self,
         session_repo: IFeedingSessionRepository,

@@ -21,9 +21,7 @@ class LastValidCyclicFeedingConfigRepository:
 
     async def find_by_line_id(self, line_id: UUID) -> Optional[LastValidCyclicFeedingConfigModel]:
         result = await self.session.execute(
-            select(LastValidCyclicFeedingConfigModel).where(
-                col(LastValidCyclicFeedingConfigModel.line_id) == line_id
-            )
+            select(LastValidCyclicFeedingConfigModel).where(col(LastValidCyclicFeedingConfigModel.line_id) == line_id)
         )
         return result.scalar_one_or_none()
 

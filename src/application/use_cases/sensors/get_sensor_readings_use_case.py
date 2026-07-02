@@ -62,14 +62,10 @@ class GetSensorReadingsUseCase:
 
         line = await self._feeding_line_repo.find_by_id(line_id)
         if not line:
-            raise FeedingLineNotFoundException(
-                f"No se encontró la línea de alimentación con ID: {line_id}"
-            )
+            raise FeedingLineNotFoundException(f"No se encontró la línea de alimentación con ID: {line_id}")
 
         # 2. Crear mapa de sensores por tipo para fácil acceso
-        sensor_map: Dict[SensorType, ISensor] = {
-            sensor.sensor_type: sensor for sensor in line.sensors
-        }
+        sensor_map: Dict[SensorType, ISensor] = {sensor.sensor_type: sensor for sensor in line.sensors}
 
         # 3. Obtener lecturas del PLC/simulador
         raw_readings = await self._feeding_machine.get_sensor_readings(line_id)
@@ -84,9 +80,7 @@ class GetSensorReadingsUseCase:
                 continue
 
             # Aplicar umbrales personalizados si existen
-            is_warning, is_critical = self._apply_thresholds(
-                reading.sensor_type, reading.value, sensor
-            )
+            is_warning, is_critical = self._apply_thresholds(reading.sensor_type, reading.value, sensor)
 
             # Crear nueva lectura con umbrales aplicados
             filtered_readings.append(

@@ -26,11 +26,7 @@ from api.models.system_layout import (
 
 def test_silo_config_model_valid():
     """Test: Validación exitosa de SiloConfigModel."""
-    silo = SiloConfigModel(
-        id="temp_silo_1",
-        name="Silo A",
-        capacity=1000.0
-    )
+    silo = SiloConfigModel(id="temp_silo_1", name="Silo A", capacity=1000.0)
 
     assert silo.id == "temp_silo_1"
     assert silo.name == "Silo A"
@@ -43,19 +39,16 @@ def test_silo_config_model_invalid_capacity():
         SiloConfigModel(
             id="temp_silo_1",
             name="Silo A",
-            capacity=-100.0  # ❌ Debe ser > 0
+            capacity=-100.0,  # ❌ Debe ser > 0
         )
 
     errors = exc_info.value.errors()
-    assert any(error['loc'] == ('capacity',) for error in errors)
+    assert any(error["loc"] == ("capacity",) for error in errors)
 
 
 def test_cage_config_model_valid():
     """Test: Validación exitosa de CageConfigModel."""
-    cage = CageConfigModel(
-        id="temp_cage_1",
-        name="Jaula 1"
-    )
+    cage = CageConfigModel(id="temp_cage_1", name="Jaula 1")
 
     assert cage.id == "temp_cage_1"
     assert cage.name == "Jaula 1"
@@ -64,11 +57,7 @@ def test_cage_config_model_valid():
 def test_blower_config_model_valid():
     """Test: Validación exitosa de BlowerConfigModel."""
     blower = BlowerConfigModel(
-        id="temp_blower_1",
-        name="Soplador 1",
-        non_feeding_power=50.0,
-        blow_before_time=5,
-        blow_after_time=3
+        id="temp_blower_1", name="Soplador 1", non_feeding_power=50.0, blow_before_time=5, blow_after_time=3
     )
 
     assert blower.non_feeding_power == 50.0
@@ -83,11 +72,11 @@ def test_blower_config_model_invalid_power():
             name="Soplador 1",
             non_feeding_power=150.0,  # ❌ Debe ser <= 100
             blow_before_time=5,
-            blow_after_time=3
+            blow_after_time=3,
         )
 
     errors = exc_info.value.errors()
-    assert any(error['loc'] == ('non_feeding_power',) for error in errors)
+    assert any(error["loc"] == ("non_feeding_power",) for error in errors)
 
 
 def test_doser_config_model_valid():
@@ -99,7 +88,7 @@ def test_doser_config_model_valid():
         doser_type="volumetric",
         min_rate=10.0,
         max_rate=100.0,
-        current_rate=50.0
+        current_rate=50.0,
     )
 
     assert doser.assigned_silo_id == "temp_silo_1"
@@ -116,7 +105,7 @@ def test_doser_config_model_accepts_multiple_silos():
         doser_type="volumetric",
         min_rate=10.0,
         max_rate=100.0,
-        current_rate=50.0
+        current_rate=50.0,
     )
 
     assert doser.assigned_silo_ids == ["temp_silo_1", "temp_silo_2"]
@@ -133,18 +122,14 @@ def test_doser_config_model_rejects_duplicate_silos():
             doser_type="volumetric",
             min_rate=10.0,
             max_rate=100.0,
-            current_rate=50.0
+            current_rate=50.0,
         )
 
 
 def test_selector_config_model_valid():
     """Test: Validación exitosa de SelectorConfigModel."""
     selector = SelectorConfigModel(
-        id="temp_selector_1",
-        name="Selector 1",
-        capacity=4,
-        fast_speed=80.0,
-        slow_speed=20.0
+        id="temp_selector_1", name="Selector 1", capacity=4, fast_speed=80.0, slow_speed=20.0
     )
 
     assert selector.capacity == 4
@@ -153,10 +138,7 @@ def test_selector_config_model_valid():
 
 def test_slot_assignment_model_valid():
     """Test: Validación exitosa de SlotAssignmentModel."""
-    assignment = SlotAssignmentModel(
-        slot_number=1,
-        cage_id="temp_cage_1"
-    )
+    assignment = SlotAssignmentModel(slot_number=1, cage_id="temp_cage_1")
 
     assert assignment.slot_number == 1
     assert assignment.cage_id == "temp_cage_1"
@@ -167,11 +149,11 @@ def test_slot_assignment_model_invalid_slot():
     with pytest.raises(ValidationError) as exc_info:
         SlotAssignmentModel(
             slot_number=0,  # ❌ Debe ser > 0
-            cage_id="temp_cage_1"
+            cage_id="temp_cage_1",
         )
 
     errors = exc_info.value.errors()
-    assert any(error['loc'] == ('slot_number',) for error in errors)
+    assert any(error["loc"] == ("slot_number",) for error in errors)
 
 
 def test_feeding_line_config_model_valid():
@@ -180,11 +162,7 @@ def test_feeding_line_config_model_valid():
         id="temp_line_1",
         line_name="Linea Principal",
         blower_config=BlowerConfigModel(
-            id="temp_blower_1",
-            name="Soplador 1",
-            non_feeding_power=50.0,
-            blow_before_time=5,
-            blow_after_time=3
+            id="temp_blower_1", name="Soplador 1", non_feeding_power=50.0, blow_before_time=5, blow_after_time=3
         ),
         dosers_config=[
             DoserConfigModel(
@@ -194,19 +172,13 @@ def test_feeding_line_config_model_valid():
                 doser_type="volumetric",
                 min_rate=10.0,
                 max_rate=100.0,
-                current_rate=50.0
+                current_rate=50.0,
             )
         ],
         selector_config=SelectorConfigModel(
-            id="temp_selector_1",
-            name="Selector 1",
-            capacity=4,
-            fast_speed=80.0,
-            slow_speed=20.0
+            id="temp_selector_1", name="Selector 1", capacity=4, fast_speed=80.0, slow_speed=20.0
         ),
-        slot_assignments=[
-            SlotAssignmentModel(slot_number=1, cage_id="temp_cage_1")
-        ]
+        slot_assignments=[SlotAssignmentModel(slot_number=1, cage_id="temp_cage_1")],
     )
 
     assert line.line_name == "Linea Principal"
@@ -217,22 +189,14 @@ def test_feeding_line_config_model_valid():
 def test_save_system_layout_request_valid():
     """Test: Validación exitosa del request completo."""
     request = SystemLayoutModel(
-        silos=[
-            SiloConfigModel(id="temp_silo_1", name="Silo A", capacity=1000.0)
-        ],
-        cages=[
-            CageConfigModel(id="temp_cage_1", name="Jaula 1")
-        ],
+        silos=[SiloConfigModel(id="temp_silo_1", name="Silo A", capacity=1000.0)],
+        cages=[CageConfigModel(id="temp_cage_1", name="Jaula 1")],
         feeding_lines=[
             FeedingLineConfigModel(
                 id="temp_line_1",
                 line_name="Linea Principal",
                 blower_config=BlowerConfigModel(
-                    id="temp_blower_1",
-                    name="Soplador 1",
-                    non_feeding_power=50.0,
-                    blow_before_time=5,
-                    blow_after_time=3
+                    id="temp_blower_1", name="Soplador 1", non_feeding_power=50.0, blow_before_time=5, blow_after_time=3
                 ),
                 dosers_config=[
                     DoserConfigModel(
@@ -242,21 +206,15 @@ def test_save_system_layout_request_valid():
                         doser_type="volumetric",
                         min_rate=10.0,
                         max_rate=100.0,
-                        current_rate=50.0
+                        current_rate=50.0,
                     )
                 ],
                 selector_config=SelectorConfigModel(
-                    id="temp_selector_1",
-                    name="Selector 1",
-                    capacity=4,
-                    fast_speed=80.0,
-                    slow_speed=20.0
+                    id="temp_selector_1", name="Selector 1", capacity=4, fast_speed=80.0, slow_speed=20.0
                 ),
-                slot_assignments=[
-                    SlotAssignmentModel(slot_number=1, cage_id="temp_cage_1")
-                ]
+                slot_assignments=[SlotAssignmentModel(slot_number=1, cage_id="temp_cage_1")],
             )
-        ]
+        ],
     )
 
     assert len(request.silos) == 1
@@ -271,11 +229,11 @@ def test_strict_mode_rejects_extra_fields():
             silos=[],
             cages=[],
             feeding_lines=[],
-            nombre="asd"  # ❌ Campo extra no permitido
+            nombre="asd",  # ❌ Campo extra no permitido
         )
 
     errors = exc_info.value.errors()
-    assert any(error['type'] == 'extra_forbidden' for error in errors)
+    assert any(error["type"] == "extra_forbidden" for error in errors)
 
 
 def test_strict_mode_requires_all_fields():
@@ -293,11 +251,7 @@ def test_strict_mode_requires_all_fields():
 
 def test_strict_mode_allows_empty_lists():
     """Test: Modo estricto permite listas vacías."""
-    request = SystemLayoutModel(
-        silos=[],
-        cages=[],
-        feeding_lines=[]
-    )
+    request = SystemLayoutModel(silos=[], cages=[], feeding_lines=[])
 
     assert len(request.silos) == 0
     assert len(request.cages) == 0
@@ -311,8 +265,8 @@ def test_silo_rejects_extra_field():
             id="temp_silo_1",
             name="Silo A",
             capacity=1000.0,
-            color="red"  # ❌ Campo extra
+            color="red",  # ❌ Campo extra
         )
 
     errors = exc_info.value.errors()
-    assert any(error['type'] == 'extra_forbidden' for error in errors)
+    assert any(error["type"] == "extra_forbidden" for error in errors)

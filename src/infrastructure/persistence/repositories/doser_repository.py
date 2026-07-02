@@ -37,11 +37,7 @@ class DoserRepository:
 
     async def find_by_id(self, doser_id: UUID) -> Optional[Doser]:
         """Busca un doser por su ID."""
-        stmt = (
-            select(DoserModel)
-            .options(selectinload(_silos_rel))
-            .where(col(DoserModel.id) == doser_id)
-        )
+        stmt = select(DoserModel).options(selectinload(_silos_rel)).where(col(DoserModel.id) == doser_id)
         result = await self.session.execute(stmt)
         doser_model = result.scalar_one_or_none()
         return doser_model.to_domain() if doser_model else None
@@ -94,9 +90,7 @@ class DoserRepository:
         doser_model.pulse_off_time = doser.pulse_off_time
         doser_model.pulse_speed = doser.pulse_speed
 
-        await self.session.execute(
-            delete(DoserSiloModel).where(col(DoserSiloModel.doser_id) == doser_id)
-        )
+        await self.session.execute(delete(DoserSiloModel).where(col(DoserSiloModel.doser_id) == doser_id))
         for silo_id in doser.assigned_silo_ids:
             self.session.add(DoserSiloModel(doser_id=doser_id, silo_id=silo_id.value))
 

@@ -8,6 +8,6 @@ from .sync_system_layout import SyncSystemLayoutUseCase
 from .get_system_layout import GetSystemLayoutUseCase
 
 __all__ = [
-    'SyncSystemLayoutUseCase',
-    'GetSystemLayoutUseCase',
+    "SyncSystemLayoutUseCase",
+    "GetSystemLayoutUseCase",
 ]

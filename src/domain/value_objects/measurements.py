@@ -1,6 +1,7 @@
 """
 Value Objects para medidas físicas (peso, volumen, etc.).
 """
+
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
@@ -9,6 +10,7 @@ from typing import Any
 @dataclass(frozen=True)
 class Volume:
     """Volumen con precisión, almacenado internamente en milímetros cúbicos."""
+
     _cubic_millimeters: int
 
     @classmethod
@@ -70,6 +72,7 @@ class Volume:
 @dataclass(frozen=True)
 class Density:
     """Densidad de biomasa en kg/m³."""
+
     value: float
 
     def __post_init__(self):
@@ -95,6 +98,7 @@ class Weight:
     Value Object para representar peso con precisión.
     Almacena internamente en miligramos para evitar errores de redondeo.
     """
+
     _miligrams: int
 
     # --- 1. MÉTODOS DE FÁBRICA (CREACIÓN) ---

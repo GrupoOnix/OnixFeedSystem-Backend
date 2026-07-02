@@ -35,10 +35,10 @@ from infrastructure.persistence.mock_repositories import (
 def repositories():
     """Fixture que proporciona repositorios mock limpios."""
     return {
-        'line_repo': MockFeedingLineRepository(),
-        'silo_repo': MockSiloRepository(),
-        'cage_repo': MockCageRepository(),
-        'slot_assignment_repo': MockSlotAssignmentRepository(),
+        "line_repo": MockFeedingLineRepository(),
+        "silo_repo": MockSiloRepository(),
+        "cage_repo": MockCageRepository(),
+        "slot_assignment_repo": MockSlotAssignmentRepository(),
     }
 
 
@@ -46,14 +46,14 @@ def repositories():
 def use_case(repositories):
     """Fixture que proporciona una instancia del caso de uso."""
     from domain.factories import ComponentFactory
-    return SyncSystemLayoutUseCase(
-        repositories['line_repo'],
-        repositories['silo_repo'],
-        repositories['cage_repo'],
-        repositories['slot_assignment_repo'],
-        ComponentFactory()
-    )
 
+    return SyncSystemLayoutUseCase(
+        repositories["line_repo"],
+        repositories["silo_repo"],
+        repositories["cage_repo"],
+        repositories["slot_assignment_repo"],
+        ComponentFactory(),
+    )
 
 
 class TestFA3_CageAlreadyAssigned:
@@ -66,11 +66,9 @@ class TestFA3_CageAlreadyAssigned:
         base_request = SystemLayoutModel(
             silos=[
                 SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0),
-                SiloConfigModel(id="temp-silo-2", name="Silo B", capacity=1000.0)
+                SiloConfigModel(id="temp-silo-2", name="Silo B", capacity=1000.0),
             ],
-            cages=[
-                CageConfigModel(id="temp-cage-1", name="Jaula 1")
-            ],
+            cages=[CageConfigModel(id="temp-cage-1", name="Jaula 1")],
             feeding_lines=[
                 FeedingLineConfigModel(
                     id="temp-line-1",
@@ -80,7 +78,7 @@ class TestFA3_CageAlreadyAssigned:
                         name="Soplador 1",
                         non_feeding_power=50.0,
                         blow_before_time=5,
-                        blow_after_time=3
+                        blow_after_time=3,
                     ),
                     sensors_config=[],
                     dosers_config=[
@@ -91,21 +89,15 @@ class TestFA3_CageAlreadyAssigned:
                             doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
-                            current_rate=50.0
+                            current_rate=50.0,
                         )
                     ],
                     selector_config=SelectorConfigModel(
-                        id="temp-selector-1",
-                        name="Selectora 1",
-                        capacity=4,
-                        fast_speed=80.0,
-                        slow_speed=20.0
+                        id="temp-selector-1", name="Selectora 1", capacity=4, fast_speed=80.0, slow_speed=20.0
                     ),
-                    slot_assignments=[
-                        SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")
-                    ]
+                    slot_assignments=[SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")],
                 )
-            ]
+            ],
         )
         r_silos, r_cages, r_lines, _ = await use_case.execute(base_request)
         cage_id = str(r_cages[0].id)
@@ -114,11 +106,9 @@ class TestFA3_CageAlreadyAssigned:
         duplicate_request = SystemLayoutModel(
             silos=[
                 SiloConfigModel(id=str(r_silos[0].id), name="Silo A", capacity=1000.0),
-                SiloConfigModel(id=str(r_silos[1].id), name="Silo B", capacity=1000.0)
+                SiloConfigModel(id=str(r_silos[1].id), name="Silo B", capacity=1000.0),
             ],
-            cages=[
-                CageConfigModel(id=cage_id, name="Jaula 1")
-            ],
+            cages=[CageConfigModel(id=cage_id, name="Jaula 1")],
             feeding_lines=[
                 # Línea 1 existente
                 FeedingLineConfigModel(
@@ -129,7 +119,7 @@ class TestFA3_CageAlreadyAssigned:
                         name="Soplador 1",
                         non_feeding_power=50.0,
                         blow_before_time=5,
-                        blow_after_time=3
+                        blow_after_time=3,
                     ),
                     sensors_config=[],
                     dosers_config=[
@@ -140,19 +130,13 @@ class TestFA3_CageAlreadyAssigned:
                             doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
-                            current_rate=50.0
+                            current_rate=50.0,
                         )
                     ],
                     selector_config=SelectorConfigModel(
-                        id="temp-selector-1",
-                        name="Selectora 1",
-                        capacity=4,
-                        fast_speed=80.0,
-                        slow_speed=20.0
+                        id="temp-selector-1", name="Selectora 1", capacity=4, fast_speed=80.0, slow_speed=20.0
                     ),
-                    slot_assignments=[
-                        SlotAssignmentModel(slot_number=1, cage_id=cage_id)
-                    ]
+                    slot_assignments=[SlotAssignmentModel(slot_number=1, cage_id=cage_id)],
                 ),
                 # Línea 2 nueva intentando usar la misma jaula
                 FeedingLineConfigModel(
@@ -163,7 +147,7 @@ class TestFA3_CageAlreadyAssigned:
                         name="Soplador 2",
                         non_feeding_power=50.0,
                         blow_before_time=5,
-                        blow_after_time=3
+                        blow_after_time=3,
                     ),
                     sensors_config=[],
                     dosers_config=[
@@ -174,21 +158,17 @@ class TestFA3_CageAlreadyAssigned:
                             doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
-                            current_rate=50.0
+                            current_rate=50.0,
                         )
                     ],
                     selector_config=SelectorConfigModel(
-                        id="temp-selector-2",
-                        name="Selectora 2",
-                        capacity=4,
-                        fast_speed=80.0,
-                        slow_speed=20.0
+                        id="temp-selector-2", name="Selectora 2", capacity=4, fast_speed=80.0, slow_speed=20.0
                     ),
                     slot_assignments=[
                         SlotAssignmentModel(slot_number=1, cage_id=cage_id)  # Misma jaula!
-                    ]
-                )
-            ]
+                    ],
+                ),
+            ],
         )
 
         with pytest.raises(Exception) as exc_info:
@@ -197,8 +177,7 @@ class TestFA3_CageAlreadyAssigned:
         # Verifica que la excepción menciona que la jaula no está disponible
         error_msg = str(exc_info.value).lower()
         assert "jaula" in error_msg
-        assert ("asignada" in error_msg or "disponible" in error_msg or "en uso" in error_msg)
-
+        assert "asignada" in error_msg or "disponible" in error_msg or "en uso" in error_msg
 
 
 class TestFA4_DuplicateSlot:
@@ -208,12 +187,10 @@ class TestFA4_DuplicateSlot:
     async def test_fa4_duplicate_slot_in_same_line(self, use_case):
         """No debe permitir asignar el mismo slot dos veces en una línea."""
         request = SystemLayoutModel(
-            silos=[
-                SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)
-            ],
+            silos=[SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)],
             cages=[
                 CageConfigModel(id="temp-cage-1", name="Jaula 1"),
-                CageConfigModel(id="temp-cage-2", name="Jaula 2")
+                CageConfigModel(id="temp-cage-2", name="Jaula 2"),
             ],
             feeding_lines=[
                 FeedingLineConfigModel(
@@ -224,7 +201,7 @@ class TestFA4_DuplicateSlot:
                         name="Soplador 1",
                         non_feeding_power=50.0,
                         blow_before_time=5,
-                        blow_after_time=3
+                        blow_after_time=3,
                     ),
                     sensors_config=[],
                     dosers_config=[
@@ -235,22 +212,18 @@ class TestFA4_DuplicateSlot:
                             doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
-                            current_rate=50.0
+                            current_rate=50.0,
                         )
                     ],
                     selector_config=SelectorConfigModel(
-                        id="temp-selector-1",
-                        name="Selectora 1",
-                        capacity=4,
-                        fast_speed=80.0,
-                        slow_speed=20.0
+                        id="temp-selector-1", name="Selectora 1", capacity=4, fast_speed=80.0, slow_speed=20.0
                     ),
                     slot_assignments=[
                         SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1"),
-                        SlotAssignmentModel(slot_number=1, cage_id="temp-cage-2")  # Slot duplicado!
-                    ]
+                        SlotAssignmentModel(slot_number=1, cage_id="temp-cage-2"),  # Slot duplicado!
+                    ],
                 )
-            ]
+            ],
         )
 
         with pytest.raises(Exception) as exc_info:
@@ -258,18 +231,14 @@ class TestFA4_DuplicateSlot:
 
         error_msg = str(exc_info.value).lower()
         assert "slot" in error_msg
-        assert ("duplicado" in error_msg or "asignado" in error_msg or "ocupado" in error_msg)
+        assert "duplicado" in error_msg or "asignado" in error_msg or "ocupado" in error_msg
 
     @pytest.mark.asyncio
     async def test_fa4_slot_exceeds_selector_capacity(self, use_case):
         """No debe permitir asignar un slot mayor a la capacidad de la selectora."""
         request = SystemLayoutModel(
-            silos=[
-                SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)
-            ],
-            cages=[
-                CageConfigModel(id="temp-cage-1", name="Jaula 1")
-            ],
+            silos=[SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)],
+            cages=[CageConfigModel(id="temp-cage-1", name="Jaula 1")],
             feeding_lines=[
                 FeedingLineConfigModel(
                     id="temp-line-1",
@@ -279,7 +248,7 @@ class TestFA4_DuplicateSlot:
                         name="Soplador 1",
                         non_feeding_power=50.0,
                         blow_before_time=5,
-                        blow_after_time=3
+                        blow_after_time=3,
                     ),
                     sensors_config=[],
                     dosers_config=[
@@ -290,7 +259,7 @@ class TestFA4_DuplicateSlot:
                             doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
-                            current_rate=50.0
+                            current_rate=50.0,
                         )
                     ],
                     selector_config=SelectorConfigModel(
@@ -298,20 +267,19 @@ class TestFA4_DuplicateSlot:
                         name="Selectora 1",
                         capacity=4,  # Capacidad máxima: 4
                         fast_speed=80.0,
-                        slow_speed=20.0
+                        slow_speed=20.0,
                     ),
                     slot_assignments=[
                         SlotAssignmentModel(slot_number=5, cage_id="temp-cage-1")  # Slot 5 > capacidad 4
-                    ]
+                    ],
                 )
-            ]
+            ],
         )
 
         with pytest.raises(Exception) as exc_info:
             await use_case.execute(request)
 
         assert "slot" in str(exc_info.value).lower() or "capacidad" in str(exc_info.value).lower()
-
 
 
 class TestFA5_SiloAlreadyAssigned:
@@ -321,12 +289,8 @@ class TestFA5_SiloAlreadyAssigned:
     async def test_fa5_silo_assigned_to_multiple_dosers(self, use_case):
         """Debe permitir asignar el mismo silo a dos dosificadores."""
         request = SystemLayoutModel(
-            silos=[
-                SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)
-            ],
-            cages=[
-                CageConfigModel(id="temp-cage-1", name="Jaula 1")
-            ],
+            silos=[SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)],
+            cages=[CageConfigModel(id="temp-cage-1", name="Jaula 1")],
             feeding_lines=[
                 FeedingLineConfigModel(
                     id="temp-line-1",
@@ -336,7 +300,7 @@ class TestFA5_SiloAlreadyAssigned:
                         name="Soplador 1",
                         non_feeding_power=50.0,
                         blow_before_time=5,
-                        blow_after_time=3
+                        blow_after_time=3,
                     ),
                     sensors_config=[],
                     dosers_config=[
@@ -347,7 +311,7 @@ class TestFA5_SiloAlreadyAssigned:
                             doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
-                            current_rate=50.0
+                            current_rate=50.0,
                         ),
                         DoserConfigModel(
                             id="temp-doser-2",
@@ -356,21 +320,15 @@ class TestFA5_SiloAlreadyAssigned:
                             doser_type="VARI_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
-                            current_rate=50.0
-                        )
+                            current_rate=50.0,
+                        ),
                     ],
                     selector_config=SelectorConfigModel(
-                        id="temp-selector-1",
-                        name="Selectora 1",
-                        capacity=4,
-                        fast_speed=80.0,
-                        slow_speed=20.0
+                        id="temp-selector-1", name="Selectora 1", capacity=4, fast_speed=80.0, slow_speed=20.0
                     ),
-                    slot_assignments=[
-                        SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")
-                    ]
+                    slot_assignments=[SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")],
                 )
-            ]
+            ],
         )
 
         silos, _cages, lines, _slots = await use_case.execute(request)
@@ -385,11 +343,11 @@ class TestFA5_SiloAlreadyAssigned:
         first_request = SystemLayoutModel(
             silos=[
                 SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0),
-                SiloConfigModel(id="temp-silo-2", name="Silo B", capacity=1000.0)
+                SiloConfigModel(id="temp-silo-2", name="Silo B", capacity=1000.0),
             ],
             cages=[
                 CageConfigModel(id="temp-cage-1", name="Jaula 1"),
-                CageConfigModel(id="temp-cage-2", name="Jaula 2")
+                CageConfigModel(id="temp-cage-2", name="Jaula 2"),
             ],
             feeding_lines=[
                 FeedingLineConfigModel(
@@ -400,7 +358,7 @@ class TestFA5_SiloAlreadyAssigned:
                         name="Soplador 1",
                         non_feeding_power=50.0,
                         blow_before_time=5,
-                        blow_after_time=3
+                        blow_after_time=3,
                     ),
                     sensors_config=[],
                     dosers_config=[
@@ -411,21 +369,15 @@ class TestFA5_SiloAlreadyAssigned:
                             doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
-                            current_rate=50.0
+                            current_rate=50.0,
                         )
                     ],
                     selector_config=SelectorConfigModel(
-                        id="temp-selector-1",
-                        name="Selectora 1",
-                        capacity=4,
-                        fast_speed=80.0,
-                        slow_speed=20.0
+                        id="temp-selector-1", name="Selectora 1", capacity=4, fast_speed=80.0, slow_speed=20.0
                     ),
-                    slot_assignments=[
-                        SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")
-                    ]
+                    slot_assignments=[SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")],
                 )
-            ]
+            ],
         )
         r_silos, r_cages, r_lines, _ = await use_case.execute(first_request)
 
@@ -433,11 +385,11 @@ class TestFA5_SiloAlreadyAssigned:
         second_request = SystemLayoutModel(
             silos=[
                 SiloConfigModel(id=str(r_silos[0].id), name="Silo A", capacity=1000.0),
-                SiloConfigModel(id=str(r_silos[1].id), name="Silo B", capacity=1000.0)
+                SiloConfigModel(id=str(r_silos[1].id), name="Silo B", capacity=1000.0),
             ],
             cages=[
                 CageConfigModel(id=str(r_cages[0].id), name="Jaula 1"),
-                CageConfigModel(id=str(r_cages[1].id), name="Jaula 2")
+                CageConfigModel(id=str(r_cages[1].id), name="Jaula 2"),
             ],
             feeding_lines=[
                 # Línea 1 existente
@@ -449,7 +401,7 @@ class TestFA5_SiloAlreadyAssigned:
                         name="Soplador 1",
                         non_feeding_power=50.0,
                         blow_before_time=5,
-                        blow_after_time=3
+                        blow_after_time=3,
                     ),
                     sensors_config=[],
                     dosers_config=[
@@ -460,19 +412,13 @@ class TestFA5_SiloAlreadyAssigned:
                             doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
-                            current_rate=50.0
+                            current_rate=50.0,
                         )
                     ],
                     selector_config=SelectorConfigModel(
-                        id="temp-selector-1",
-                        name="Selectora 1",
-                        capacity=4,
-                        fast_speed=80.0,
-                        slow_speed=20.0
+                        id="temp-selector-1", name="Selectora 1", capacity=4, fast_speed=80.0, slow_speed=20.0
                     ),
-                    slot_assignments=[
-                        SlotAssignmentModel(slot_number=1, cage_id=str(r_cages[0].id))
-                    ]
+                    slot_assignments=[SlotAssignmentModel(slot_number=1, cage_id=str(r_cages[0].id))],
                 ),
                 # Línea 2 nueva intentando usar el mismo silo
                 FeedingLineConfigModel(
@@ -483,7 +429,7 @@ class TestFA5_SiloAlreadyAssigned:
                         name="Soplador 2",
                         non_feeding_power=50.0,
                         blow_before_time=5,
-                        blow_after_time=3
+                        blow_after_time=3,
                     ),
                     sensors_config=[],
                     dosers_config=[
@@ -494,21 +440,15 @@ class TestFA5_SiloAlreadyAssigned:
                             doser_type="VARI_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
-                            current_rate=50.0
+                            current_rate=50.0,
                         )
                     ],
                     selector_config=SelectorConfigModel(
-                        id="temp-selector-2",
-                        name="Selectora 2",
-                        capacity=4,
-                        fast_speed=80.0,
-                        slow_speed=20.0
+                        id="temp-selector-2", name="Selectora 2", capacity=4, fast_speed=80.0, slow_speed=20.0
                     ),
-                    slot_assignments=[
-                        SlotAssignmentModel(slot_number=1, cage_id=str(r_cages[1].id))
-                    ]
-                )
-            ]
+                    slot_assignments=[SlotAssignmentModel(slot_number=1, cage_id=str(r_cages[1].id))],
+                ),
+            ],
         )
 
         silos, _cages, lines, _slots = await use_case.execute(second_request)
@@ -518,7 +458,6 @@ class TestFA5_SiloAlreadyAssigned:
         assert silos[0].is_assigned
 
 
-
 class TestFA6_BrokenReferences:
     """FA6: Referencias rotas (IDs inexistentes)."""
 
@@ -526,12 +465,8 @@ class TestFA6_BrokenReferences:
     async def test_fa6_doser_references_nonexistent_silo(self, use_case):
         """No debe permitir que un dosificador referencie un silo inexistente."""
         request = SystemLayoutModel(
-            silos=[
-                SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)
-            ],
-            cages=[
-                CageConfigModel(id="temp-cage-1", name="Jaula 1")
-            ],
+            silos=[SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)],
+            cages=[CageConfigModel(id="temp-cage-1", name="Jaula 1")],
             feeding_lines=[
                 FeedingLineConfigModel(
                     id="temp-line-1",
@@ -541,7 +476,7 @@ class TestFA6_BrokenReferences:
                         name="Soplador 1",
                         non_feeding_power=50.0,
                         blow_before_time=5,
-                        blow_after_time=3
+                        blow_after_time=3,
                     ),
                     sensors_config=[],
                     dosers_config=[
@@ -552,21 +487,15 @@ class TestFA6_BrokenReferences:
                             doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
-                            current_rate=50.0
+                            current_rate=50.0,
                         )
                     ],
                     selector_config=SelectorConfigModel(
-                        id="temp-selector-1",
-                        name="Selectora 1",
-                        capacity=4,
-                        fast_speed=80.0,
-                        slow_speed=20.0
+                        id="temp-selector-1", name="Selectora 1", capacity=4, fast_speed=80.0, slow_speed=20.0
                     ),
-                    slot_assignments=[
-                        SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")
-                    ]
+                    slot_assignments=[SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")],
                 )
-            ]
+            ],
         )
 
         with pytest.raises(Exception) as exc_info:
@@ -574,21 +503,19 @@ class TestFA6_BrokenReferences:
 
         error_msg = str(exc_info.value).lower()
         assert "silo" in error_msg
-        assert ("no existe" in error_msg or
-                "no encontrado" in error_msg or
-                "inexistente" in error_msg or
-                "no fue creado" in error_msg)
+        assert (
+            "no existe" in error_msg
+            or "no encontrado" in error_msg
+            or "inexistente" in error_msg
+            or "no fue creado" in error_msg
+        )
 
     @pytest.mark.asyncio
     async def test_fa6_slot_references_nonexistent_cage(self, use_case):
         """No debe permitir que un slot referencie una jaula inexistente."""
         request = SystemLayoutModel(
-            silos=[
-                SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)
-            ],
-            cages=[
-                CageConfigModel(id="temp-cage-1", name="Jaula 1")
-            ],
+            silos=[SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)],
+            cages=[CageConfigModel(id="temp-cage-1", name="Jaula 1")],
             feeding_lines=[
                 FeedingLineConfigModel(
                     id="temp-line-1",
@@ -598,7 +525,7 @@ class TestFA6_BrokenReferences:
                         name="Soplador 1",
                         non_feeding_power=50.0,
                         blow_before_time=5,
-                        blow_after_time=3
+                        blow_after_time=3,
                     ),
                     sensors_config=[],
                     dosers_config=[
@@ -609,21 +536,17 @@ class TestFA6_BrokenReferences:
                             doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
-                            current_rate=50.0
+                            current_rate=50.0,
                         )
                     ],
                     selector_config=SelectorConfigModel(
-                        id="temp-selector-1",
-                        name="Selectora 1",
-                        capacity=4,
-                        fast_speed=80.0,
-                        slow_speed=20.0
+                        id="temp-selector-1", name="Selectora 1", capacity=4, fast_speed=80.0, slow_speed=20.0
                     ),
                     slot_assignments=[
                         SlotAssignmentModel(slot_number=1, cage_id="temp-cage-999")  # Jaula inexistente!
-                    ]
+                    ],
                 )
-            ]
+            ],
         )
 
         with pytest.raises(Exception) as exc_info:
@@ -631,11 +554,12 @@ class TestFA6_BrokenReferences:
 
         error_msg = str(exc_info.value).lower()
         assert "jaula" in error_msg or "cage" in error_msg
-        assert ("no existe" in error_msg or
-                "no encontrado" in error_msg or
-                "inexistente" in error_msg or
-                "no fue creada" in error_msg)
-
+        assert (
+            "no existe" in error_msg
+            or "no encontrado" in error_msg
+            or "inexistente" in error_msg
+            or "no fue creada" in error_msg
+        )
 
 
 class TestFA7_DuplicateSensorTypes:
@@ -645,12 +569,8 @@ class TestFA7_DuplicateSensorTypes:
     async def test_fa7_duplicate_sensor_type_in_line(self, use_case):
         """No debe permitir dos sensores del mismo tipo en una línea."""
         request = SystemLayoutModel(
-            silos=[
-                SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)
-            ],
-            cages=[
-                CageConfigModel(id="temp-cage-1", name="Jaula 1")
-            ],
+            silos=[SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)],
+            cages=[CageConfigModel(id="temp-cage-1", name="Jaula 1")],
             feeding_lines=[
                 FeedingLineConfigModel(
                     id="temp-line-1",
@@ -660,19 +580,15 @@ class TestFA7_DuplicateSensorTypes:
                         name="Soplador 1",
                         non_feeding_power=50.0,
                         blow_before_time=5,
-                        blow_after_time=3
+                        blow_after_time=3,
                     ),
                     sensors_config=[
-                        SensorConfigModel(
-                            id="temp-sensor-1",
-                            name="Sensor Temperatura 1",
-                            sensor_type="TEMPERATURE"
-                        ),
+                        SensorConfigModel(id="temp-sensor-1", name="Sensor Temperatura 1", sensor_type="TEMPERATURE"),
                         SensorConfigModel(
                             id="temp-sensor-2",
                             name="Sensor Temperatura 2",
-                            sensor_type="TEMPERATURE"  # Tipo duplicado!
-                        )
+                            sensor_type="TEMPERATURE",  # Tipo duplicado!
+                        ),
                     ],
                     dosers_config=[
                         DoserConfigModel(
@@ -682,40 +598,29 @@ class TestFA7_DuplicateSensorTypes:
                             doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
-                            current_rate=50.0
+                            current_rate=50.0,
                         )
                     ],
                     selector_config=SelectorConfigModel(
-                        id="temp-selector-1",
-                        name="Selectora 1",
-                        capacity=4,
-                        fast_speed=80.0,
-                        slow_speed=20.0
+                        id="temp-selector-1", name="Selectora 1", capacity=4, fast_speed=80.0, slow_speed=20.0
                     ),
-                    slot_assignments=[
-                        SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")
-                    ]
+                    slot_assignments=[SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")],
                 )
-            ]
+            ],
         )
 
         with pytest.raises(Exception) as exc_info:
             await use_case.execute(request)
 
         assert "sensor" in str(exc_info.value).lower()
-        assert ("duplicado" in str(exc_info.value).lower() or
-                "tipo" in str(exc_info.value).lower())
+        assert "duplicado" in str(exc_info.value).lower() or "tipo" in str(exc_info.value).lower()
 
     @pytest.mark.asyncio
     async def test_fa7_different_sensor_types_allowed(self, use_case):
         """Debe permitir múltiples sensores de diferentes tipos."""
         request = SystemLayoutModel(
-            silos=[
-                SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)
-            ],
-            cages=[
-                CageConfigModel(id="temp-cage-1", name="Jaula 1")
-            ],
+            silos=[SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)],
+            cages=[CageConfigModel(id="temp-cage-1", name="Jaula 1")],
             feeding_lines=[
                 FeedingLineConfigModel(
                     id="temp-line-1",
@@ -725,24 +630,24 @@ class TestFA7_DuplicateSensorTypes:
                         name="Soplador 1",
                         non_feeding_power=50.0,
                         blow_before_time=5,
-                        blow_after_time=3
+                        blow_after_time=3,
                     ),
                     sensors_config=[
                         SensorConfigModel(
                             id="temp-sensor-1",
                             name="Sensor Temperatura",
-                            sensor_type="TEMPERATURE"  # Mayúsculas (enum)
+                            sensor_type="TEMPERATURE",  # Mayúsculas (enum)
                         ),
                         SensorConfigModel(
                             id="temp-sensor-2",
                             name="Sensor Presión",
-                            sensor_type="PRESSURE"  # Mayúsculas (enum)
+                            sensor_type="PRESSURE",  # Mayúsculas (enum)
                         ),
                         SensorConfigModel(
                             id="temp-sensor-3",
                             name="Sensor Flujo",
-                            sensor_type="FLOW"  # Mayúsculas (enum)
-                        )
+                            sensor_type="FLOW",  # Mayúsculas (enum)
+                        ),
                     ],
                     dosers_config=[
                         DoserConfigModel(
@@ -752,21 +657,15 @@ class TestFA7_DuplicateSensorTypes:
                             doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
-                            current_rate=50.0
+                            current_rate=50.0,
                         )
                     ],
                     selector_config=SelectorConfigModel(
-                        id="temp-selector-1",
-                        name="Selectora 1",
-                        capacity=4,
-                        fast_speed=80.0,
-                        slow_speed=20.0
+                        id="temp-selector-1", name="Selectora 1", capacity=4, fast_speed=80.0, slow_speed=20.0
                     ),
-                    slot_assignments=[
-                        SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")
-                    ]
+                    slot_assignments=[SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")],
                 )
-            ]
+            ],
         )
 
         # No debe lanzar excepción
@@ -776,7 +675,6 @@ class TestFA7_DuplicateSensorTypes:
         assert len(lines[0].dosers) == 1  # Verify line was created
 
 
-
 class TestRangeValidations:
     """Validaciones de rangos numéricos."""
 
@@ -784,12 +682,8 @@ class TestRangeValidations:
     async def test_doser_min_rate_greater_than_max_rate(self, use_case):
         """No debe permitir min_rate > max_rate en dosificador."""
         request = SystemLayoutModel(
-            silos=[
-                SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)
-            ],
-            cages=[
-                CageConfigModel(id="temp-cage-1", name="Jaula 1")
-            ],
+            silos=[SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)],
+            cages=[CageConfigModel(id="temp-cage-1", name="Jaula 1")],
             feeding_lines=[
                 FeedingLineConfigModel(
                     id="temp-line-1",
@@ -799,7 +693,7 @@ class TestRangeValidations:
                         name="Soplador 1",
                         non_feeding_power=50.0,
                         blow_before_time=5,
-                        blow_after_time=3
+                        blow_after_time=3,
                     ),
                     sensors_config=[],
                     dosers_config=[
@@ -810,39 +704,29 @@ class TestRangeValidations:
                             doser_type="PULSE_DOSER",
                             min_rate=100.0,  # min > max!
                             max_rate=50.0,
-                            current_rate=75.0
+                            current_rate=75.0,
                         )
                     ],
                     selector_config=SelectorConfigModel(
-                        id="temp-selector-1",
-                        name="Selectora 1",
-                        capacity=4,
-                        fast_speed=80.0,
-                        slow_speed=20.0
+                        id="temp-selector-1", name="Selectora 1", capacity=4, fast_speed=80.0, slow_speed=20.0
                     ),
-                    slot_assignments=[
-                        SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")
-                    ]
+                    slot_assignments=[SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")],
                 )
-            ]
+            ],
         )
 
         with pytest.raises(Exception) as exc_info:
             await use_case.execute(request)
 
         error_msg = str(exc_info.value).lower()
-        assert ("rate" in error_msg or "rango" in error_msg or "tasa" in error_msg)
+        assert "rate" in error_msg or "rango" in error_msg or "tasa" in error_msg
 
     @pytest.mark.asyncio
     async def test_doser_current_rate_outside_range(self, use_case):
         """No debe permitir current_rate fuera del rango [min_rate, max_rate]."""
         request = SystemLayoutModel(
-            silos=[
-                SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)
-            ],
-            cages=[
-                CageConfigModel(id="temp-cage-1", name="Jaula 1")
-            ],
+            silos=[SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)],
+            cages=[CageConfigModel(id="temp-cage-1", name="Jaula 1")],
             feeding_lines=[
                 FeedingLineConfigModel(
                     id="temp-line-1",
@@ -852,7 +736,7 @@ class TestRangeValidations:
                         name="Soplador 1",
                         non_feeding_power=50.0,
                         blow_before_time=5,
-                        blow_after_time=3
+                        blow_after_time=3,
                     ),
                     sensors_config=[],
                     dosers_config=[
@@ -863,21 +747,15 @@ class TestRangeValidations:
                             doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
-                            current_rate=150.0  # Fuera de rango!
+                            current_rate=150.0,  # Fuera de rango!
                         )
                     ],
                     selector_config=SelectorConfigModel(
-                        id="temp-selector-1",
-                        name="Selectora 1",
-                        capacity=4,
-                        fast_speed=80.0,
-                        slow_speed=20.0
+                        id="temp-selector-1", name="Selectora 1", capacity=4, fast_speed=80.0, slow_speed=20.0
                     ),
-                    slot_assignments=[
-                        SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")
-                    ]
+                    slot_assignments=[SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")],
                 )
-            ]
+            ],
         )
 
         with pytest.raises(Exception) as exc_info:
@@ -889,12 +767,8 @@ class TestRangeValidations:
     async def test_selector_slow_speed_greater_than_fast_speed(self, use_case):
         """No debe permitir slow_speed > fast_speed en selectora."""
         request = SystemLayoutModel(
-            silos=[
-                SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)
-            ],
-            cages=[
-                CageConfigModel(id="temp-cage-1", name="Jaula 1")
-            ],
+            silos=[SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)],
+            cages=[CageConfigModel(id="temp-cage-1", name="Jaula 1")],
             feeding_lines=[
                 FeedingLineConfigModel(
                     id="temp-line-1",
@@ -904,7 +778,7 @@ class TestRangeValidations:
                         name="Soplador 1",
                         non_feeding_power=50.0,
                         blow_before_time=5,
-                        blow_after_time=3
+                        blow_after_time=3,
                     ),
                     sensors_config=[],
                     dosers_config=[
@@ -915,7 +789,7 @@ class TestRangeValidations:
                             doser_type="PULSE_DOSER",
                             min_rate=10.0,
                             max_rate=100.0,
-                            current_rate=50.0
+                            current_rate=50.0,
                         )
                     ],
                     selector_config=SelectorConfigModel(
@@ -923,13 +797,11 @@ class TestRangeValidations:
                         name="Selectora 1",
                         capacity=4,
                         fast_speed=20.0,  # fast < slow!
-                        slow_speed=80.0
+                        slow_speed=80.0,
                     ),
-                    slot_assignments=[
-                        SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")
-                    ]
+                    slot_assignments=[SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")],
                 )
-            ]
+            ],
         )
 
         with pytest.raises(Exception) as exc_info:
@@ -946,7 +818,7 @@ class TestRangeValidations:
                     SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=-1000.0)  # Negativo!
                 ],
                 cages=[],
-                feeding_lines=[]
+                feeding_lines=[],
             )
 
     @pytest.mark.asyncio
@@ -954,12 +826,8 @@ class TestRangeValidations:
         """No debe permitir capacidad cero en selectora."""
         with pytest.raises(Exception):
             SystemLayoutModel(
-                silos=[
-                    SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)
-                ],
-                cages=[
-                    CageConfigModel(id="temp-cage-1", name="Jaula 1")
-                ],
+                silos=[SiloConfigModel(id="temp-silo-1", name="Silo A", capacity=1000.0)],
+                cages=[CageConfigModel(id="temp-cage-1", name="Jaula 1")],
                 feeding_lines=[
                     FeedingLineConfigModel(
                         id="temp-line-1",
@@ -969,7 +837,7 @@ class TestRangeValidations:
                             name="Soplador 1",
                             non_feeding_power=50.0,
                             blow_before_time=5,
-                            blow_after_time=3
+                            blow_after_time=3,
                         ),
                         sensors_config=[],
                         dosers_config=[
@@ -980,7 +848,7 @@ class TestRangeValidations:
                                 doser_type="PULSE_DOSER",
                                 min_rate=10.0,
                                 max_rate=100.0,
-                                current_rate=50.0
+                                current_rate=50.0,
                             )
                         ],
                         selector_config=SelectorConfigModel(
@@ -988,11 +856,9 @@ class TestRangeValidations:
                             name="Selectora 1",
                             capacity=0,  # Cero!
                             fast_speed=80.0,
-                            slow_speed=20.0
+                            slow_speed=20.0,
                         ),
-                        slot_assignments=[
-                            SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")
-                        ]
+                        slot_assignments=[SlotAssignmentModel(slot_number=1, cage_id="temp-cage-1")],
                     )
-                ]
+                ],
             )

@@ -18,9 +18,7 @@ from infrastructure.persistence.models import SlotAssignmentModel
 class GetFeedingLineUseCase:
     """Caso de uso para obtener una línea de alimentación específica."""
 
-    def __init__(
-        self, feeding_line_repository: IFeedingLineRepository, session: AsyncSession
-    ):
+    def __init__(self, feeding_line_repository: IFeedingLineRepository, session: AsyncSession):
         self._feeding_line_repository = feeding_line_repository
         self._session = session
 
@@ -41,9 +39,7 @@ class GetFeedingLineUseCase:
         feeding_line = await self._feeding_line_repository.find_by_id(LineId.from_string(line_id))
 
         if not feeding_line:
-            raise FeedingLineNotFoundException(
-                f"Línea de alimentación con ID {line_id} no encontrada"
-            )
+            raise FeedingLineNotFoundException(f"Línea de alimentación con ID {line_id} no encontrada")
 
         # Obtener conteo de jaulas para esta línea
         cage_count = await self._get_cage_count_by_line(line_id)

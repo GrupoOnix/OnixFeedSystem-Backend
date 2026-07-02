@@ -27,10 +27,12 @@ from domain.enums import (
 )
 
 from .aggregates.feeding_line.feeding_line import FeedingLine
+from .aggregates.user import User
 from .value_objects import (
     ActivityLogEntry,
     AlertId,
     BiometryLogEntry,
+    CageGroupActivityLogEntry,
     CageGroupId,
     CageGroupName,
     CageId,
@@ -46,6 +48,7 @@ from .value_objects import (
     SessionId,
     SiloId,
     SiloName,
+    UserId,
 )
 
 
@@ -103,9 +106,7 @@ class ICageRepository(ABC):
         ...
 
     @abstractmethod
-    async def list_with_line_info(
-        self, line_id: Optional[LineId] = None
-    ) -> List[Tuple[Cage, Optional[str]]]:
+    async def list_with_line_info(self, line_id: Optional[LineId] = None) -> List[Tuple[Cage, Optional[str]]]:
         """Lista jaulas con información de la línea asignada."""
         ...
 
@@ -282,9 +283,7 @@ class ISiloRepository(ABC):
     ) -> List[Tuple[Silo, List[str], List[str]]]: ...
 
     @abstractmethod
-    async def find_by_id_with_line_info(
-        self, silo_id: SiloId
-    ) -> Optional[Tuple[Silo, List[str], List[str]]]: ...
+    async def find_by_id_with_line_info(self, silo_id: SiloId) -> Optional[Tuple[Silo, List[str], List[str]]]: ...
 
 
 class IFeedingSessionRepository(ABC):
@@ -468,6 +467,33 @@ class ICageActivityLogRepository(ABC):
         to_date: Optional[datetime] = None,
     ) -> int:
         """Cuenta registros de actividad de una jaula con filtros opcionales."""
+        ...
+
+
+class ICageGroupActivityLogRepository(ABC):
+    """Repositorio para logs de actividad de grupos de jaulas."""
+
+    @abstractmethod
+    async def save(self, entry: CageGroupActivityLogEntry) -> None:
+        """Guarda un registro de actividad de grupo."""
+        ...
+
+    @abstractmethod
+    async def list_by_cage_group(
+        self,
+        cage_group_id: CageGroupId,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> List[CageGroupActivityLogEntry]:
+        """Lista registros de actividad de un grupo, ordenados por event_at DESC."""
+        ...
+
+    @abstractmethod
+    async def count_by_cage_group(
+        self,
+        cage_group_id: CageGroupId,
+    ) -> int:
+        """Cuenta registros de actividad de un grupo."""
         ...
 
 
@@ -691,3 +717,37 @@ class ISystemConfigRepository(ABC):
 
     @abstractmethod
     async def save(self, config: SystemConfig) -> None: ...
+
+
+# ============================================================================
+# Repositorio de Usuarios
+# ============================================================================
+
+
+class IUserRepository(ABC):
+    """Repositorio para el aggregate User."""
+
+    @abstractmethod
+    async def save(self, user: User) -> None:
+        """Guarda o actualiza un usuario."""
+        ...
+
+    @abstractmethod
+    async def find_by_id(self, user_id: UserId) -> Optional[User]:
+        """Busca un usuario por su ID."""
+        ...
+
+    @abstractmethod
+    async def find_by_username(self, username: str) -> Optional[User]:
+        """Busca un usuario por su nombre de usuario."""
+        ...
+
+    @abstractmethod
+    async def list(self) -> List[User]:
+        """Lista todos los usuarios ordenados por username."""
+        ...
+
+    @abstractmethod
+    async def exists_by_username(self, username: str, exclude_id: Optional[UserId] = None) -> bool:
+        """Verifica si existe un usuario con el username dado."""
+        ...

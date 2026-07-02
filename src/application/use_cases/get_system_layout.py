@@ -43,9 +43,7 @@ class GetSystemLayoutUseCase:
 
     async def execute(
         self,
-    ) -> Tuple[
-        List[Silo], List[Cage], List[FeedingLine], Dict[LineId, List[SlotAssignment]]
-    ]:
+    ) -> Tuple[List[Silo], List[Cage], List[FeedingLine], Dict[LineId, List[SlotAssignment]]]:
         """
         Ejecuta el caso de uso para obtener el layout del sistema.
 

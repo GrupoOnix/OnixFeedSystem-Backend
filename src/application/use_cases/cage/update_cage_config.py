@@ -28,7 +28,7 @@ class UpdateCageConfigUseCase:
         self.cage_feeding_repository = cage_feeding_repository
         self.activity_log_repository = activity_log_repository
 
-    async def execute(self, cage_id: str, request: UpdateCageConfigRequest) -> CageResponse:
+    async def execute(self, cage_id: str, request: UpdateCageConfigRequest, actor: str) -> CageResponse:
         """
         Actualiza la configuración de una jaula.
 
@@ -37,6 +37,7 @@ class UpdateCageConfigUseCase:
         Args:
             cage_id: ID de la jaula
             request: Configuración a actualizar
+            actor: Usuario que realiza la acción
 
         Returns:
             CageResponse con los datos actualizados
@@ -85,6 +86,7 @@ class UpdateCageConfigUseCase:
                     category=ActivityLogCategory.CONFIG,
                     message=f"Configuración actualizada: {log_entry['field']}",
                     details=f"{log_entry['old']} → {log_entry['new']}",
+                    actor=actor,
                 )
             )
 
@@ -110,11 +112,13 @@ class UpdateCageConfigUseCase:
         ]
         for field, old_val, new_val in field_map:
             if old_val != new_val:
-                changes.append({
-                    "field": field,
-                    "old": str(old_val) if old_val is not None else "—",
-                    "new": str(new_val) if new_val is not None else "—",
-                })
+                changes.append(
+                    {
+                        "field": field,
+                        "old": str(old_val) if old_val is not None else "—",
+                        "new": str(new_val) if new_val is not None else "—",
+                    }
+                )
         return changes
 
     def _to_response(self, cage: Cage, today_feeding_kg: float = 0.0) -> CageResponse:

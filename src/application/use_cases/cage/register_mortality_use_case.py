@@ -7,31 +7,27 @@ from application.dtos.mortality_dtos import RegisterMortalityRequest
 class RegisterMortalityUseCase:
     """
     Registra un evento de mortalidad en una jaula.
-    
+
     IMPORTANTE: NO modifica current_fish_count de la jaula.
     Solo crea un registro en el log para auditoría y estadísticas.
-    
+
     Patrón transaccional:
     - Si cualquier operación falla, toda la transacción se revierte
     - No hay commits explícitos, SQLAlchemy maneja la transacción
     """
 
-    def __init__(
-        self,
-        cage_repository: ICageRepository,
-        mortality_log_repository: IMortalityLogRepository
-    ):
+    def __init__(self, cage_repository: ICageRepository, mortality_log_repository: IMortalityLogRepository):
         self._cage_repo = cage_repository
         self._mortality_log_repo = mortality_log_repository
 
     async def execute(self, cage_id: str, request: RegisterMortalityRequest) -> None:
         """
         Ejecuta el registro de mortalidad.
-        
+
         Args:
             cage_id: ID de la jaula
             request: Datos del registro de mortalidad
-            
+
         Raises:
             ValueError: Si la jaula no existe o no tiene población
         """
@@ -52,7 +48,7 @@ class RegisterMortalityUseCase:
             cage_id=cage.id,
             dead_fish_count=request.dead_fish_count,
             mortality_date=request.mortality_date,
-            note=request.note
+            note=request.note,
         )
 
         # Persistir solo el log (NO se modifica la jaula)

@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, status
 
-from api.dependencies import CreateFeedbackUseCaseDep
+from api.dependencies import CreateFeedbackUseCaseDep, CurrentUserDep
 from api.models.feedback_models import CreateFeedbackRequestModel
 from application.dtos.feedback_dtos import CreateFeedbackRequest
 
@@ -11,6 +11,7 @@ router = APIRouter(prefix="/feedback", tags=["Feedback"])
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_feedback(
+    current_user: CurrentUserDep,
     request: CreateFeedbackRequestModel,
     use_case: CreateFeedbackUseCaseDep,
 ) -> dict:

@@ -177,18 +177,20 @@ async def test_cyclic_status_reports_empty_visit_for_completed_cage():
     )
     running_cage.start()
 
-    machine = _MachineStub(MachineVisitStatus(
-        is_running=True,
-        is_paused=False,
-        dispensed_kg=0.0,
-        current_flow_rate_kg_per_min=0.0,
-        has_error=False,
-        current_stage=VisitStage.POSITIONING_SELECTOR,
-        cage_id=finished_cage.cage_id,
-        cage_feeding_id=finished_cage.id,
-        visit_number=3,
-        is_empty_visit=True,
-    ))
+    machine = _MachineStub(
+        MachineVisitStatus(
+            is_running=True,
+            is_paused=False,
+            dispensed_kg=0.0,
+            current_flow_rate_kg_per_min=0.0,
+            has_error=False,
+            current_stage=VisitStage.POSITIONING_SELECTOR,
+            cage_id=finished_cage.cage_id,
+            cage_feeding_id=finished_cage.id,
+            visit_number=3,
+            is_empty_visit=True,
+        )
+    )
 
     status = await build_cyclic_status(
         session,
@@ -214,7 +216,6 @@ def test_cyclic_request_accepts_visits_per_cage_without_global_visits():
         doser_id=str(uuid4()),
         silo_id=str(uuid4()),
         blower_power_percentage=70,
-        operator_id=str(uuid4()),
         cage_configs=[
             CageConfigInput(
                 cage_id=str(uuid4()),
@@ -239,7 +240,6 @@ def test_cyclic_request_accepts_positive_wait_after_visit_seconds():
         silo_id=str(uuid4()),
         blower_power_percentage=70,
         wait_after_visit_seconds=30,
-        operator_id=str(uuid4()),
         cage_configs=[
             CageConfigInput(
                 cage_id=str(uuid4()),
@@ -263,7 +263,6 @@ def test_cyclic_request_rejects_negative_wait_after_visit_seconds():
             silo_id=str(uuid4()),
             blower_power_percentage=70,
             wait_after_visit_seconds=-1,
-            operator_id=str(uuid4()),
             cage_configs=[
                 CageConfigInput(
                     cage_id=str(uuid4()),
@@ -284,7 +283,6 @@ def test_cyclic_request_requires_per_cage_or_global_visits_for_active_cages():
             doser_id=str(uuid4()),
             silo_id=str(uuid4()),
             blower_power_percentage=70,
-            operator_id=str(uuid4()),
             cage_configs=[
                 CageConfigInput(
                     cage_id=str(uuid4()),

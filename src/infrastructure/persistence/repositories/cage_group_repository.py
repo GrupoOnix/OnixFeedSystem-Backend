@@ -28,9 +28,7 @@ class CageGroupRepository(ICageGroupRepository):
             # Actualizar campos
             existing.name = str(cage_group.name)
             existing.description = cage_group.description
-            existing.cage_ids = json.dumps(
-                [str(cage_id.value) for cage_id in cage_group.cage_ids]
-            )
+            existing.cage_ids = json.dumps([str(cage_id.value) for cage_id in cage_group.cage_ids])
             existing.updated_at = cage_group.updated_at
         else:
             group_model = CageGroupModel.from_domain(cage_group)
@@ -45,9 +43,7 @@ class CageGroupRepository(ICageGroupRepository):
 
     async def find_by_name(self, name: CageGroupName) -> Optional[CageGroup]:
         """Busca un grupo por su nombre."""
-        result = await self.session.execute(
-            select(CageGroupModel).where(col(CageGroupModel.name) == str(name))
-        )
+        result = await self.session.execute(select(CageGroupModel).where(col(CageGroupModel.name) == str(name)))
         group_model = result.scalar_one_or_none()
         return group_model.to_domain() if group_model else None
 
@@ -110,9 +106,7 @@ class CageGroupRepository(ICageGroupRepository):
             await self.session.delete(group_model)
             await self.session.flush()
 
-    async def exists_by_name(
-        self, name: str, exclude_id: Optional[CageGroupId] = None
-    ) -> bool:
+    async def exists_by_name(self, name: str, exclude_id: Optional[CageGroupId] = None) -> bool:
         """
         Verifica si existe un grupo con el nombre dado (case-insensitive).
 
@@ -123,9 +117,7 @@ class CageGroupRepository(ICageGroupRepository):
         Returns:
             True si existe un grupo con ese nombre, False en caso contrario
         """
-        query = select(CageGroupModel).where(
-            func.lower(col(CageGroupModel.name)) == name.lower()
-        )
+        query = select(CageGroupModel).where(func.lower(col(CageGroupModel.name)) == name.lower())
 
         if exclude_id:
             query = query.where(col(CageGroupModel.id) != exclude_id.value)

@@ -33,9 +33,7 @@ class UpdateSelectorUseCase:
         feeding_line = await self._feeding_line_repository.find_by_id(LineId.from_string(line_id))
 
         if not feeding_line:
-            raise FeedingLineNotFoundException(
-                f"Línea de alimentación con ID {line_id} no encontrada"
-            )
+            raise FeedingLineNotFoundException(f"Línea de alimentación con ID {line_id} no encontrada")
 
         # Actualizar nombre si se proporciona
         if request.name is not None:
@@ -48,12 +46,8 @@ class UpdateSelectorUseCase:
             current_slow = feeding_line.selector.speed_profile.slow_speed.value
 
             # Usar nuevos valores o mantener los actuales
-            new_fast = (
-                request.fast_speed if request.fast_speed is not None else current_fast
-            )
-            new_slow = (
-                request.slow_speed if request.slow_speed is not None else current_slow
-            )
+            new_fast = request.fast_speed if request.fast_speed is not None else current_fast
+            new_slow = request.slow_speed if request.slow_speed is not None else current_slow
 
             # Crear nuevo perfil de velocidad
             new_profile = SelectorSpeedProfile(

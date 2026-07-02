@@ -378,8 +378,7 @@ async def _assert_cyclic_valid_for_save(
     extra_in_request = request_cage_ids - group_cage_ids
     if extra_in_request:
         raise ValueError(
-            "Las siguientes jaulas no pertenecen al grupo: "
-            f"{', '.join(str(cage_id) for cage_id in extra_in_request)}"
+            f"Las siguientes jaulas no pertenecen al grupo: {', '.join(str(cage_id) for cage_id in extra_in_request)}"
         )
 
     for cage_config in cage_configs:
@@ -477,11 +476,7 @@ def _resolve_global_cyclic_visits(request: LastValidCyclicFeedingConfigPayload) 
     if request.visits is not None:
         return request.visits
     return max(
-        (
-            cage_config.visits or 0
-            for cage_config in request.cage_configs
-            if cage_config.mode != "FASTING"
-        ),
+        (cage_config.visits or 0 for cage_config in request.cage_configs if cage_config.mode != "FASTING"),
         default=1,
     )
 

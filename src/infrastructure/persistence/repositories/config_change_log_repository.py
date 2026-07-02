@@ -39,7 +39,8 @@ class ConfigChangeLogRepository(IConfigChangeLogRepository):
     async def count_by_cage(self, cage_id: CageId) -> int:
         """Cuenta total de registros de cambios de configuración de una jaula."""
         result = await self.session.execute(
-            select(func.count(col(ConfigChangeLogModel.change_id)))
-            .where(col(ConfigChangeLogModel.cage_id) == cage_id.value)
+            select(func.count(col(ConfigChangeLogModel.change_id))).where(
+                col(ConfigChangeLogModel.cage_id) == cage_id.value
+            )
         )
         return result.scalar() or 0

@@ -8,9 +8,11 @@ Estos fixtures proporcionan:
 """
 
 import pytest
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
+
+from infrastructure.security.token_service import TokenService
 
 
 @pytest.fixture
@@ -190,3 +192,29 @@ def update_biometry_request_data():
         "event_date": date.today().isoformat(),
         "note": "Muestreo mensual",
     }
+
+
+@pytest.fixture
+def auth_user_data():
+    """Datos de un usuario autenticado de prueba."""
+    return {
+        "id": str(uuid4()),
+        "username": "testuser",
+        "full_name": "Test User",
+        "role": "user",
+        "is_superadmin": False,
+        "is_active": True,
+    }
+
+
+@pytest.fixture
+def auth_headers(auth_user_data):
+    """Headers de autenticación con un token JWT de prueba."""
+    token = TokenService.create_access_token(
+        user_id=auth_user_data["id"],
+        username=auth_user_data["username"],
+        role=auth_user_data["role"],
+        is_superadmin=auth_user_data["is_superadmin"],
+        expires_delta=timedelta(minutes=30),
+    )
+    return {"Authorization": f"Bearer {token}"}

@@ -6,6 +6,7 @@ from enum import Enum
 
 class FeedingType(Enum):
     """Tipos de sesión de alimentación."""
+
     MANUAL = "MANUAL"
     CYCLIC = "CYCLIC"
     SCHEDULED = "SCHEDULED"
@@ -13,6 +14,7 @@ class FeedingType(Enum):
 
 class SessionStatus(Enum):
     """Estados de una sesión de alimentación."""
+
     PENDING = "PENDING"
     IN_PROGRESS = "IN_PROGRESS"
     PAUSED = "PAUSED"

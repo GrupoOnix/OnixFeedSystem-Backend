@@ -24,14 +24,11 @@ from domain.value_objects.identifiers import CageGroupId, DoserId
 def _visits_for_config(request: CyclicFeedingRequest, cfg) -> int:
     visits = cfg.visits if cfg.visits is not None else request.visits
     if visits is None:
-        raise ValueError(
-            "Cada jaula activa debe declarar visits o el request debe incluir visits global"
-        )
+        raise ValueError("Cada jaula activa debe declarar visits o el request debe incluir visits global")
     return visits
 
 
 class CheckScheduleUseCase:
-
     def __init__(
         self,
         config_repository: ISystemConfigRepository,
@@ -82,27 +79,20 @@ class CheckScheduleUseCase:
 
         active_session = await self._session_repo.find_active_by_line(request.line_id)
         if active_session:
-            raise ValueError(
-                f"La línea {request.line_id} ya tiene una sesión activa "
-                f"(session_id: {active_session.id})"
-            )
+            raise ValueError(f"La línea {request.line_id} ya tiene una sesión activa (session_id: {active_session.id})")
 
         cage = await self._cage_repo.find_by_id(CageId.from_string(request.cage_id))
         if not cage:
             raise ValueError(f"Jaula con ID {request.cage_id} no encontrada")
 
         if cage.status == CageStatus.MAINTENANCE:
-            raise ValueError(
-                f"La jaula {cage.name.value} está en mantenimiento y no puede ser alimentada"
-            )
+            raise ValueError(f"La jaula {cage.name.value} está en mantenimiento y no puede ser alimentada")
 
         assignment = await self._slot_assignment_repo.find_by_cage(CageId.from_string(request.cage_id))
         if not assignment:
             raise ValueError(f"La jaula {cage.name.value} no está asignada a ninguna línea")
         if str(assignment.line_id) != request.line_id:
-            raise ValueError(
-                f"La jaula {cage.name.value} está asignada a otra línea, no a {request.line_id}"
-            )
+            raise ValueError(f"La jaula {cage.name.value} está asignada a otra línea, no a {request.line_id}")
 
         if cage.config.transport_time_seconds is None:
             raise ValueError(
@@ -115,9 +105,7 @@ class CheckScheduleUseCase:
 
         selected_doser = line.get_doser_by_id(DoserId.from_string(request.doser_id))
         if not selected_doser:
-            raise ValueError(
-                f"El doser {request.doser_id} no existe en la línea {request.line_id}"
-            )
+            raise ValueError(f"El doser {request.doser_id} no existe en la línea {request.line_id}")
 
         if request.rate_kg_per_min > selected_doser.max_rate_kg_per_min:
             raise ValueError(
@@ -149,14 +137,9 @@ class CheckScheduleUseCase:
 
         active_session = await self._session_repo.find_active_by_line(request.line_id)
         if active_session:
-            raise ValueError(
-                f"La línea {request.line_id} ya tiene una sesión activa "
-                f"(session_id: {active_session.id})"
-            )
+            raise ValueError(f"La línea {request.line_id} ya tiene una sesión activa (session_id: {active_session.id})")
 
-        group = await self._cage_group_repo.find_by_id(
-            CageGroupId.from_string(request.group_id)
-        )
+        group = await self._cage_group_repo.find_by_id(CageGroupId.from_string(request.group_id))
         if not group:
             raise ValueError(f"Grupo con ID {request.group_id} no encontrado")
 
@@ -165,25 +148,17 @@ class CheckScheduleUseCase:
 
         missing_in_request = group_cage_ids - request_cage_ids
         if missing_in_request:
-            raise ValueError(
-                f"Las siguientes jaulas del grupo no están en el request: "
-                f"{', '.join(missing_in_request)}"
-            )
+            raise ValueError(f"Las siguientes jaulas del grupo no están en el request: {', '.join(missing_in_request)}")
 
         extra_in_request = request_cage_ids - group_cage_ids
         if extra_in_request:
-            raise ValueError(
-                f"Las siguientes jaulas del request no pertenecen al grupo: "
-                f"{', '.join(extra_in_request)}"
-            )
+            raise ValueError(f"Las siguientes jaulas del request no pertenecen al grupo: {', '.join(extra_in_request)}")
 
         if not line.dosers:
             raise ValueError("La línea no tiene dosers configurados")
         selected_doser = line.get_doser_by_id(DoserId.from_string(request.doser_id))
         if not selected_doser:
-            raise ValueError(
-                f"El doser {request.doser_id} no existe en la línea {request.line_id}"
-            )
+            raise ValueError(f"El doser {request.doser_id} no existe en la línea {request.line_id}")
 
         active_visit_counts: list[int] = []
         per_cage_visit_seconds: dict[str, float] = {}
@@ -198,20 +173,13 @@ class CheckScheduleUseCase:
                 raise ValueError(f"Jaula con ID {cfg.cage_id} no encontrada")
 
             if cage.status == CageStatus.MAINTENANCE:
-                raise ValueError(
-                    f"La jaula {cage.name.value} está en mantenimiento y no puede ser alimentada"
-                )
+                raise ValueError(f"La jaula {cage.name.value} está en mantenimiento y no puede ser alimentada")
 
-            assignment = await self._slot_assignment_repo.find_by_cage(
-                CageId.from_string(cfg.cage_id)
-            )
+            assignment = await self._slot_assignment_repo.find_by_cage(CageId.from_string(cfg.cage_id))
             if not assignment:
                 raise ValueError(f"La jaula {cage.name.value} no está asignada a ninguna línea")
             if str(assignment.line_id) != request.line_id:
-                raise ValueError(
-                    f"La jaula {cage.name.value} está asignada a otra línea, "
-                    f"no a {request.line_id}"
-                )
+                raise ValueError(f"La jaula {cage.name.value} está asignada a otra línea, no a {request.line_id}")
 
             if cage.config.transport_time_seconds is None:
                 raise ValueError(
@@ -239,8 +207,8 @@ class CheckScheduleUseCase:
                 include_blow_after=False,
             )
             per_cage_visit_seconds[cfg.cage_id] = visit_seconds
-            per_cage_empty_visit_seconds[cfg.cage_id] = (
-                selector_positioning_seconds + float(cage.config.transport_time_seconds)
+            per_cage_empty_visit_seconds[cfg.cage_id] = selector_positioning_seconds + float(
+                cage.config.transport_time_seconds
             )
 
         estimated_seconds = 0.0
@@ -262,8 +230,5 @@ class CheckScheduleUseCase:
         )
 
         # Soplido previo al inicio y posterior al final: una sola vez cada uno
-        estimated_seconds += (
-            line.blower.blow_before_feeding_time.value
-            + line.blower.blow_after_feeding_time.value
-        )
+        estimated_seconds += line.blower.blow_before_feeding_time.value + line.blower.blow_after_feeding_time.value
         return estimated_seconds

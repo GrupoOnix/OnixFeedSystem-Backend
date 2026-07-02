@@ -87,6 +87,26 @@ class SiloId:
 
 
 @dataclass(frozen=True)
+class UserId:
+    """Identificador único para un usuario del sistema."""
+
+    value: UUID
+
+    @classmethod
+    def generate(cls) -> UserId:
+        """Genera un nuevo UserId único."""
+        return cls(uuid4())
+
+    @classmethod
+    def from_string(cls, id_str: str) -> UserId:
+        """Crea un UserId desde una representación de cadena."""
+        return cls(UUID(id_str))
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
+@dataclass(frozen=True)
 class FeedingTableId:
     """
     Identificador para una tabla de alimentación.

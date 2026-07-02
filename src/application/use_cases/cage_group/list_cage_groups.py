@@ -42,9 +42,7 @@ class ListCageGroupsUseCase:
             ListCageGroupsResponse con los grupos y total
         """
         # 1. Obtener grupos con filtros
-        groups = await self.group_repository.list(
-            search=search, limit=limit, offset=offset
-        )
+        groups = await self.group_repository.list(search=search, limit=limit, offset=offset)
 
         # 2. Contar total
         total = await self.group_repository.count(search=search)
@@ -66,9 +64,7 @@ class ListCageGroupsUseCase:
                 cages.append(cage)
         return cages
 
-    def _to_response(
-        self, cage_group: CageGroup, cages: List[Cage]
-    ) -> CageGroupResponse:
+    def _to_response(self, cage_group: CageGroup, cages: List[Cage]) -> CageGroupResponse:
         """Convierte la entidad a response DTO."""
         metrics = cage_group.calculate_metrics(cages)
 

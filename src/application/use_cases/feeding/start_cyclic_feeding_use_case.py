@@ -36,9 +36,7 @@ from infrastructure.persistence.repositories.silo_inventory_repository import (
 def _visits_for_config(request: CyclicFeedingRequest, cfg) -> int:
     visits = cfg.visits if cfg.visits is not None else request.visits
     if visits is None:
-        raise ValueError(
-            "Cada jaula activa debe declarar visits o el request debe incluir visits global"
-        )
+        raise ValueError("Cada jaula activa debe declarar visits o el request debe incluir visits global")
     return visits
 
 
@@ -51,7 +49,6 @@ def _empty_visit_duration_seconds(
 
 
 class StartCyclicFeedingUseCase:
-
     def __init__(
         self,
         session_repository: IFeedingSessionRepository,
@@ -80,21 +77,23 @@ class StartCyclicFeedingUseCase:
         self.activity_log_repo = activity_log_repository
         self.inventory_repo = inventory_repository
 
-    async def execute(self, request: CyclicFeedingRequest) -> CyclicFeedingResponse:
+    async def execute(
+        self,
+        request: CyclicFeedingRequest,
+        operator_id: str,
+        operator_name: str,
+        actor: str,
+    ) -> CyclicFeedingResponse:
         # Paso 1: Validar y cargar todas las entidades necesarias
         line, group, _doser, cage_data = await self._validate_request(request)
         # cage_data: configuración de jaula, jaula y asignación de slot
-        line.reserve_for_feeding(operator_id=request.operator_id)
+        line.reserve_for_feeding(operator_id=operator_id)
         await self.line_repo.save_available_status_transition(line)
 
         silo_id = SiloId.from_string(request.silo_id)
 
         # Paso 2: Calcular stock requerido (solo jaulas NORMAL)
-        total_programmed_kg = sum(
-            cfg.quantity_kg
-            for cfg, _cage, _assignment in cage_data
-            if cfg.mode == "NORMAL"
-        )
+        total_programmed_kg = sum(cfg.quantity_kg for cfg, _cage, _assignment in cage_data if cfg.mode == "NORMAL")
 
         # Validar stock del silo
         silo = await self.silo_repo.find_by_id(silo_id)
@@ -168,7 +167,7 @@ class StartCyclicFeedingUseCase:
         session = FeedingSession(
             feeding_type=FeedingType.CYCLIC,
             line_id=request.line_id,
-            operator_id=request.operator_id,
+            operator_id=operator_id,
             total_programmed_kg=total_programmed_kg,
             allow_overtime=request.allow_overtime,
         )
@@ -206,7 +205,7 @@ class StartCyclicFeedingUseCase:
 
         session_started_event = FeedingEvent.session_started(
             feeding_session_id=session.id,
-            operator_id=request.operator_id,
+            operator_id=operator_id,
         )
 
         # Paso 6: Persistir
@@ -227,9 +226,9 @@ class StartCyclicFeedingUseCase:
                     category=ActivityLogCategory.FEEDING,
                     message="Inicio de operación de alimentación",
                     details=(
-                        f"{cf.quantity_kg} kg a {cf.rate_kg_per_min} kg/min "
-                        f"({_visits_for_config(request, cf)} visitas)"
+                        f"{cf.quantity_kg} kg a {cf.rate_kg_per_min} kg/min ({_visits_for_config(request, cf)} visitas)"
                     ),
+                    actor=actor,
                     source_entity_type="feeding_session",
                     source_entity_id=session.id,
                 )
@@ -277,15 +276,10 @@ class StartCyclicFeedingUseCase:
         # Línea tiene sesión activa?
         active_session = await self.session_repo.find_active_by_line(request.line_id)
         if active_session:
-            raise ValueError(
-                f"La línea {request.line_id} ya tiene una sesión activa "
-                f"(session_id: {active_session.id})"
-            )
+            raise ValueError(f"La línea {request.line_id} ya tiene una sesión activa (session_id: {active_session.id})")
 
         # Grupo existe?
-        group = await self.cage_group_repo.find_by_id(
-            CageGroupId.from_string(request.group_id)
-        )
+        group = await self.cage_group_repo.find_by_id(CageGroupId.from_string(request.group_id))
         if not group:
             raise ValueError(f"Grupo con ID {request.group_id} no encontrado")
 
@@ -295,32 +289,22 @@ class StartCyclicFeedingUseCase:
 
         missing_in_request = group_cage_ids - request_cage_ids
         if missing_in_request:
-            raise ValueError(
-                f"Las siguientes jaulas del grupo no están en el request: "
-                f"{', '.join(missing_in_request)}"
-            )
+            raise ValueError(f"Las siguientes jaulas del grupo no están en el request: {', '.join(missing_in_request)}")
 
         extra_in_request = request_cage_ids - group_cage_ids
         if extra_in_request:
-            raise ValueError(
-                f"Las siguientes jaulas del request no pertenecen al grupo: "
-                f"{', '.join(extra_in_request)}"
-            )
+            raise ValueError(f"Las siguientes jaulas del request no pertenecen al grupo: {', '.join(extra_in_request)}")
 
         # Doser existe en la línea?
         if not line.dosers:
             raise ValueError("La línea no tiene dosers configurados")
         selected_doser = line.get_doser_by_id(DoserId.from_string(request.doser_id))
         if not selected_doser:
-            raise ValueError(
-                f"El doser {request.doser_id} no existe en la línea {request.line_id}"
-            )
+            raise ValueError(f"El doser {request.doser_id} no existe en la línea {request.line_id}")
 
         silo_id = SiloId.from_string(request.silo_id)
         if silo_id not in selected_doser.assigned_silo_ids:
-            raise ValueError(
-                f"El silo {request.silo_id} no está asignado al doser {request.doser_id}"
-            )
+            raise ValueError(f"El silo {request.silo_id} no está asignado al doser {request.doser_id}")
 
         # Validar cada jaula
         cage_data = []
@@ -330,20 +314,13 @@ class StartCyclicFeedingUseCase:
                 raise ValueError(f"Jaula con ID {cfg.cage_id} no encontrada")
 
             if cage.status == CageStatus.MAINTENANCE:
-                raise ValueError(
-                    f"La jaula {cage.name.value} está en mantenimiento y no puede ser alimentada"
-                )
+                raise ValueError(f"La jaula {cage.name.value} está en mantenimiento y no puede ser alimentada")
 
-            assignment = await self.slot_assignment_repo.find_by_cage(
-                CageId.from_string(cfg.cage_id)
-            )
+            assignment = await self.slot_assignment_repo.find_by_cage(CageId.from_string(cfg.cage_id))
             if not assignment:
                 raise ValueError(f"La jaula {cage.name.value} no está asignada a ninguna línea")
             if str(assignment.line_id) != request.line_id:
-                raise ValueError(
-                    f"La jaula {cage.name.value} está asignada a otra línea, "
-                    f"no a {request.line_id}"
-                )
+                raise ValueError(f"La jaula {cage.name.value} está asignada a otra línea, no a {request.line_id}")
 
             if cfg.mode != "FASTING":
                 if cage.config.transport_time_seconds is None:

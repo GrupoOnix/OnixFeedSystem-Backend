@@ -36,9 +36,7 @@ class BlowerRepository:
         blower_model = result.scalar_one_or_none()
         return blower_model.to_domain() if blower_model else None
 
-    async def find_by_id_with_context(
-        self, blower_id: UUID
-    ) -> Optional[BlowerWithContext]:
+    async def find_by_id_with_context(self, blower_id: UUID) -> Optional[BlowerWithContext]:
         """Busca un blower por su ID y devuelve también información de la línea."""
         stmt = (
             select(BlowerModel)

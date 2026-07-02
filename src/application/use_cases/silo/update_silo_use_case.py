@@ -48,9 +48,7 @@ class UpdateSiloUseCase:
             # Validar que no exista otro silo con ese nombre
             existing_silo = await self._silo_repository.find_by_name(new_name)
             if existing_silo and existing_silo.id != silo.id:
-                raise DuplicateSiloNameError(
-                    f"Ya existe un silo con el nombre '{request.name}'"
-                )
+                raise DuplicateSiloNameError(f"Ya existe un silo con el nombre '{request.name}'")
             silo.name = new_name
 
         # Actualizar capacidad si se proporciona

@@ -64,9 +64,7 @@ class AlertRepository(IAlertRepository):
 
         # Excluir alertas silenciadas (snoozed_until > now)
         now = datetime.now(timezone.utc)
-        query = query.where(
-            or_(col(AlertModel.snoozed_until).is_(None), col(AlertModel.snoozed_until) <= now)
-        )
+        query = query.where(or_(col(AlertModel.snoozed_until).is_(None), col(AlertModel.snoozed_until) <= now))
 
         # Aplicar filtros
         if status:
@@ -113,9 +111,7 @@ class AlertRepository(IAlertRepository):
 
         # Excluir alertas silenciadas (snoozed_until > now)
         now = datetime.now(timezone.utc)
-        query = query.where(
-            or_(col(AlertModel.snoozed_until).is_(None), col(AlertModel.snoozed_until) <= now)
-        )
+        query = query.where(or_(col(AlertModel.snoozed_until).is_(None), col(AlertModel.snoozed_until) <= now))
 
         # Aplicar filtros
         if status:

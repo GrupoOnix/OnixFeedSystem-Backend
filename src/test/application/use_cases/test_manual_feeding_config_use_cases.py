@@ -339,10 +339,12 @@ async def test_cyclic_config_ignores_stale_group_cages_when_saving():
         FakeCageRepository({cage_id, second_cage_id}),
         FakeCageGroupRepository({group_id: {cage_id, second_cage_id, stale_cage_id}}),
         FakeSiloRepository({silo_id}),
-        FakeSlotAssignmentRepository({
-            cage_id: line_id,
-            second_cage_id: line_id,
-        }),
+        FakeSlotAssignmentRepository(
+            {
+                cage_id: line_id,
+                second_cage_id: line_id,
+            }
+        ),
     )
 
     response = await use_case.execute(
@@ -377,10 +379,7 @@ async def test_cyclic_config_ignores_stale_group_cages_when_saving():
         str(cage_id),
         str(second_cage_id),
     }
-    assert {
-        config.cage_id: config.visits
-        for config in response.cage_configs
-    } == {
+    assert {config.cage_id: config.visits for config in response.cage_configs} == {
         str(cage_id): 15,
         str(second_cage_id): 10,
     }
@@ -400,10 +399,12 @@ async def test_cyclic_config_updates_existing_record_for_same_line_and_preserves
     cage_repo = FakeCageRepository({cage_id, fasting_cage_id})
     cage_group_repo = FakeCageGroupRepository({group_id: {cage_id, fasting_cage_id}})
     silo_repo = FakeSiloRepository({silo_id})
-    slot_repo = FakeSlotAssignmentRepository({
-        cage_id: line_id,
-        fasting_cage_id: line_id,
-    })
+    slot_repo = FakeSlotAssignmentRepository(
+        {
+            cage_id: line_id,
+            fasting_cage_id: line_id,
+        }
+    )
     upsert_use_case = UpsertLastValidCyclicFeedingConfigUseCase(
         config_repo,
         line_repo,

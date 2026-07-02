@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from api.dependencies import (
     get_create_cage_use_case,
+    get_current_user,
     get_delete_cage_use_case,
     get_get_cage_use_case,
     get_list_cages_use_case,
@@ -30,6 +31,7 @@ from api.dependencies import (
     get_update_biometry_use_case,
     get_update_cage_use_case,
 )
+from application.dtos.auth_dtos import UserResponse
 from application.dtos.cage_dtos import (
     CageConfigResponse,
     CageListItemResponse,
@@ -44,9 +46,20 @@ from main import app
 
 @pytest.fixture
 def client():
-    """Fixture que proporciona el TestClient."""
+    """Fixture que proporciona el TestClient con usuario autenticado simulado."""
     from fastapi.testclient import TestClient
 
+    fake_user = UserResponse(
+        id=str(uuid4()),
+        username="testuser",
+        full_name="Test User",
+        role="user",
+        is_superadmin=False,
+        is_active=True,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+    app.dependency_overrides[get_current_user] = lambda: fake_user
     yield TestClient(app)
     app.dependency_overrides.clear()
 
@@ -66,24 +79,26 @@ class TestCreateCage:
         }
 
         mock_use_case = MagicMock()
-        mock_use_case.execute = AsyncMock(return_value=CageResponse(
-            id=str(uuid4()),
-            name=request_data["name"],
-            status="AVAILABLE",
-            created_at=datetime(2024, 1, 15, 10, 0),
-            fish_count=0,
-            avg_weight_grams=None,
-            biomass_kg=0.0,
-            config=CageConfigResponse(
-                fcr=1.5,
-                volume_m3=1000.0,
-                max_density_kg_m3=50.0,
-                transport_time_seconds=30,
-                blower_power=75,
-                daily_feeding_target_kg=None,
-            ),
-            current_density_kg_m3=None,
-        ))
+        mock_use_case.execute = AsyncMock(
+            return_value=CageResponse(
+                id=str(uuid4()),
+                name=request_data["name"],
+                status="AVAILABLE",
+                created_at=datetime(2024, 1, 15, 10, 0),
+                fish_count=0,
+                avg_weight_grams=None,
+                biomass_kg=0.0,
+                config=CageConfigResponse(
+                    fcr=1.5,
+                    volume_m3=1000.0,
+                    max_density_kg_m3=50.0,
+                    transport_time_seconds=30,
+                    blower_power=75,
+                    daily_feeding_target_kg=None,
+                ),
+                current_density_kg_m3=None,
+            )
+        )
         app.dependency_overrides[get_create_cage_use_case] = lambda: mock_use_case
 
         response = client.post("/api/cages", json=request_data)
@@ -145,29 +160,31 @@ class TestListCages:
     def test_list_cages_returns_200(self, client):
         """Test: Listar jaulas retorna 200."""
         mock_use_case = MagicMock()
-        mock_use_case.execute = AsyncMock(return_value=ListCagesResponse(
-            cages=[
-                CageListItemResponse(
-                    id=str(uuid4()),
-                    name="Jaula 1",
-                    status="AVAILABLE",
-                    fish_count=1000,
-                    avg_weight_grams=150.0,
-                    biomass_kg=150.0,
-                    created_at=datetime(2024, 1, 15, 10, 0),
-                    config=CageConfigResponse(
-                        fcr=None,
-                        volume_m3=None,
-                        max_density_kg_m3=None,
-                        transport_time_seconds=None,
-                        blower_power=None,
-                        daily_feeding_target_kg=None,
-                    ),
-                    current_density_kg_m3=None,
-                )
-            ],
-            total=1,
-        ))
+        mock_use_case.execute = AsyncMock(
+            return_value=ListCagesResponse(
+                cages=[
+                    CageListItemResponse(
+                        id=str(uuid4()),
+                        name="Jaula 1",
+                        status="AVAILABLE",
+                        fish_count=1000,
+                        avg_weight_grams=150.0,
+                        biomass_kg=150.0,
+                        created_at=datetime(2024, 1, 15, 10, 0),
+                        config=CageConfigResponse(
+                            fcr=None,
+                            volume_m3=None,
+                            max_density_kg_m3=None,
+                            transport_time_seconds=None,
+                            blower_power=None,
+                            daily_feeding_target_kg=None,
+                        ),
+                        current_density_kg_m3=None,
+                    )
+                ],
+                total=1,
+            )
+        )
         app.dependency_overrides[get_list_cages_use_case] = lambda: mock_use_case
 
         response = client.get("/api/cages")
@@ -180,10 +197,12 @@ class TestListCages:
     def test_list_cages_returns_empty_list_when_no_cages(self, client):
         """Test: Listar jaulas retorna lista vacía cuando no hay jaulas."""
         mock_use_case = MagicMock()
-        mock_use_case.execute = AsyncMock(return_value=ListCagesResponse(
-            cages=[],
-            total=0,
-        ))
+        mock_use_case.execute = AsyncMock(
+            return_value=ListCagesResponse(
+                cages=[],
+                total=0,
+            )
+        )
         app.dependency_overrides[get_list_cages_use_case] = lambda: mock_use_case
 
         response = client.get("/api/cages")
@@ -202,24 +221,26 @@ class TestGetCage:
         cage_id = str(uuid4())
 
         mock_use_case = MagicMock()
-        mock_use_case.execute = AsyncMock(return_value=CageResponse(
-            id=cage_id,
-            name="Jaula 1",
-            status="AVAILABLE",
-            created_at=datetime(2024, 1, 15, 10, 0),
-            fish_count=1000,
-            avg_weight_grams=150.0,
-            biomass_kg=150.0,
-            config=CageConfigResponse(
-                fcr=1.5,
-                volume_m3=1000.0,
-                max_density_kg_m3=50.0,
-                transport_time_seconds=30,
-                blower_power=75,
-                daily_feeding_target_kg=None,
-            ),
-            current_density_kg_m3=0.15,
-        ))
+        mock_use_case.execute = AsyncMock(
+            return_value=CageResponse(
+                id=cage_id,
+                name="Jaula 1",
+                status="AVAILABLE",
+                created_at=datetime(2024, 1, 15, 10, 0),
+                fish_count=1000,
+                avg_weight_grams=150.0,
+                biomass_kg=150.0,
+                config=CageConfigResponse(
+                    fcr=1.5,
+                    volume_m3=1000.0,
+                    max_density_kg_m3=50.0,
+                    transport_time_seconds=30,
+                    blower_power=75,
+                    daily_feeding_target_kg=None,
+                ),
+                current_density_kg_m3=0.15,
+            )
+        )
         app.dependency_overrides[get_get_cage_use_case] = lambda: mock_use_case
 
         response = client.get(f"/api/cages/{cage_id}")
@@ -256,24 +277,26 @@ class TestUpdateCage:
         request_data = {"name": "Nuevo Nombre"}
 
         mock_use_case = MagicMock()
-        mock_use_case.execute = AsyncMock(return_value=CageResponse(
-            id=cage_id,
-            name="Nuevo Nombre",
-            status="AVAILABLE",
-            created_at=datetime(2024, 1, 15, 10, 0),
-            fish_count=0,
-            avg_weight_grams=None,
-            biomass_kg=0.0,
-            config=CageConfigResponse(
-                fcr=None,
-                volume_m3=None,
-                max_density_kg_m3=None,
-                transport_time_seconds=None,
-                blower_power=None,
-                daily_feeding_target_kg=None,
-            ),
-            current_density_kg_m3=None,
-        ))
+        mock_use_case.execute = AsyncMock(
+            return_value=CageResponse(
+                id=cage_id,
+                name="Nuevo Nombre",
+                status="AVAILABLE",
+                created_at=datetime(2024, 1, 15, 10, 0),
+                fish_count=0,
+                avg_weight_grams=None,
+                biomass_kg=0.0,
+                config=CageConfigResponse(
+                    fcr=None,
+                    volume_m3=None,
+                    max_density_kg_m3=None,
+                    transport_time_seconds=None,
+                    blower_power=None,
+                    daily_feeding_target_kg=None,
+                ),
+                current_density_kg_m3=None,
+            )
+        )
         app.dependency_overrides[get_update_cage_use_case] = lambda: mock_use_case
 
         response = client.patch(f"/api/cages/{cage_id}", json=request_data)
@@ -288,24 +311,26 @@ class TestUpdateCage:
         request_data = {"status": "MAINTENANCE"}
 
         mock_use_case = MagicMock()
-        mock_use_case.execute = AsyncMock(return_value=CageResponse(
-            id=cage_id,
-            name="Jaula 1",
-            status="MAINTENANCE",
-            created_at=datetime(2024, 1, 15, 10, 0),
-            fish_count=0,
-            avg_weight_grams=None,
-            biomass_kg=0.0,
-            config=CageConfigResponse(
-                fcr=None,
-                volume_m3=None,
-                max_density_kg_m3=None,
-                transport_time_seconds=None,
-                blower_power=None,
-                daily_feeding_target_kg=None,
-            ),
-            current_density_kg_m3=None,
-        ))
+        mock_use_case.execute = AsyncMock(
+            return_value=CageResponse(
+                id=cage_id,
+                name="Jaula 1",
+                status="MAINTENANCE",
+                created_at=datetime(2024, 1, 15, 10, 0),
+                fish_count=0,
+                avg_weight_grams=None,
+                biomass_kg=0.0,
+                config=CageConfigResponse(
+                    fcr=None,
+                    volume_m3=None,
+                    max_density_kg_m3=None,
+                    transport_time_seconds=None,
+                    blower_power=None,
+                    daily_feeding_target_kg=None,
+                ),
+                current_density_kg_m3=None,
+            )
+        )
         app.dependency_overrides[get_update_cage_use_case] = lambda: mock_use_case
 
         response = client.patch(f"/api/cages/{cage_id}", json=request_data)
@@ -357,24 +382,26 @@ class TestSetPopulation:
         }
 
         mock_use_case = MagicMock()
-        mock_use_case.execute = AsyncMock(return_value=CageResponse(
-            id=cage_id,
-            name="Jaula 1",
-            status="IN_USE",
-            created_at=datetime(2024, 1, 15, 10, 0),
-            fish_count=1000,
-            avg_weight_grams=150.5,
-            biomass_kg=150.5,
-            config=CageConfigResponse(
-                fcr=1.5,
-                volume_m3=1000.0,
-                max_density_kg_m3=50.0,
-                transport_time_seconds=30,
-                blower_power=75,
-                daily_feeding_target_kg=None,
-            ),
-            current_density_kg_m3=0.15,
-        ))
+        mock_use_case.execute = AsyncMock(
+            return_value=CageResponse(
+                id=cage_id,
+                name="Jaula 1",
+                status="IN_USE",
+                created_at=datetime(2024, 1, 15, 10, 0),
+                fish_count=1000,
+                avg_weight_grams=150.5,
+                biomass_kg=150.5,
+                config=CageConfigResponse(
+                    fcr=1.5,
+                    volume_m3=1000.0,
+                    max_density_kg_m3=50.0,
+                    transport_time_seconds=30,
+                    blower_power=75,
+                    daily_feeding_target_kg=None,
+                ),
+                current_density_kg_m3=0.15,
+            )
+        )
         app.dependency_overrides[get_set_population_use_case] = lambda: mock_use_case
 
         response = client.put(f"/api/cages/{cage_id}/population", json=request_data)
@@ -411,24 +438,26 @@ class TestRegisterMortality:
         }
 
         mock_use_case = MagicMock()
-        mock_use_case.execute = AsyncMock(return_value=CageResponse(
-            id=cage_id,
-            name="Jaula 1",
-            status="IN_USE",
-            created_at=datetime(2024, 1, 15, 10, 0),
-            fish_count=990,  # 1000 - 10
-            avg_weight_grams=150.5,
-            biomass_kg=148.995,
-            config=CageConfigResponse(
-                fcr=1.5,
-                volume_m3=1000.0,
-                max_density_kg_m3=50.0,
-                transport_time_seconds=30,
-                blower_power=75,
-                daily_feeding_target_kg=None,
-            ),
-            current_density_kg_m3=0.15,
-        ))
+        mock_use_case.execute = AsyncMock(
+            return_value=CageResponse(
+                id=cage_id,
+                name="Jaula 1",
+                status="IN_USE",
+                created_at=datetime(2024, 1, 15, 10, 0),
+                fish_count=990,  # 1000 - 10
+                avg_weight_grams=150.5,
+                biomass_kg=148.995,
+                config=CageConfigResponse(
+                    fcr=1.5,
+                    volume_m3=1000.0,
+                    max_density_kg_m3=50.0,
+                    transport_time_seconds=30,
+                    blower_power=75,
+                    daily_feeding_target_kg=None,
+                ),
+                current_density_kg_m3=0.15,
+            )
+        )
         app.dependency_overrides[get_register_mortality_use_case] = lambda: mock_use_case
 
         response = client.post(f"/api/cages/{cage_id}/mortality", json=request_data)
@@ -449,24 +478,26 @@ class TestUpdateBiometry:
         }
 
         mock_use_case = MagicMock()
-        mock_use_case.execute = AsyncMock(return_value=CageResponse(
-            id=cage_id,
-            name="Jaula 1",
-            status="IN_USE",
-            created_at=datetime(2024, 1, 15, 10, 0),
-            fish_count=1000,
-            avg_weight_grams=200.0,
-            biomass_kg=200.0,
-            config=CageConfigResponse(
-                fcr=1.5,
-                volume_m3=1000.0,
-                max_density_kg_m3=50.0,
-                transport_time_seconds=30,
-                blower_power=75,
-                daily_feeding_target_kg=None,
-            ),
-            current_density_kg_m3=0.2,
-        ))
+        mock_use_case.execute = AsyncMock(
+            return_value=CageResponse(
+                id=cage_id,
+                name="Jaula 1",
+                status="IN_USE",
+                created_at=datetime(2024, 1, 15, 10, 0),
+                fish_count=1000,
+                avg_weight_grams=200.0,
+                biomass_kg=200.0,
+                config=CageConfigResponse(
+                    fcr=1.5,
+                    volume_m3=1000.0,
+                    max_density_kg_m3=50.0,
+                    transport_time_seconds=30,
+                    blower_power=75,
+                    daily_feeding_target_kg=None,
+                ),
+                current_density_kg_m3=0.2,
+            )
+        )
         app.dependency_overrides[get_update_biometry_use_case] = lambda: mock_use_case
 
         response = client.patch(f"/api/cages/{cage_id}/biometry", json=request_data)
@@ -484,29 +515,31 @@ class TestGetPopulationHistory:
         cage_id = str(uuid4())
 
         mock_use_case = MagicMock()
-        mock_use_case.execute = AsyncMock(return_value=PopulationHistoryResponse(
-            events=[
-                PopulationEventResponse(
-                    id=str(uuid4()),
-                    cage_id=cage_id,
-                    event_type="INITIAL_STOCK",
-                    event_date=date(2024, 1, 15),
-                    fish_count_delta=1000,
-                    new_fish_count=1000,
-                    avg_weight_grams=150.0,
-                    biomass_kg=150.0,
-                    note="Siembra inicial",
-                    created_at=datetime(2024, 1, 15, 10, 0),
-                )
-            ],
-            pagination=PaginationInfo(
-                total=1,
-                limit=50,
-                offset=0,
-                has_next=False,
-                has_previous=False,
-            ),
-        ))
+        mock_use_case.execute = AsyncMock(
+            return_value=PopulationHistoryResponse(
+                events=[
+                    PopulationEventResponse(
+                        id=str(uuid4()),
+                        cage_id=cage_id,
+                        event_type="INITIAL_STOCK",
+                        event_date=date(2024, 1, 15),
+                        fish_count_delta=1000,
+                        new_fish_count=1000,
+                        avg_weight_grams=150.0,
+                        biomass_kg=150.0,
+                        note="Siembra inicial",
+                        created_at=datetime(2024, 1, 15, 10, 0),
+                    )
+                ],
+                pagination=PaginationInfo(
+                    total=1,
+                    limit=50,
+                    offset=0,
+                    has_next=False,
+                    has_previous=False,
+                ),
+            )
+        )
         app.dependency_overrides[get_population_history_use_case] = lambda: mock_use_case
 
         response = client.get(f"/api/cages/{cage_id}/history")
@@ -521,16 +554,18 @@ class TestGetPopulationHistory:
         cage_id = str(uuid4())
 
         mock_use_case = MagicMock()
-        mock_use_case.execute = AsyncMock(return_value=PopulationHistoryResponse(
-            events=[],
-            pagination=PaginationInfo(
-                total=0,
-                limit=10,
-                offset=0,
-                has_next=False,
-                has_previous=False,
-            ),
-        ))
+        mock_use_case.execute = AsyncMock(
+            return_value=PopulationHistoryResponse(
+                events=[],
+                pagination=PaginationInfo(
+                    total=0,
+                    limit=10,
+                    offset=0,
+                    has_next=False,
+                    has_previous=False,
+                ),
+            )
+        )
         app.dependency_overrides[get_population_history_use_case] = lambda: mock_use_case
 
         response = client.get(f"/api/cages/{cage_id}/history?limit=10&offset=0")

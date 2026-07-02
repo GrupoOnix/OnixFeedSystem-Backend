@@ -16,6 +16,7 @@ from api.dependencies import (
     UpdateSiloBatchUseCaseDep,
     UpdateSiloUseCaseDep,
     WithdrawSiloBatchUseCaseDep,
+    CurrentUserDep,
 )
 from application.dtos.silo_dtos import (
     CreateSiloRequest,
@@ -50,6 +51,7 @@ router = APIRouter(prefix="/silos", tags=["Silos"])
     status_code=status.HTTP_201_CREATED,
 )
 async def create_silo_batch(
+    current_user: CurrentUserDep,
     silo_id: str,
     request: CreateSiloBatchRequest,
     use_case: CreateSiloBatchUseCaseDep,
@@ -62,6 +64,7 @@ async def create_silo_batch(
 
 @router.get("/{silo_id}/batches", response_model=ListSiloBatchesResponse)
 async def list_silo_batches(
+    current_user: CurrentUserDep,
     silo_id: str,
     use_case: ListSiloBatchesUseCaseDep,
     batch_status: Optional[str] = Query(None, alias="status"),
@@ -76,6 +79,7 @@ async def list_silo_batches(
 
 @router.patch("/{silo_id}/batches/{batch_id}", response_model=SiloInventoryBatchDTO)
 async def update_silo_batch(
+    current_user: CurrentUserDep,
     silo_id: str,
     batch_id: str,
     request: UpdateSiloBatchRequest,
@@ -89,6 +93,7 @@ async def update_silo_batch(
 
 @router.post("/{silo_id}/batches/{batch_id}/move", response_model=SiloInventoryBatchDTO)
 async def move_silo_batch(
+    current_user: CurrentUserDep,
     silo_id: str,
     batch_id: str,
     request: MoveSiloBatchRequest,
@@ -102,6 +107,7 @@ async def move_silo_batch(
 
 @router.post("/{silo_id}/batches/{batch_id}/withdraw", response_model=SiloInventoryBatchDTO)
 async def withdraw_silo_batch(
+    current_user: CurrentUserDep,
     silo_id: str,
     batch_id: str,
     request: WithdrawSiloBatchRequest,
@@ -115,6 +121,7 @@ async def withdraw_silo_batch(
 
 @router.post("/{silo_id}/transfer", response_model=TransferSiloStockResponse)
 async def transfer_silo_stock(
+    current_user: CurrentUserDep,
     silo_id: str,
     request: TransferSiloStockRequest,
     use_case: TransferSiloStockUseCaseDep,
@@ -128,10 +135,9 @@ async def transfer_silo_stock(
 
 @router.get("", response_model=ListSilosResponse)
 async def list_silos(
+    current_user: CurrentUserDep,
     use_case: ListSilosUseCaseDep,
-    is_assigned: Optional[bool] = Query(
-        None, description="Filtrar por estado de asignación"
-    ),
+    is_assigned: Optional[bool] = Query(None, description="Filtrar por estado de asignación"),
 ) -> ListSilosResponse:
     """
     Lista todos los silos del sistema con filtros opcionales.
@@ -156,7 +162,7 @@ async def list_silos(
 
 
 @router.get("/{silo_id}", response_model=SiloDTO)
-async def get_silo(silo_id: str, use_case: GetSiloUseCaseDep) -> SiloDTO:
+async def get_silo(current_user: CurrentUserDep, silo_id: str, use_case: GetSiloUseCaseDep) -> SiloDTO:
     """
     Obtiene los detalles de un silo específico.
 
@@ -183,7 +189,7 @@ async def get_silo(silo_id: str, use_case: GetSiloUseCaseDep) -> SiloDTO:
 
 @router.post("", response_model=SiloDTO, status_code=status.HTTP_201_CREATED)
 async def create_silo(
-    request: CreateSiloRequest, use_case: CreateSiloUseCaseDep
+    current_user: CurrentUserDep, request: CreateSiloRequest, use_case: CreateSiloUseCaseDep
 ) -> SiloDTO:
     """
     Crea un nuevo silo.
@@ -199,9 +205,7 @@ async def create_silo(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Datos inválidos: {str(e)}"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Datos inválidos: {str(e)}")
 
     except DomainException as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -215,7 +219,7 @@ async def create_silo(
 
 @router.patch("/{silo_id}", response_model=SiloDTO)
 async def update_silo(
-    silo_id: str, request: UpdateSiloRequest, use_case: UpdateSiloUseCaseDep
+    current_user: CurrentUserDep, silo_id: str, request: UpdateSiloRequest, use_case: UpdateSiloUseCaseDep
 ) -> SiloDTO:
     """
     Actualiza un silo existente.
@@ -238,9 +242,7 @@ async def update_silo(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Datos inválidos: {str(e)}"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Datos inválidos: {str(e)}")
 
     except DomainException as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -253,7 +255,7 @@ async def update_silo(
 
 
 @router.delete("/{silo_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_silo(silo_id: str, use_case: DeleteSiloUseCaseDep) -> None:
+async def delete_silo(current_user: CurrentUserDep, silo_id: str, use_case: DeleteSiloUseCaseDep) -> None:
     """
     Elimina un silo.
 

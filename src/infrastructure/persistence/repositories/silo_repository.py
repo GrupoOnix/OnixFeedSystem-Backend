@@ -45,9 +45,7 @@ class SiloRepository(ISiloRepository):
         return silo
 
     async def find_by_name(self, name: SiloName) -> Optional[Silo]:
-        result = await self.session.execute(
-            select(SiloModel).where(col(SiloModel.name) == str(name))
-        )
+        result = await self.session.execute(select(SiloModel).where(col(SiloModel.name) == str(name)))
         silo_model = result.scalar_one_or_none()
         if not silo_model:
             return None
@@ -120,9 +118,7 @@ class SiloRepository(ISiloRepository):
 
         return [(silo, sorted(line_ids), sorted(line_names)) for silo, line_ids, line_names in grouped.values()]
 
-    async def find_by_id_with_line_info(
-        self, silo_id: SiloId
-    ) -> Optional[Tuple[Silo, List[str], List[str]]]:
+    async def find_by_id_with_line_info(self, silo_id: SiloId) -> Optional[Tuple[Silo, List[str], List[str]]]:
         """
         Obtiene un silo por ID con información de la línea asignada.
 
@@ -166,9 +162,7 @@ class SiloRepository(ISiloRepository):
 
     async def _has_doser_links(self, silo_id: SiloId) -> bool:
         result = await self.session.execute(
-            select(func.count(col(DoserSiloModel.doser_id))).where(
-                col(DoserSiloModel.silo_id) == silo_id.value
-            )
+            select(func.count(col(DoserSiloModel.doser_id))).where(col(DoserSiloModel.silo_id) == silo_id.value)
         )
         return result.scalar_one() > 0
 

@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
 
 
 class FeedingOrchestrator:
-
     def __init__(
         self,
         machine: IMachine,
@@ -74,11 +73,7 @@ class FeedingOrchestrator:
             (cf.programmed_visits for cf in cage_feedings),
             default=0,
         )
-        active_feeding_count = sum(
-            1
-            for cf in cage_feedings
-            if cf.mode != CageFeedingMode.FASTING
-        )
+        active_feeding_count = sum(1 for cf in cage_feedings if cf.mode != CageFeedingMode.FASTING)
         total_visit_executions = total_rounds * active_feeding_count
         completed_visit_executions = 0
 
@@ -170,10 +165,7 @@ class FeedingOrchestrator:
                     await self._release_feeding_line(line_id)
                     return
 
-                if (
-                    wait_after_visit_seconds > 0
-                    and completed_visit_executions < total_visit_executions
-                ):
+                if wait_after_visit_seconds > 0 and completed_visit_executions < total_visit_executions:
                     logger.info(
                         f"[Orchestrator] Session {session.id}: waiting "
                         f"{wait_after_visit_seconds:.1f}s before next cyclic visit"
@@ -195,9 +187,7 @@ class FeedingOrchestrator:
 
         session.complete()
         total_dispensed = sum(cf.dispensed_kg for cf in cage_feedings)
-        duration = (
-            datetime.now(timezone.utc) - session.actual_start
-        ).total_seconds() if session.actual_start else 0.0
+        duration = (datetime.now(timezone.utc) - session.actual_start).total_seconds() if session.actual_start else 0.0
         completed_event = FeedingEvent.session_completed(
             feeding_session_id=session.id,
             total_dispensed_kg=total_dispensed,
@@ -409,9 +399,7 @@ class FeedingOrchestrator:
             )
 
             if status.has_error:
-                logger.error(
-                    f"[Orchestrator] Session {session.id}: error code={status.error_code}"
-                )
+                logger.error(f"[Orchestrator] Session {session.id}: error code={status.error_code}")
                 session.interrupt()
                 interrupted_event = FeedingEvent.session_interrupted(
                     feeding_session_id=session.id,
@@ -443,18 +431,13 @@ class FeedingOrchestrator:
                 return
 
             if status.current_stage == VisitStage.COMPLETED:
-                duration_seconds = (
-                    datetime.now(timezone.utc) - visit_start
-                ).total_seconds()
+                duration_seconds = (datetime.now(timezone.utc) - visit_start).total_seconds()
 
                 if count_completed_visit:
                     cage_feeding.add_dispensed_amount(status.dispensed_kg)
                     cage_feeding.increment_completed_visits()
                 # Marcar COMPLETED solo cuando se terminaron todas las visitas programadas
-                if (
-                    count_completed_visit
-                    and cage_feeding.completed_visits >= cage_feeding.programmed_visits
-                ):
+                if count_completed_visit and cage_feeding.completed_visits >= cage_feeding.programmed_visits:
                     cage_feeding.complete()
 
                 visit_completed_event = FeedingEvent.visit_completed(
@@ -501,9 +484,7 @@ class FeedingOrchestrator:
                         line_id,
                         reason=f"Inventory reconciliation failed: {exc}",
                     )
-                    logger.error(
-                        f"[Orchestrator] Session {session.id}: inventory discrepancy: {exc}"
-                    )
+                    logger.error(f"[Orchestrator] Session {session.id}: inventory discrepancy: {exc}")
                     return
 
                 logger.info(

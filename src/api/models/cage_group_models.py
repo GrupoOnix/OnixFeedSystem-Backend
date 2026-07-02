@@ -64,21 +64,11 @@ class UpdateCageGroupRequestModel(BaseModel):
 class CageGroupMetricsModel(BaseModel):
     """Modelo para métricas calculadas de un grupo."""
 
-    total_population: int = Field(
-        ..., description="Población total de peces en el grupo"
-    )
-    total_biomass: float = Field(
-        ..., description="Biomasa total en kg"
-    )
-    avg_weight: float = Field(
-        ..., description="Peso promedio ponderado en gramos"
-    )
-    total_volume: float = Field(
-        ..., description="Volumen total en m³"
-    )
-    avg_density: float = Field(
-        ..., description="Densidad promedio en kg/m³"
-    )
+    total_population: int = Field(..., description="Población total de peces en el grupo")
+    total_biomass: float = Field(..., description="Biomasa total en kg")
+    avg_weight: float = Field(..., description="Peso promedio ponderado en gramos")
+    total_volume: float = Field(..., description="Volumen total en m³")
+    avg_density: float = Field(..., description="Densidad promedio en kg/m³")
 
     @staticmethod
     def from_dto(dto: CageGroupMetricsResponse) -> "CageGroupMetricsModel":
@@ -120,9 +110,7 @@ class CageGroupResponseModel(BaseModel):
 class ListCageGroupsResponseModel(BaseModel):
     """Modelo de respuesta para listar grupos de jaulas."""
 
-    groups: List[CageGroupResponseModel] = Field(
-        ..., description="Lista de grupos de jaulas"
-    )
+    groups: List[CageGroupResponseModel] = Field(..., description="Lista de grupos de jaulas")
     total: int = Field(..., description="Total de grupos (con filtros aplicados)")
 
     @staticmethod

@@ -65,9 +65,7 @@ class Comida:
             raise ValueError("El nombre del operador no puede estar vacío")
 
         if tipo == TipoComida.PROGRAMADA and not fecha_hora_inicio_programada:
-            raise ValueError(
-                "Las comidas PROGRAMADAS requieren fecha_hora_inicio_programada"
-            )
+            raise ValueError("Las comidas PROGRAMADAS requieren fecha_hora_inicio_programada")
 
     # =========================================================================
     # PROPIEDADES
@@ -137,9 +135,7 @@ class Comida:
             ValueError: Si el estado no permite iniciar
         """
         if self._estado != EstadoComida.PROGRAMADA:
-            raise ValueError(
-                f"No se puede iniciar una comida en estado {self._estado.value}"
-            )
+            raise ValueError(f"No se puede iniciar una comida en estado {self._estado.value}")
 
         self._estado = EstadoComida.EN_CURSO
         self._fecha_hora_inicio_real = datetime.utcnow()
@@ -154,9 +150,7 @@ class Comida:
             ValueError: Si el estado no permite pausar
         """
         if self._estado != EstadoComida.EN_CURSO:
-            raise ValueError(
-                f"No se puede pausar una comida en estado {self._estado.value}"
-            )
+            raise ValueError(f"No se puede pausar una comida en estado {self._estado.value}")
 
         self._estado = EstadoComida.PAUSADA
 
@@ -170,9 +164,7 @@ class Comida:
             ValueError: Si el estado no permite reanudar
         """
         if self._estado != EstadoComida.PAUSADA:
-            raise ValueError(
-                f"No se puede reanudar una comida en estado {self._estado.value}"
-            )
+            raise ValueError(f"No se puede reanudar una comida en estado {self._estado.value}")
 
         self._estado = EstadoComida.EN_CURSO
 
@@ -186,9 +178,7 @@ class Comida:
             ValueError: Si el estado no permite completar
         """
         if self._estado != EstadoComida.EN_CURSO:
-            raise ValueError(
-                f"No se puede completar una comida en estado {self._estado.value}"
-            )
+            raise ValueError(f"No se puede completar una comida en estado {self._estado.value}")
 
         self._estado = EstadoComida.COMPLETADA
         self._fecha_hora_fin = datetime.utcnow()
@@ -203,9 +193,7 @@ class Comida:
             ValueError: Si el estado no permite cancelar
         """
         if self._estado not in [EstadoComida.EN_CURSO, EstadoComida.PAUSADA]:
-            raise ValueError(
-                f"No se puede cancelar una comida en estado {self._estado.value}"
-            )
+            raise ValueError(f"No se puede cancelar una comida en estado {self._estado.value}")
 
         self._estado = EstadoComida.CANCELADA
         self._fecha_hora_fin = datetime.utcnow()
@@ -223,9 +211,7 @@ class Comida:
             ValueError: Si el estado no permite interrumpir
         """
         if self._estado != EstadoComida.EN_CURSO:
-            raise ValueError(
-                f"No se puede interrumpir una comida en estado {self._estado.value}"
-            )
+            raise ValueError(f"No se puede interrumpir una comida en estado {self._estado.value}")
 
         if not motivo or not motivo.strip():
             raise ValueError("El motivo de interrupción no puede estar vacío")

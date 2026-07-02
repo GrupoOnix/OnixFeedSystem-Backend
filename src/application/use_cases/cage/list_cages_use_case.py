@@ -1,10 +1,7 @@
 from typing import Optional
 from domain.repositories import ICageRepository
 from domain.value_objects import LineId
-from application.dtos.cage_dtos import (
-    ListCagesResponse,
-    CageListItemResponse
-)
+from application.dtos.cage_dtos import ListCagesResponse, CageListItemResponse
 
 
 class ListCagesRequest:
@@ -15,13 +12,12 @@ class ListCagesRequest:
 
 
 class ListCagesUseCase:
-
     def __init__(self, cage_repository: ICageRepository):
         self._cage_repository = cage_repository
 
     async def execute(self, request: Optional[ListCagesRequest] = None) -> ListCagesResponse:
         try:
-            print("="*80)
+            print("=" * 80)
             print("INICIANDO LIST_CAGES USE CASE")
 
             line_id_filter: Optional[LineId] = None
@@ -41,6 +37,7 @@ class ListCagesUseCase:
                     cage_dtos.append(dto)
                 except Exception:
                     import traceback
+
                     print(f"ERROR AL CONVERTIR CAGE {idx}:")
                     print(traceback.format_exc())
                     raise
@@ -48,18 +45,20 @@ class ListCagesUseCase:
             print(f"Total DTOs creados: {len(cage_dtos)}")
             result = ListCagesResponse(cages=cage_dtos, total=len(cage_dtos))
             print("RESPONSE CREADA EXITOSAMENTE")
-            print("="*80)
+            print("=" * 80)
             return result
         except Exception:
             import traceback
-            print("="*80)
+
+            print("=" * 80)
             print("ERROR EN LIST_CAGES USE CASE:")
             print(traceback.format_exc())
-            print("="*80)
+            print("=" * 80)
             raise
 
     def _to_dto(self, cage, line_name: Optional[str]) -> CageListItemResponse:
         from application.dtos.cage_dtos import CageConfigResponse
+
         return CageListItemResponse(
             id=str(cage.id),
             name=str(cage.name),

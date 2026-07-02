@@ -29,9 +29,7 @@ class CageGroupModel(SQLModel, table=True):
     def from_domain(cage_group: CageGroup) -> "CageGroupModel":
         """Convierte entidad de dominio a modelo de persistencia."""
         # Serializar lista de CageId a JSON string
-        cage_ids_str = json.dumps(
-            [str(cage_id.value) for cage_id in cage_group.cage_ids]
-        )
+        cage_ids_str = json.dumps([str(cage_id.value) for cage_id in cage_group.cage_ids])
 
         return CageGroupModel(
             id=cage_group.id.value,

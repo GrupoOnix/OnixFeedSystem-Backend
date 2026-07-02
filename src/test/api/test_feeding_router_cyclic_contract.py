@@ -27,6 +27,12 @@ from domain.entities.feeding_event import FeedingEvent, FeedingEventType
 from domain.entities.feeding_session import FeedingSession, FeedingType
 
 
+class FakeCurrentUser:
+    id = "123e4567-e89b-12d3-a456-426614174000"
+    full_name = "Test User"
+    username = "testuser"
+
+
 class _UpdateCageModeUseCase:
     def __init__(self):
         self.calls = []
@@ -80,18 +86,11 @@ class _EventRepo:
         self.events = events
 
     async def find_by_session(self, session_id):
-        return [
-            event
-            for event in self.events
-            if event.feeding_session_id == session_id
-        ]
+        return [event for event in self.events if event.feeding_session_id == session_id]
 
     async def find_by_type(self, session_id, event_type):
         return [
-            event
-            for event in self.events
-            if event.feeding_session_id == session_id
-            and event.event_type == event_type
+            event for event in self.events if event.feeding_session_id == session_id and event.event_type == event_type
         ]
 
 
@@ -118,6 +117,11 @@ class _Machine:
             has_error=False,
             current_stage=VisitStage.FEEDING,
         )
+
+
+class _UserRepo:
+    async def find_by_id(self, user_id):
+        return SimpleNamespace(full_name="Test User")
 
 
 def _cyclic_session_with_cages():
@@ -166,9 +170,10 @@ async def test_patch_cage_mode_response_contract_marks_next_visits_only():
     use_case = _UpdateCageModeUseCase()
 
     response = await update_cage_mode(
+        current_user=FakeCurrentUser(),
         session_id=session_id,
         cage_id=cage_id,
-        request=UpdateCageModeRequest(mode="PAUSE", operator_id=operator_id),
+        request=UpdateCageModeRequest(mode="PAUSE"),
         use_case=use_case,
     )
 
@@ -177,7 +182,7 @@ async def test_patch_cage_mode_response_contract_marks_next_visits_only():
     assert response.previous_mode == "NORMAL"
     assert response.new_mode == "PAUSE"
     assert response.applied_immediately is False
-    assert use_case.calls == [(session_id, cage_id, "PAUSE", operator_id)]
+    assert use_case.calls == [(session_id, cage_id, "PAUSE", FakeCurrentUser.id)]
 
 
 @pytest.mark.asyncio
@@ -187,6 +192,7 @@ async def test_patch_cyclic_cage_amount_response_contract():
     use_case = _UpdateCyclicCageAmountUseCase()
 
     response = await update_cyclic_cage_amount(
+        current_user=FakeCurrentUser(),
         session_id=session_id,
         cage_id=cage_id,
         request=UpdateAmountRequest(amount_kg=52.0),
@@ -205,6 +211,7 @@ async def test_patch_cyclic_cage_rate_response_contract():
     use_case = _UpdateCyclicCageRateUseCase()
 
     response = await update_cyclic_cage_rate(
+        current_user=FakeCurrentUser(),
         session_id=session_id,
         cage_id=cage_id,
         request=UpdateRateRequest(rate_kg_per_min=4.5),
@@ -220,6 +227,7 @@ async def test_patch_cyclic_cage_rate_response_contract():
 async def test_patch_cyclic_cage_amount_maps_value_error_to_400():
     with pytest.raises(HTTPException) as exc_info:
         await update_cyclic_cage_amount(
+            current_user=FakeCurrentUser(),
             session_id=str(uuid4()),
             cage_id=str(uuid4()),
             request=UpdateAmountRequest(amount_kg=52.0),
@@ -235,6 +243,7 @@ async def test_cyclic_status_exposes_per_cage_visits_and_total_rounds():
     session, first, second = _cyclic_session_with_cages()
 
     response = await get_cyclic_feeding_status(
+        current_user=FakeCurrentUser(),
         session_id=session.id,
         session_repo=_SessionRepo(session),
         cage_feeding_repo=_CageFeedingRepo([first, second]),
@@ -250,8 +259,7 @@ async def test_cyclic_status_exposes_per_cage_visits_and_total_rounds():
     assert response.active_cage.cage_id == first.cage_id
     assert response.active_cage.total_visits == 15
     assert {
-        cage.cage_id: (cage.mode, cage.programmed_visits, cage.completed_visits)
-        for cage in response.cages_summary
+        cage.cage_id: (cage.mode, cage.programmed_visits, cage.completed_visits) for cage in response.cages_summary
     } == {
         first.cage_id: ("NORMAL", 15, 1),
         second.cage_id: ("PAUSE", 10, 0),
@@ -290,26 +298,23 @@ async def test_history_detail_includes_cage_mode_change_and_per_cage_visit_total
         {"list_session_consumptions": AsyncMock(return_value=[])},
     )()
     response = await get_session_history_detail(
+        current_user=FakeCurrentUser(),
         session_id=session.id,
         session_repo=_SessionRepo(session),
         event_repo=_EventRepo(events),
         line_repo=_LineRepo(),
         cage_repo=_CageRepo(),
         inventory_repo=inventory_repo,
+        user_repo=_UserRepo(),
     )
 
     assert response.type == "CYCLIC"
-    assert {
-        cage.cage_id: (cage.mode, cage.programmed_visits, cage.completed_visits)
-        for cage in response.cages
-    } == {
+    assert {cage.cage_id: (cage.mode, cage.programmed_visits, cage.completed_visits) for cage in response.cages} == {
         first.cage_id: ("NORMAL", 15, 2),
         second.cage_id: ("PAUSE", 10, 0),
     }
     mode_change_events = [
-        event
-        for event in response.timeline
-        if event.event_type == FeedingEventType.CAGE_MODE_CHANGED.value
+        event for event in response.timeline if event.event_type == FeedingEventType.CAGE_MODE_CHANGED.value
     ]
     assert len(mode_change_events) == 1
     assert mode_change_events[0].data["cage_id"] == second.cage_id
@@ -341,6 +346,7 @@ async def test_cage_visit_history_preserves_empty_visit_flags_and_zero_dispensed
     ]
 
     response = await get_cage_visit_history(
+        current_user=FakeCurrentUser(),
         session_id=session.id,
         cage_id=first.cage_id,
         event_repo=_EventRepo(events),
@@ -349,10 +355,7 @@ async def test_cage_visit_history_preserves_empty_visit_flags_and_zero_dispensed
 
     assert response.total_dispensed_kg == 10.0
     assert response.avg_duration_seconds == 19.0
-    assert [
-        (visit.visit_number, visit.dispensed_kg, visit.is_empty_visit)
-        for visit in response.visits
-    ] == [
+    assert [(visit.visit_number, visit.dispensed_kg, visit.is_empty_visit) for visit in response.visits] == [
         (1, 10.0, False),
         (11, 0.0, True),
     ]

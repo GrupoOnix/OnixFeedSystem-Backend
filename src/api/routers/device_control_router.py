@@ -25,6 +25,7 @@ from api.dependencies import (
     TurnCoolerOnUseCaseDep,
     TurnDoserOffUseCaseDep,
     TurnDoserOnUseCaseDep,
+    CurrentUserDep,
 )
 from application.dtos.device_control_dtos import (
     BlowerStatusResponse,
@@ -48,6 +49,7 @@ router = APIRouter(prefix="/device-control", tags=["Device Control"])
 
 @router.post("/blowers/{blower_id}/on", status_code=status.HTTP_200_OK)
 async def turn_blower_on(
+    current_user: CurrentUserDep,
     blower_id: str,
     use_case: TurnBlowerOnUseCaseDep,
 ) -> Dict[str, str]:
@@ -80,6 +82,7 @@ async def turn_blower_on(
 
 @router.post("/blowers/{blower_id}/off", status_code=status.HTTP_200_OK)
 async def turn_blower_off(
+    current_user: CurrentUserDep,
     blower_id: str,
     use_case: TurnBlowerOffUseCaseDep,
 ) -> Dict[str, str]:
@@ -112,6 +115,7 @@ async def turn_blower_off(
 
 @router.post("/blowers/{blower_id}/set-power", status_code=status.HTTP_200_OK)
 async def set_blower_power(
+    current_user: CurrentUserDep,
     blower_id: str,
     request: SetBlowerPowerRequest,
     use_case: SetBlowerPowerUseCaseDep,
@@ -147,6 +151,7 @@ async def set_blower_power(
 
 @router.post("/dosers/{doser_id}/on", status_code=status.HTTP_200_OK)
 async def turn_doser_on(
+    current_user: CurrentUserDep,
     doser_id: str,
     use_case: TurnDoserOnUseCaseDep,
 ) -> Dict[str, str]:
@@ -179,6 +184,7 @@ async def turn_doser_on(
 
 @router.post("/dosers/{doser_id}/off", status_code=status.HTTP_200_OK)
 async def turn_doser_off(
+    current_user: CurrentUserDep,
     doser_id: str,
     use_case: TurnDoserOffUseCaseDep,
 ) -> Dict[str, str]:
@@ -211,6 +217,7 @@ async def turn_doser_off(
 
 @router.post("/dosers/{doser_id}/set-rate", status_code=status.HTTP_200_OK)
 async def set_doser_rate(
+    current_user: CurrentUserDep,
     doser_id: str,
     request: SetDoserRateRequest,
     use_case: SetDoserRateUseCaseDep,
@@ -246,6 +253,7 @@ async def set_doser_rate(
 
 @router.post("/dosers/{doser_id}/set-speed", status_code=status.HTTP_200_OK)
 async def set_doser_speed(
+    current_user: CurrentUserDep,
     doser_id: str,
     request: SetDoserSpeedRequest,
     use_case: SetDoserSpeedUseCaseDep,
@@ -285,6 +293,7 @@ async def set_doser_speed(
     response_model=DoserCalibrationResponse,
 )
 async def save_doser_calibration(
+    current_user: CurrentUserDep,
     doser_id: str,
     request: DoserCalibrationRequest,
     use_case: SaveDoserCalibrationUseCaseDep,
@@ -320,6 +329,7 @@ async def save_doser_calibration(
     response_model=List[DoserCalibrationResponse],
 )
 async def get_doser_calibration_history(
+    current_user: CurrentUserDep,
     doser_id: str,
     use_case: ListDoserCalibrationHistoryUseCaseDep,
 ) -> List[DoserCalibrationResponse]:
@@ -345,6 +355,7 @@ async def get_doser_calibration_history(
 
 @router.post("/dosers/{doser_id}/run-pulses", status_code=status.HTTP_200_OK)
 async def run_doser_pulses(
+    current_user: CurrentUserDep,
     doser_id: str,
     request: RunDoserPulsesRequest,
     use_case: RunDoserPulsesUseCaseDep,
@@ -373,6 +384,7 @@ async def run_doser_pulses(
 
 @router.post("/dosers/{doser_id}/run-for-duration", status_code=status.HTTP_200_OK)
 async def run_doser_for_duration(
+    current_user: CurrentUserDep,
     doser_id: str,
     request: RunDoserDurationRequest,
     use_case: RunDoserForDurationUseCaseDep,
@@ -401,6 +413,7 @@ async def run_doser_for_duration(
 
 @router.post("/selectors/{selector_id}/move", status_code=status.HTTP_200_OK)
 async def move_selector(
+    current_user: CurrentUserDep,
     selector_id: str,
     request: MoveSelectorRequest,
     use_case: MoveSelectorDirectUseCaseDep,
@@ -436,6 +449,7 @@ async def move_selector(
 
 @router.post("/selectors/{selector_id}/reset", status_code=status.HTTP_200_OK)
 async def reset_selector(
+    current_user: CurrentUserDep,
     selector_id: str,
     use_case: ResetSelectorDirectUseCaseDep,
 ) -> Dict[str, str]:
@@ -469,6 +483,7 @@ async def reset_selector(
 
 @router.get("/blowers/{blower_id}/status", status_code=status.HTTP_200_OK)
 async def get_blower_status(
+    current_user: CurrentUserDep,
     blower_id: str,
     use_case: GetBlowerStatusUseCaseDep,
 ) -> BlowerStatusResponse:
@@ -498,6 +513,7 @@ async def get_blower_status(
 
 @router.get("/dosers/{doser_id}/status", status_code=status.HTTP_200_OK)
 async def get_doser_status(
+    current_user: CurrentUserDep,
     doser_id: str,
     use_case: GetDoserStatusUseCaseDep,
 ) -> DoserStatusResponse:
@@ -527,6 +543,7 @@ async def get_doser_status(
 
 @router.get("/selectors/{selector_id}/status", status_code=status.HTTP_200_OK)
 async def get_selector_status(
+    current_user: CurrentUserDep,
     selector_id: str,
     use_case: GetSelectorStatusUseCaseDep,
 ) -> SelectorStatusResponse:
@@ -561,6 +578,7 @@ async def get_selector_status(
 
 @router.post("/coolers/{cooler_id}/on", status_code=status.HTTP_200_OK)
 async def turn_cooler_on(
+    current_user: CurrentUserDep,
     cooler_id: str,
     use_case: TurnCoolerOnUseCaseDep,
 ) -> Dict[str, str]:
@@ -593,6 +611,7 @@ async def turn_cooler_on(
 
 @router.post("/coolers/{cooler_id}/off", status_code=status.HTTP_200_OK)
 async def turn_cooler_off(
+    current_user: CurrentUserDep,
     cooler_id: str,
     use_case: TurnCoolerOffUseCaseDep,
 ) -> Dict[str, str]:
@@ -625,6 +644,7 @@ async def turn_cooler_off(
 
 @router.post("/coolers/{cooler_id}/set-power", status_code=status.HTTP_200_OK)
 async def set_cooler_power(
+    current_user: CurrentUserDep,
     cooler_id: str,
     request: SetCoolerPowerRequest,
     use_case: SetCoolerPowerUseCaseDep,
@@ -660,6 +680,7 @@ async def set_cooler_power(
 
 @router.get("/coolers/{cooler_id}/status", status_code=status.HTTP_200_OK)
 async def get_cooler_status(
+    current_user: CurrentUserDep,
     cooler_id: str,
     use_case: GetCoolerStatusUseCaseDep,
 ) -> CoolerStatusResponse:

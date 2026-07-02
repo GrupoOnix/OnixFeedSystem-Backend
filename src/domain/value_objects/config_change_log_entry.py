@@ -31,9 +31,7 @@ class ConfigChangeLogEntry:
     ) -> "ConfigChangeLogEntry":
         """Factory method para crear un nuevo registro de cambio."""
         if old_value == new_value:
-            raise ValueError(
-                f"No se puede crear log de cambio: old_value == new_value para campo '{field_name}'"
-            )
+            raise ValueError(f"No se puede crear log de cambio: old_value == new_value para campo '{field_name}'")
 
         return ConfigChangeLogEntry(
             change_id=uuid4(),

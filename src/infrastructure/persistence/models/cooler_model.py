@@ -46,9 +46,7 @@ class CoolerModel(SQLModel, table=True):
 
         cooler = Cooler(
             name=CoolerName(self.name),
-            cooling_power_percentage=CoolerPowerPercentage(
-                self.cooling_power_percentage
-            ),
+            cooling_power_percentage=CoolerPowerPercentage(self.cooling_power_percentage),
             is_on=self.is_on,
         )
         cooler._id = CoolerId(self.id)

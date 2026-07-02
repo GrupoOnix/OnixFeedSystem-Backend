@@ -66,9 +66,7 @@ async def main() -> None:
         tz = ZoneInfo(timezone_id)
         now_local = datetime.now(tz)
 
-        lines = (
-            await session.execute(select(FeedingLineModel).order_by(col(FeedingLineModel.name)))
-        ).scalars().all()
+        lines = (await session.execute(select(FeedingLineModel).order_by(col(FeedingLineModel.name)))).scalars().all()
         if not lines:
             raise RuntimeError(
                 "No hay feeding_lines. Crea/sincroniza el trazado del sistema antes de ejecutar el seed."
@@ -90,12 +88,14 @@ async def main() -> None:
 
             lines_processed += 1
             doser = (
-                await session.execute(
-                    select(DoserModel)
-                    .where(col(DoserModel.line_id) == line.id)
-                    .order_by(col(DoserModel.name))
+                (
+                    await session.execute(
+                        select(DoserModel).where(col(DoserModel.line_id) == line.id).order_by(col(DoserModel.name))
+                    )
                 )
-            ).scalars().first()
+                .scalars()
+                .first()
+            )
             silo_id = doser.silo_id if doser and doser.silo_id else await _get_first_silo_id(session)
 
             for day in _last_30_dates(now_local):
@@ -158,26 +158,26 @@ async def main() -> None:
 
 
 async def _get_timezone_id(session) -> str:
-    config = (
-        await session.execute(select(SystemConfigModel).where(col(SystemConfigModel.id) == 1))
-    ).scalars().first()
+    config = (await session.execute(select(SystemConfigModel).where(col(SystemConfigModel.id) == 1))).scalars().first()
     return config.timezone_id if config else "America/Santiago"
 
 
 async def _build_targets(session, line_id: UUID) -> list[FeedingTarget]:
     assignments = (
-        await session.execute(
-            select(SlotAssignmentModel)
-            .where(col(SlotAssignmentModel.line_id) == line_id)
-            .order_by(col(SlotAssignmentModel.slot_number))
+        (
+            await session.execute(
+                select(SlotAssignmentModel)
+                .where(col(SlotAssignmentModel.line_id) == line_id)
+                .order_by(col(SlotAssignmentModel.slot_number))
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     if assignments:
         cage_ids = [assignment.cage_id for assignment in assignments]
-        cages = (
-            await session.execute(select(CageModel).where(col(CageModel.id).in_(cage_ids)))
-        ).scalars().all()
+        cages = (await session.execute(select(CageModel).where(col(CageModel.id).in_(cage_ids)))).scalars().all()
         cages_by_id = {cage.id: cage for cage in cages}
         return [
             _target_from_cage(cages_by_id[assignment.cage_id], assignment.slot_number)
@@ -185,16 +185,12 @@ async def _build_targets(session, line_id: UUID) -> list[FeedingTarget]:
             if assignment.cage_id in cages_by_id
         ]
 
-    cages = (
-        await session.execute(select(CageModel).order_by(col(CageModel.name)).limit(6))
-    ).scalars().all()
+    cages = (await session.execute(select(CageModel).order_by(col(CageModel.name)).limit(6))).scalars().all()
     return [_target_from_cage(cage, index) for index, cage in enumerate(cages, start=1)]
 
 
 async def _get_first_silo_id(session) -> UUID | None:
-    silo = (
-        await session.execute(select(SiloModel).order_by(col(SiloModel.name)))
-    ).scalars().first()
+    silo = (await session.execute(select(SiloModel).order_by(col(SiloModel.name)))).scalars().first()
     return silo.id if silo else None
 
 
@@ -205,19 +201,23 @@ async def _has_overlapping_session(
     end_utc: datetime,
 ) -> bool:
     existing_id = (
-        await session.execute(
-            select(col(FeedingSessionModel.id))
-            .where(
-                col(FeedingSessionModel.line_id) == line_id,
-                col(FeedingSessionModel.actual_start) < end_utc,
-                or_(
-                    col(FeedingSessionModel.actual_end).is_(None),
-                    col(FeedingSessionModel.actual_end) > start_utc,
-                ),
+        (
+            await session.execute(
+                select(col(FeedingSessionModel.id))
+                .where(
+                    col(FeedingSessionModel.line_id) == line_id,
+                    col(FeedingSessionModel.actual_start) < end_utc,
+                    or_(
+                        col(FeedingSessionModel.actual_end).is_(None),
+                        col(FeedingSessionModel.actual_end) > start_utc,
+                    ),
+                )
+                .limit(1)
             )
-            .limit(1)
         )
-    ).scalars().first()
+        .scalars()
+        .first()
+    )
     return existing_id is not None
 
 
@@ -350,10 +350,7 @@ def _make_completed_session(
         available_feeding_seconds = active_window_seconds - pauses_total
         duration_weights = [random.uniform(0.75, 1.25) for _ in range(total_visits)]
         weight_total = sum(duration_weights)
-        visit_durations = [
-            max(60.0, available_feeding_seconds * weight / weight_total)
-            for weight in duration_weights
-        ]
+        visit_durations = [max(60.0, available_feeding_seconds * weight / weight_total) for weight in duration_weights]
 
         cursor = start_utc + timedelta(seconds=active_start_offset)
         for index, (target, visit_number, visit_kg) in enumerate(visit_events_data):

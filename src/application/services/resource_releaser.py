@@ -20,9 +20,7 @@ class ResourceReleaser:
     ) -> None:
         """Libera todos los silos y jaulas de las líneas especificadas."""
         for line in lines:
-            await ResourceReleaser._release_cages_from_line(
-                line, cage_repo, slot_assignment_repo
-            )
+            await ResourceReleaser._release_cages_from_line(line, cage_repo, slot_assignment_repo)
             await ResourceReleaser._release_silos_from_line(line, silo_repo)
 
     @staticmethod

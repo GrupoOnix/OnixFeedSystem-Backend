@@ -11,6 +11,25 @@ from uuid import uuid4  # noqa: F401
 
 BASE_URL = "http://localhost:8000"
 
+DEFAULT_ADMIN_USERNAME = "adminOnix"
+DEFAULT_ADMIN_PASSWORD = "OnixServicios"
+
+
+@pytest.fixture(scope="session")
+def auth_headers():
+    """Fixture que obtiene un token JWT del admin por defecto para tests de integración."""
+    try:
+        response = httpx.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"username": DEFAULT_ADMIN_USERNAME, "password": DEFAULT_ADMIN_PASSWORD},
+            timeout=5,
+        )
+        response.raise_for_status()
+        token = response.json()["access_token"]
+        return {"Authorization": f"Bearer {token}"}
+    except Exception as exc:
+        pytest.skip(f"No se pudo obtener token de autenticación para tests de integración: {exc}")
+
 
 @pytest.mark.integration
 class TestHealthIntegration:
@@ -54,48 +73,48 @@ class TestHealthIntegration:
 class TestCagesIntegration:
     """Tests de integración para el módulo de jaulas."""
 
-    def test_list_cages_returns_200(self):
+    def test_list_cages_returns_200(self, auth_headers):
         """Test: Listar jaulas retorna 200."""
-        response = httpx.get(f"{BASE_URL}/api/cages", timeout=5)
+        response = httpx.get(f"{BASE_URL}/api/cages", timeout=5, headers=auth_headers)
 
         assert response.status_code == 200
         data = response.json()
         assert "cages" in data
         assert "total" in data
 
-    def test_get_cage_not_found_returns_404(self):
+    def test_get_cage_not_found_returns_404(self, auth_headers):
         """Test: Obtener jaula inexistente retorna 404."""
         fake_id = "12345678-1234-1234-1234-123456789abc"
-        response = httpx.get(f"{BASE_URL}/api/cages/{fake_id}", timeout=5)
+        response = httpx.get(f"{BASE_URL}/api/cages/{fake_id}", timeout=5, headers=auth_headers)
 
         assert response.status_code == 404
 
-    def test_create_cage_validation_error(self):
+    def test_create_cage_validation_error(self, auth_headers):
         """Test: Crear jaula con datos inválidos retorna 422."""
         invalid_data = {
             "fcr": 1.5,
             # Falta "name" que es requerido
         }
-        response = httpx.post(f"{BASE_URL}/api/cages", json=invalid_data, timeout=5)
+        response = httpx.post(f"{BASE_URL}/api/cages", json=invalid_data, timeout=5, headers=auth_headers)
 
         assert response.status_code == 422
 
-    def test_update_cage_not_found(self):
+    def test_update_cage_not_found(self, auth_headers):
         """Test: Actualizar jaula inexistente retorna 404."""
         fake_id = "12345678-1234-1234-1234-123456789abc"
         data = {"name": "Nuevo Nombre"}
-        response = httpx.patch(f"{BASE_URL}/api/cages/{fake_id}", json=data, timeout=5)
+        response = httpx.patch(f"{BASE_URL}/api/cages/{fake_id}", json=data, timeout=5, headers=auth_headers)
 
         assert response.status_code == 404
 
-    def test_delete_cage_not_found(self):
+    def test_delete_cage_not_found(self, auth_headers):
         """Test: Eliminar jaula inexistente retorna 404."""
         fake_id = "12345678-1234-1234-1234-123456789abc"
-        response = httpx.delete(f"{BASE_URL}/api/cages/{fake_id}", timeout=5)
+        response = httpx.delete(f"{BASE_URL}/api/cages/{fake_id}", timeout=5, headers=auth_headers)
 
         assert response.status_code == 404
 
-    def test_set_population_validation_error(self):
+    def test_set_population_validation_error(self, auth_headers):
         """Test: Establecer población con datos inválidos retorna 422."""
         fake_id = "12345678-1234-1234-1234-123456789abc"
         invalid_data = {
@@ -103,18 +122,22 @@ class TestCagesIntegration:
             "avg_weight_grams": 150.0,
             "event_date": "2024-01-15",
         }
-        response = httpx.put(f"{BASE_URL}/api/cages/{fake_id}/population", json=invalid_data, timeout=5)
+        response = httpx.put(
+            f"{BASE_URL}/api/cages/{fake_id}/population", json=invalid_data, timeout=5, headers=auth_headers
+        )
 
         assert response.status_code == 422
 
-    def test_register_mortality_validation_error(self):
+    def test_register_mortality_validation_error(self, auth_headers):
         """Test: Registrar mortalidad con datos inválidos retorna 422."""
         fake_id = "12345678-1234-1234-1234-123456789abc"
         invalid_data = {
             "dead_count": -1,  # Debe ser > 0
             "event_date": "2024-01-15",
         }
-        response = httpx.post(f"{BASE_URL}/api/cages/{fake_id}/mortality", json=invalid_data, timeout=5)
+        response = httpx.post(
+            f"{BASE_URL}/api/cages/{fake_id}/mortality", json=invalid_data, timeout=5, headers=auth_headers
+        )
 
         assert response.status_code == 422
 
@@ -123,27 +146,27 @@ class TestCagesIntegration:
 class TestSilosIntegration:
     """Tests de integración para el módulo de silos."""
 
-    def test_list_silos_returns_200(self):
+    def test_list_silos_returns_200(self, auth_headers):
         """Test: Listar silos retorna 200."""
-        response = httpx.get(f"{BASE_URL}/api/silos", timeout=5)
+        response = httpx.get(f"{BASE_URL}/api/silos", timeout=5, headers=auth_headers)
 
         assert response.status_code == 200
         data = response.json()
         assert "silos" in data
 
-    def test_get_silo_not_found_returns_404(self):
+    def test_get_silo_not_found_returns_404(self, auth_headers):
         """Test: Obtener silo inexistente retorna 404."""
         fake_id = "12345678-1234-1234-1234-123456789abc"
-        response = httpx.get(f"{BASE_URL}/api/silos/{fake_id}", timeout=5)
+        response = httpx.get(f"{BASE_URL}/api/silos/{fake_id}", timeout=5, headers=auth_headers)
 
         assert response.status_code == 404
 
-    def test_create_silo_validation_error(self):
+    def test_create_silo_validation_error(self, auth_headers):
         """Test: Crear silo sin nombre retorna 422."""
         invalid_data = {
             "capacity_kg": 10000.0,
         }
-        response = httpx.post(f"{BASE_URL}/api/silos", json=invalid_data, timeout=5)
+        response = httpx.post(f"{BASE_URL}/api/silos", json=invalid_data, timeout=5, headers=auth_headers)
 
         assert response.status_code == 422
 
@@ -152,44 +175,44 @@ class TestSilosIntegration:
 class TestAlertsIntegration:
     """Tests de integración para el módulo de alertas."""
 
-    def test_list_alerts_returns_200(self):
+    def test_list_alerts_returns_200(self, auth_headers):
         """Test: Listar alertas retorna 200."""
-        response = httpx.get(f"{BASE_URL}/api/alerts", timeout=5)
+        response = httpx.get(f"{BASE_URL}/api/alerts", timeout=5, headers=auth_headers)
 
         assert response.status_code == 200
         data = response.json()
         assert "alerts" in data
 
-    def test_get_unread_count_returns_200(self):
+    def test_get_unread_count_returns_200(self, auth_headers):
         """Test: Obtener contador de no leídas retorna 200."""
-        response = httpx.get(f"{BASE_URL}/api/alerts/unread/count", timeout=5)
+        response = httpx.get(f"{BASE_URL}/api/alerts/unread/count", timeout=5, headers=auth_headers)
 
         assert response.status_code == 200
         data = response.json()
         assert "count" in data
 
-    def test_get_alert_counts_returns_200(self):
+    def test_get_alert_counts_returns_200(self, auth_headers):
         """Test: Obtener contadores por tipo retorna 200."""
-        response = httpx.get(f"{BASE_URL}/api/alerts/counts", timeout=5)
+        response = httpx.get(f"{BASE_URL}/api/alerts/counts", timeout=5, headers=auth_headers)
 
         assert response.status_code == 200
 
-    def test_list_scheduled_alerts_returns_200(self):
+    def test_list_scheduled_alerts_returns_200(self, auth_headers):
         """Test: Listar alertas programadas retorna 200."""
-        response = httpx.get(f"{BASE_URL}/api/alerts/scheduled", timeout=5)
+        response = httpx.get(f"{BASE_URL}/api/alerts/scheduled", timeout=5, headers=auth_headers)
 
         assert response.status_code == 200
 
-    def test_list_snoozed_alerts_returns_200(self):
+    def test_list_snoozed_alerts_returns_200(self, auth_headers):
         """Test: Listar alertas silenciadas retorna 200."""
-        response = httpx.get(f"{BASE_URL}/api/alerts/snoozed", timeout=5)
+        response = httpx.get(f"{BASE_URL}/api/alerts/snoozed", timeout=5, headers=auth_headers)
 
         assert response.status_code == 200
 
-    def test_mark_alert_read_not_found(self):
+    def test_mark_alert_read_not_found(self, auth_headers):
         """Test: Marcar alerta inexistente como leída retorna 404."""
         fake_id = "12345678-1234-1234-1234-123456789abc"
-        response = httpx.post(f"{BASE_URL}/api/alerts/{fake_id}/read", timeout=5)
+        response = httpx.post(f"{BASE_URL}/api/alerts/{fake_id}/read", timeout=5, headers=auth_headers)
 
         assert response.status_code == 404
 
@@ -198,33 +221,33 @@ class TestAlertsIntegration:
 class TestFeedingIntegration:
     """Tests de integración para el módulo de alimentación."""
 
-    def test_start_feeding_validation_error(self):
+    def test_start_feeding_validation_error(self, auth_headers):
         """Test: Iniciar alimentación sin datos requeridos retorna 422."""
         invalid_data = {
             "mode": "MANUAL",
         }
-        response = httpx.post(f"{BASE_URL}/api/feeding/start", json=invalid_data, timeout=5)
+        response = httpx.post(f"{BASE_URL}/api/feeding/start", json=invalid_data, timeout=5, headers=auth_headers)
 
         assert response.status_code == 422
 
-    def test_stop_feeding_not_found(self):
+    def test_stop_feeding_not_found(self, auth_headers):
         """Test: Detener alimentación en línea sin sesión retorna 404."""
         fake_id = "12345678-1234-1234-1234-123456789abc"
-        response = httpx.post(f"{BASE_URL}/api/feeding/lines/{fake_id}/stop", timeout=5)
+        response = httpx.post(f"{BASE_URL}/api/feeding/lines/{fake_id}/stop", timeout=5, headers=auth_headers)
 
         assert response.status_code == 404
 
-    def test_pause_feeding_not_found(self):
+    def test_pause_feeding_not_found(self, auth_headers):
         """Test: Pausar alimentación sin sesión activa retorna 404."""
         fake_id = "12345678-1234-1234-1234-123456789abc"
-        response = httpx.post(f"{BASE_URL}/api/feeding/lines/{fake_id}/pause", timeout=5)
+        response = httpx.post(f"{BASE_URL}/api/feeding/lines/{fake_id}/pause", timeout=5, headers=auth_headers)
 
         assert response.status_code == 404
 
-    def test_resume_feeding_not_found(self):
+    def test_resume_feeding_not_found(self, auth_headers):
         """Test: Reanudar alimentación sin sesión activa retorna 404."""
         fake_id = "12345678-1234-1234-1234-123456789abc"
-        response = httpx.post(f"{BASE_URL}/api/feeding/lines/{fake_id}/resume", timeout=5)
+        response = httpx.post(f"{BASE_URL}/api/feeding/lines/{fake_id}/resume", timeout=5, headers=auth_headers)
 
         assert response.status_code == 404
 
@@ -233,9 +256,9 @@ class TestFeedingIntegration:
 class TestSystemLayoutIntegration:
     """Tests de integración para el layout del sistema."""
 
-    def test_get_system_layout_returns_200(self):
+    def test_get_system_layout_returns_200(self, auth_headers):
         """Test: Obtener layout del sistema retorna 200."""
-        response = httpx.get(f"{BASE_URL}/api/system-layout", timeout=5)
+        response = httpx.get(f"{BASE_URL}/api/system-layout", timeout=5, headers=auth_headers)
 
         assert response.status_code == 200
         data = response.json()
@@ -243,13 +266,13 @@ class TestSystemLayoutIntegration:
         assert "cages" in data
         assert "feeding_lines" in data
 
-    def test_sync_system_layout_validation_error(self):
+    def test_sync_system_layout_validation_error(self, auth_headers):
         """Test: Sincronizar layout con datos inválidos retorna 422."""
         invalid_data = {
             "silos": [],
             # Faltan cages y feeding_lines
         }
-        response = httpx.post(f"{BASE_URL}/api/system-layout", json=invalid_data, timeout=5)
+        response = httpx.post(f"{BASE_URL}/api/system-layout", json=invalid_data, timeout=5, headers=auth_headers)
 
         assert response.status_code == 422
 
@@ -258,16 +281,16 @@ class TestSystemLayoutIntegration:
 class TestFeedingLinesIntegration:
     """Tests de integración para líneas de alimentación."""
 
-    def test_list_feeding_lines_returns_200(self):
+    def test_list_feeding_lines_returns_200(self, auth_headers):
         """Test: Listar líneas de alimentación retorna 200."""
-        response = httpx.get(f"{BASE_URL}/api/feeding-lines", timeout=5)
+        response = httpx.get(f"{BASE_URL}/api/feeding-lines", timeout=5, headers=auth_headers)
 
         assert response.status_code == 200
 
-    def test_get_feeding_line_not_found(self):
+    def test_get_feeding_line_not_found(self, auth_headers):
         """Test: Obtener línea inexistente retorna 404."""
         fake_id = "12345678-1234-1234-1234-123456789abc"
-        response = httpx.get(f"{BASE_URL}/api/feeding-lines/{fake_id}", timeout=5)
+        response = httpx.get(f"{BASE_URL}/api/feeding-lines/{fake_id}", timeout=5, headers=auth_headers)
 
         assert response.status_code == 404
 
@@ -276,16 +299,16 @@ class TestFeedingLinesIntegration:
 class TestCageGroupsIntegration:
     """Tests de integración para grupos de jaulas."""
 
-    def test_list_cage_groups_returns_200(self):
+    def test_list_cage_groups_returns_200(self, auth_headers):
         """Test: Listar grupos de jaulas retorna 200."""
-        response = httpx.get(f"{BASE_URL}/api/cage-groups", timeout=5)
+        response = httpx.get(f"{BASE_URL}/api/cage-groups", timeout=5, headers=auth_headers)
 
         assert response.status_code == 200
 
-    def test_get_cage_group_not_found(self):
+    def test_get_cage_group_not_found(self, auth_headers):
         """Test: Obtener grupo inexistente retorna 404."""
         fake_id = "12345678-1234-1234-1234-123456789abc"
-        response = httpx.get(f"{BASE_URL}/api/cage-groups/{fake_id}", timeout=5)
+        response = httpx.get(f"{BASE_URL}/api/cage-groups/{fake_id}", timeout=5, headers=auth_headers)
 
         assert response.status_code == 404
 
@@ -294,9 +317,9 @@ class TestCageGroupsIntegration:
 class TestFoodIntegration:
     """Tests de integración para el módulo de alimentos."""
 
-    def test_list_foods_returns_200(self):
+    def test_list_foods_returns_200(self, auth_headers):
         """Test: Listar alimentos retorna 200."""
-        response = httpx.get(f"{BASE_URL}/api/foods", timeout=5)
+        response = httpx.get(f"{BASE_URL}/api/foods", timeout=5, headers=auth_headers)
 
         assert response.status_code == 200
 
@@ -305,9 +328,9 @@ class TestFoodIntegration:
 class TestSensorsIntegration:
     """Tests de integración para sensores."""
 
-    def test_list_sensors_by_line_not_found(self):
+    def test_list_sensors_by_line_not_found(self, auth_headers):
         """Test: Listar sensores de línea inexistente retorna 404."""
         fake_id = "12345678-1234-1234-1234-123456789abc"
-        response = httpx.get(f"{BASE_URL}/api/lines/{fake_id}/sensors", timeout=5)
+        response = httpx.get(f"{BASE_URL}/api/lines/{fake_id}/sensors", timeout=5, headers=auth_headers)
 
         assert response.status_code == 404

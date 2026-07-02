@@ -11,9 +11,7 @@ class ToggleFoodActiveUseCase:
     def __init__(self, food_repository: IFoodRepository):
         self._food_repository = food_repository
 
-    async def execute(
-        self, food_id_str: str, request: ToggleFoodActiveRequest
-    ) -> FoodDetailResponse:
+    async def execute(self, food_id_str: str, request: ToggleFoodActiveRequest) -> FoodDetailResponse:
         """
         Ejecuta el caso de uso para cambiar el estado activo de un alimento.
 

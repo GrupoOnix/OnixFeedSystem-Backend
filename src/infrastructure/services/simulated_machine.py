@@ -36,8 +36,8 @@ class _LineState:
     visit_number: Optional[int] = None
     is_empty_visit: bool = False
 
-class SimulatedMachine(IMachine):
 
+class SimulatedMachine(IMachine):
     def __init__(self):
         self._states: Dict[str, _LineState] = {}
         self._simulation_tasks: Dict[str, asyncio.Task] = {}
@@ -69,9 +69,7 @@ class SimulatedMachine(IMachine):
             if state.dispensed_kg >= state.target_kg:
                 state.is_running = False
                 state.dispensing_completed_time = datetime.now(timezone.utc)
-                logger.info(
-                    f"[SimMachine] {line_key}: TARGET REACHED {state.dispensed_kg:.3f}kg"
-                )
+                logger.info(f"[SimMachine] {line_key}: TARGET REACHED {state.dispensed_kg:.3f}kg")
                 return
 
     def _cancel_task(self, line_key: str) -> None:
@@ -100,9 +98,7 @@ class SimulatedMachine(IMachine):
 
         # Usar la tasa del registro del slot (simula leer del PLC). Las visitas
         # vacías no dosifican, incluso si el slot tiene una tasa previa.
-        state.doser_rate_kg_per_min = (
-            0.0 if command.target_kg == 0 else state.slot_rates[command.slot_number]
-        )
+        state.doser_rate_kg_per_min = 0.0 if command.target_kg == 0 else state.slot_rates[command.slot_number]
 
         state.blower_power_percentage = command.blower_power_percentage
         state.pre_pause_doser_rate = 0.0
@@ -120,9 +116,7 @@ class SimulatedMachine(IMachine):
         state.visit_start_time = now
         state.dispensing_completed_time = None
 
-        self._simulation_tasks[key] = asyncio.create_task(
-            self._simulation_loop(key, state)
-        )
+        self._simulation_tasks[key] = asyncio.create_task(self._simulation_loop(key, state))
 
         logger.info(
             f"[SimMachine] Line {line_id}: START slot={command.slot_number} "
@@ -139,11 +133,7 @@ class SimulatedMachine(IMachine):
         now = datetime.now(timezone.utc)
         stage = self._compute_stage(state, now)
 
-        flow_rate = (
-            state.doser_rate_kg_per_min
-            if stage == VisitStage.FEEDING and not state.is_paused
-            else 0.0
-        )
+        flow_rate = state.doser_rate_kg_per_min if stage == VisitStage.FEEDING and not state.is_paused else 0.0
 
         return MachineVisitStatus(
             is_running=state.is_running,
@@ -224,9 +214,7 @@ class SimulatedMachine(IMachine):
         state.pre_pause_blower_power = state.blower_power_percentage
         state.doser_rate_kg_per_min = 0.0
         state.is_paused = True
-        logger.info(
-            f"[SimMachine] Line {line_id}: PAUSED at {state.dispensed_kg:.3f}kg"
-        )
+        logger.info(f"[SimMachine] Line {line_id}: PAUSED at {state.dispensed_kg:.3f}kg")
 
     async def resume(self, line_id: LineId) -> None:
         await asyncio.sleep(0.05)
@@ -236,9 +224,7 @@ class SimulatedMachine(IMachine):
         state.doser_rate_kg_per_min = state.pre_pause_doser_rate
         state.blower_power_percentage = state.pre_pause_blower_power
         state.is_paused = False
-        logger.info(
-            f"[SimMachine] Line {line_id}: RESUMED at {state.dispensed_kg:.3f}kg"
-        )
+        logger.info(f"[SimMachine] Line {line_id}: RESUMED at {state.dispensed_kg:.3f}kg")
 
     async def stop(self, line_id: LineId) -> None:
         await asyncio.sleep(0.05)
@@ -257,6 +243,4 @@ class SimulatedMachine(IMachine):
         state.is_empty_visit = False
         # Limpiar registros de tasas por slot al detener la línea
         state.slot_rates.clear()
-        logger.info(
-            f"[SimMachine] Line {line_id}: STOPPED total={final_kg:.3f}kg"
-        )
+        logger.info(f"[SimMachine] Line {line_id}: STOPPED total={final_kg:.3f}kg")

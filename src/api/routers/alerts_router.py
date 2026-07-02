@@ -20,6 +20,7 @@ from api.dependencies import (
     UnsnoozeAlertUseCaseDep,
     UpdateAlertUseCaseDep,
     UpdateScheduledAlertUseCaseDep,
+    CurrentUserDep,
 )
 from application.dtos.alert_dtos import (
     AlertCountsResponse,
@@ -48,6 +49,7 @@ router = APIRouter(prefix="/alerts", tags=["Alerts"])
 
 @router.get("", response_model=ListAlertsResponse)
 async def list_alerts(
+    current_user: CurrentUserDep,
     use_case: ListAlertsUseCaseDep,
     status_filter: Optional[str] = Query(
         None,
@@ -64,9 +66,7 @@ async def list_alerts(
         alias="category",
         description="Filtrar por categoría (separados por coma: DEVICE,INVENTORY)",
     ),
-    search: Optional[str] = Query(
-        None, description="Buscar en título, mensaje y origen"
-    ),
+    search: Optional[str] = Query(None, description="Buscar en título, mensaje y origen"),
     limit: int = Query(50, ge=1, le=100, description="Cantidad máxima de resultados"),
     offset: int = Query(0, ge=0, description="Desplazamiento para paginación"),
 ) -> ListAlertsResponse:
@@ -93,9 +93,7 @@ async def list_alerts(
         return await use_case.execute(request)
 
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Filtro inválido: {str(e)}"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Filtro inválido: {str(e)}")
 
     except Exception as e:
         raise HTTPException(
@@ -105,7 +103,7 @@ async def list_alerts(
 
 
 @router.get("/unread/count", response_model=UnreadCountResponse)
-async def get_unread_count(use_case: GetUnreadCountUseCaseDep) -> UnreadCountResponse:
+async def get_unread_count(current_user: CurrentUserDep, use_case: GetUnreadCountUseCaseDep) -> UnreadCountResponse:
     """
     Obtiene el contador de alertas no leídas.
 
@@ -123,7 +121,7 @@ async def get_unread_count(use_case: GetUnreadCountUseCaseDep) -> UnreadCountRes
 
 
 @router.patch("/read-all", response_model=MarkAllReadResponse)
-async def mark_all_read(use_case: MarkAllAlertsReadUseCaseDep) -> MarkAllReadResponse:
+async def mark_all_read(current_user: CurrentUserDep, use_case: MarkAllAlertsReadUseCaseDep) -> MarkAllReadResponse:
     """
     Marca todas las alertas no leídas como leídas.
 
@@ -141,17 +139,16 @@ async def mark_all_read(use_case: MarkAllAlertsReadUseCaseDep) -> MarkAllReadRes
 
 @router.patch("/{alert_id}", response_model=AlertDTO)
 async def update_alert(
-    alert_id: str, request: UpdateAlertRequest, use_case: UpdateAlertUseCaseDep
+    current_user: CurrentUserDep, alert_id: str, request: UpdateAlertRequest, use_case: UpdateAlertUseCaseDep
 ) -> AlertDTO:
     """
     Actualiza una alerta.
 
     - **alert_id**: ID de la alerta
     - **status**: Nuevo estado (READ, RESOLVED, ARCHIVED)
-    - **resolved_by**: Usuario que resuelve (opcional)
     """
     try:
-        return await use_case.execute(alert_id, request)
+        return await use_case.execute(alert_id, request, current_user.username)
 
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
@@ -164,7 +161,7 @@ async def update_alert(
 
 
 @router.post("/{alert_id}/read", status_code=status.HTTP_200_OK)
-async def mark_alert_read(alert_id: str, use_case: MarkAlertReadUseCaseDep) -> dict:
+async def mark_alert_read(current_user: CurrentUserDep, alert_id: str, use_case: MarkAlertReadUseCaseDep) -> dict:
     """
     Marca una alerta como leída.
 
@@ -186,7 +183,7 @@ async def mark_alert_read(alert_id: str, use_case: MarkAlertReadUseCaseDep) -> d
 
 @router.post("/{alert_id}/snooze", status_code=status.HTTP_200_OK)
 async def snooze_alert(
-    alert_id: str, request: SnoozeAlertRequest, use_case: SnoozeAlertUseCaseDep
+    current_user: CurrentUserDep, alert_id: str, request: SnoozeAlertRequest, use_case: SnoozeAlertUseCaseDep
 ) -> dict:
     """
     Silencia una alerta temporalmente.
@@ -212,7 +209,7 @@ async def snooze_alert(
 
 
 @router.delete("/{alert_id}/snooze", status_code=status.HTTP_200_OK)
-async def unsnooze_alert(alert_id: str, use_case: UnsnoozeAlertUseCaseDep) -> dict:
+async def unsnooze_alert(current_user: CurrentUserDep, alert_id: str, use_case: UnsnoozeAlertUseCaseDep) -> dict:
     """
     Remueve el silenciamiento de una alerta (unsnooze).
 
@@ -240,6 +237,7 @@ async def unsnooze_alert(alert_id: str, use_case: UnsnoozeAlertUseCaseDep) -> di
 
 @router.get("/snoozed", response_model=ListAlertsResponse)
 async def list_snoozed_alerts(
+    current_user: CurrentUserDep,
     use_case: ListSnoozedAlertsUseCaseDep,
     limit: int = Query(50, ge=1, le=100, description="Cantidad máxima de resultados"),
     offset: int = Query(0, ge=0, description="Desplazamiento para paginación"),
@@ -264,6 +262,7 @@ async def list_snoozed_alerts(
 
 @router.get("/snoozed/count", response_model=SnoozedCountResponse)
 async def get_snoozed_count(
+    current_user: CurrentUserDep,
     use_case: GetSnoozedCountUseCaseDep,
 ) -> SnoozedCountResponse:
     """
@@ -282,7 +281,7 @@ async def get_snoozed_count(
 
 
 @router.get("/counts", response_model=AlertCountsResponse)
-async def get_alert_counts(use_case: GetAlertCountsUseCaseDep) -> AlertCountsResponse:
+async def get_alert_counts(current_user: CurrentUserDep, use_case: GetAlertCountsUseCaseDep) -> AlertCountsResponse:
     """
     Obtiene contadores de alertas activas por tipo.
 
@@ -307,6 +306,7 @@ async def get_alert_counts(use_case: GetAlertCountsUseCaseDep) -> AlertCountsRes
 
 @router.get("/scheduled", response_model=ListScheduledAlertsResponse)
 async def list_scheduled_alerts(
+    current_user: CurrentUserDep,
     use_case: ListScheduledAlertsUseCaseDep,
 ) -> ListScheduledAlertsResponse:
     """
@@ -324,11 +324,9 @@ async def list_scheduled_alerts(
         )
 
 
-@router.post(
-    "/scheduled", response_model=ScheduledAlertDTO, status_code=status.HTTP_201_CREATED
-)
+@router.post("/scheduled", response_model=ScheduledAlertDTO, status_code=status.HTTP_201_CREATED)
 async def create_scheduled_alert(
-    request: CreateScheduledAlertRequest, use_case: CreateScheduledAlertUseCaseDep
+    current_user: CurrentUserDep, request: CreateScheduledAlertRequest, use_case: CreateScheduledAlertUseCaseDep
 ) -> ScheduledAlertDTO:
     """
     Crea una nueva alerta programada.
@@ -350,9 +348,7 @@ async def create_scheduled_alert(
         return await use_case.execute(request)
 
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Datos inválidos: {str(e)}"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Datos inválidos: {str(e)}")
 
     except Exception as e:
         raise HTTPException(
@@ -363,6 +359,7 @@ async def create_scheduled_alert(
 
 @router.patch("/scheduled/{alert_id}", response_model=ScheduledAlertDTO)
 async def update_scheduled_alert(
+    current_user: CurrentUserDep,
     alert_id: str,
     request: UpdateScheduledAlertRequest,
     use_case: UpdateScheduledAlertUseCaseDep,
@@ -379,9 +376,7 @@ async def update_scheduled_alert(
     except ValueError as e:
         if "no encontrada" in str(e).lower():
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Datos inválidos: {str(e)}"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Datos inválidos: {str(e)}")
 
     except Exception as e:
         raise HTTPException(
@@ -392,7 +387,7 @@ async def update_scheduled_alert(
 
 @router.delete("/scheduled/{alert_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_scheduled_alert(
-    alert_id: str, use_case: DeleteScheduledAlertUseCaseDep
+    current_user: CurrentUserDep, alert_id: str, use_case: DeleteScheduledAlertUseCaseDep
 ) -> None:
     """
     Elimina una alerta programada.
@@ -412,11 +407,9 @@ async def delete_scheduled_alert(
         )
 
 
-@router.patch(
-    "/scheduled/{alert_id}/toggle", response_model=ToggleScheduledAlertResponse
-)
+@router.patch("/scheduled/{alert_id}/toggle", response_model=ToggleScheduledAlertResponse)
 async def toggle_scheduled_alert(
-    alert_id: str, use_case: ToggleScheduledAlertUseCaseDep
+    current_user: CurrentUserDep, alert_id: str, use_case: ToggleScheduledAlertUseCaseDep
 ) -> ToggleScheduledAlertResponse:
     """
     Activa/desactiva una alerta programada.

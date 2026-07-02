@@ -226,3 +226,33 @@ class FoodInUseError(DomainException):
     """
 
     pass
+
+
+class InvalidCredentialsError(DomainException):
+    """Raised when username or password are invalid."""
+
+    pass
+
+
+class UserInactiveError(DomainException):
+    """Raised when an inactive user tries to authenticate."""
+
+    pass
+
+
+class UserNotFoundException(DomainException):
+    """Raised when a specified user is not found."""
+
+    pass
+
+
+class UserAlreadyExistsError(DomainException):
+    """Raised when attempting to create a user with an existing username."""
+
+    pass
+
+
+class InsufficientPermissionsError(DomainException):
+    """Raised when a user lacks permission for an action."""
+
+    pass

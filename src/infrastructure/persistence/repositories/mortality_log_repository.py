@@ -35,8 +35,9 @@ class MortalityLogRepository(IMortalityLogRepository):
     async def count_by_cage(self, cage_id: CageId) -> int:
         """Cuenta total de registros de mortalidad de una jaula."""
         result = await self.session.execute(
-            select(func.count(col(MortalityLogModel.mortality_id)))
-            .where(col(MortalityLogModel.cage_id) == cage_id.value)
+            select(func.count(col(MortalityLogModel.mortality_id))).where(
+                col(MortalityLogModel.cage_id) == cage_id.value
+            )
         )
         return result.scalar() or 0
 
@@ -46,7 +47,8 @@ class MortalityLogRepository(IMortalityLogRepository):
         Suma todos los dead_fish_count del log.
         """
         result = await self.session.execute(
-            select(func.coalesce(func.sum(col(MortalityLogModel.dead_fish_count)), 0))
-            .where(col(MortalityLogModel.cage_id) == cage_id.value)
+            select(func.coalesce(func.sum(col(MortalityLogModel.dead_fish_count)), 0)).where(
+                col(MortalityLogModel.cage_id) == cage_id.value
+            )
         )
         return result.scalar() or 0

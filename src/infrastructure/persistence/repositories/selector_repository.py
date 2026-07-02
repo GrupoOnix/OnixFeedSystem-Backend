@@ -36,9 +36,7 @@ class SelectorRepository:
         selector_model = result.scalar_one_or_none()
         return selector_model.to_domain() if selector_model else None
 
-    async def find_by_id_with_context(
-        self, selector_id: UUID
-    ) -> Optional[SelectorWithContext]:
+    async def find_by_id_with_context(self, selector_id: UUID) -> Optional[SelectorWithContext]:
         """Busca un selector por su ID y devuelve también información de la línea."""
         stmt = (
             select(SelectorModel)

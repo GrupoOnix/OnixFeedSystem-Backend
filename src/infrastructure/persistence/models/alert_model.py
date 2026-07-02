@@ -27,16 +27,10 @@ class AlertModel(SQLModel, table=True):
     source: Optional[str] = Field(default=None, max_length=200)
     timestamp: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False, index=True))
     read_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
-    resolved_at: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
-    )
+    resolved_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
     resolved_by: Optional[str] = Field(default=None, max_length=100)
-    snoozed_until: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
-    )
-    metadata_json: Dict[str, Any] = Field(
-        default_factory=dict, sa_column=Column("metadata", JSONB, nullable=False)
-    )
+    snoozed_until: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
+    metadata_json: Dict[str, Any] = Field(default_factory=dict, sa_column=Column("metadata", JSONB, nullable=False))
 
     class Config:
         arbitrary_types_allowed = True

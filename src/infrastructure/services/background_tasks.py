@@ -19,6 +19,7 @@ from infrastructure.persistence.repositories import (
     SiloRepository,
 )
 from infrastructure.services.alert_scheduler_service import AlertSchedulerService
+from infrastructure.services.default_admin_service import seed_default_admin_if_needed
 from infrastructure.services.silo_monitor_service import SiloMonitorService
 
 logger = logging.getLogger(__name__)
@@ -123,6 +124,14 @@ async def lifespan_with_scheduler(app: FastAPI):
 
     # Startup
     logger.info("Iniciando background tasks...")
+
+    # Crear admin por defecto si no existe
+    try:
+        async with get_session_context() as session:
+            await seed_default_admin_if_needed(session)
+    except Exception as e:
+        logger.error("Error al crear administrador por defecto: %s", e, exc_info=True)
+
     _scheduler_task = asyncio.create_task(scheduled_alerts_job())
     _silo_monitor_task = asyncio.create_task(silo_monitor_job())
 

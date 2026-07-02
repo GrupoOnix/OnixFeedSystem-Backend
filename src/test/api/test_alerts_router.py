@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from main import app
 from api.dependencies import (
+    get_current_user,
     get_list_alerts_use_case,
     get_unread_count_use_case,
     get_alert_counts_use_case,
@@ -29,6 +30,7 @@ from api.dependencies import (
     get_create_scheduled_alert_use_case,
     get_delete_scheduled_alert_use_case,
 )
+from application.dtos.auth_dtos import UserResponse
 from application.dtos.alert_dtos import (
     AlertCountsResponse,
     AlertDTO,
@@ -44,6 +46,17 @@ from application.dtos.alert_dtos import (
 def client():
     from fastapi.testclient import TestClient
 
+    fake_user = UserResponse(
+        id=str(uuid4()),
+        username="testuser",
+        full_name="Test User",
+        role="user",
+        is_superadmin=False,
+        is_active=True,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+    app.dependency_overrides[get_current_user] = lambda: fake_user
     yield TestClient(app)
     app.dependency_overrides.clear()
 
@@ -113,9 +126,7 @@ class TestListAlerts:
     def test_list_alerts_with_filters(self, client):
         """Verifica que listar alertas con filtros funciona correctamente."""
         mock_use_case = MagicMock()
-        mock_use_case.execute = AsyncMock(
-            return_value=ListAlertsResponse(alerts=[], total=0)
-        )
+        mock_use_case.execute = AsyncMock(return_value=ListAlertsResponse(alerts=[], total=0))
         app.dependency_overrides[get_list_alerts_use_case] = lambda: mock_use_case
 
         response = client.get("/api/alerts?status=UNREAD,READ&type=CRITICAL")
@@ -133,9 +144,7 @@ class TestGetUnreadCount:
     def test_get_unread_count_returns_200(self, client):
         """Verifica que obtener el contador de no leídas retorna 200."""
         mock_use_case = MagicMock()
-        mock_use_case.execute = AsyncMock(
-            return_value=UnreadCountResponse(count=5)
-        )
+        mock_use_case.execute = AsyncMock(return_value=UnreadCountResponse(count=5))
         app.dependency_overrides[get_unread_count_use_case] = lambda: mock_use_case
 
         response = client.get("/api/alerts/unread/count")
@@ -149,11 +158,7 @@ class TestGetAlertCounts:
     def test_get_alert_counts_returns_200(self, client):
         """Verifica que obtener contadores por tipo retorna 200."""
         mock_use_case = MagicMock()
-        mock_use_case.execute = AsyncMock(
-            return_value=AlertCountsResponse(
-                critical=2, warning=5, info=10, success=0
-            )
-        )
+        mock_use_case.execute = AsyncMock(return_value=AlertCountsResponse(critical=2, warning=5, info=10, success=0))
         app.dependency_overrides[get_alert_counts_use_case] = lambda: mock_use_case
 
         response = client.get("/api/alerts/counts")
@@ -238,9 +243,7 @@ class TestListSnoozedAlerts:
     def test_list_snoozed_alerts_returns_200(self, client):
         """Verifica que listar alertas silenciadas retorna 200."""
         mock_use_case = MagicMock()
-        mock_use_case.execute = AsyncMock(
-            return_value=ListAlertsResponse(alerts=[], total=0)
-        )
+        mock_use_case.execute = AsyncMock(return_value=ListAlertsResponse(alerts=[], total=0))
         app.dependency_overrides[get_list_snoozed_alerts_use_case] = lambda: mock_use_case
 
         response = client.get("/api/alerts/snoozed")
@@ -254,9 +257,7 @@ class TestListScheduledAlerts:
         """Verifica que listar alertas programadas retorna 200."""
         mock_use_case = MagicMock()
         mock_use_case.execute = AsyncMock(
-            return_value=ListScheduledAlertsResponse(
-                scheduled_alerts=[_make_scheduled_alert_dto()]
-            )
+            return_value=ListScheduledAlertsResponse(scheduled_alerts=[_make_scheduled_alert_dto()])
         )
         app.dependency_overrides[get_list_scheduled_alerts_use_case] = lambda: mock_use_case
 
@@ -278,9 +279,7 @@ class TestCreateScheduledAlert:
             "next_trigger_date": (datetime.now() + timedelta(days=30)).date().isoformat(),
         }
         mock_use_case = MagicMock()
-        mock_use_case.execute = AsyncMock(
-            return_value=_make_scheduled_alert_dto(title="Mantenimiento")
-        )
+        mock_use_case.execute = AsyncMock(return_value=_make_scheduled_alert_dto(title="Mantenimiento"))
         app.dependency_overrides[get_create_scheduled_alert_use_case] = lambda: mock_use_case
 
         response = client.post("/api/alerts/scheduled", json=request_data)

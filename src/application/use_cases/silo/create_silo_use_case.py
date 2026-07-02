@@ -29,9 +29,7 @@ class CreateSiloUseCase:
         silo_name = SiloName(request.name)
         existing_silo = await self._silo_repository.find_by_name(silo_name)
         if existing_silo:
-            raise DuplicateSiloNameError(
-                f"Ya existe un silo con el nombre '{request.name}'"
-            )
+            raise DuplicateSiloNameError(f"Ya existe un silo con el nombre '{request.name}'")
 
         # Crear value objects
         capacity = Weight.from_kg(request.capacity_kg)

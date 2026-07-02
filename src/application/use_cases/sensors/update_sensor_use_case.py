@@ -32,9 +32,7 @@ class UpdateSensorUseCase:
     def __init__(self, feeding_line_repo: IFeedingLineRepository):
         self._feeding_line_repo = feeding_line_repo
 
-    async def execute(
-        self, line_id_str: str, sensor_id_str: str, update_dto: UpdateSensorDTO
-    ) -> SensorDetailDTO:
+    async def execute(self, line_id_str: str, sensor_id_str: str, update_dto: UpdateSensorDTO) -> SensorDetailDTO:
         """
         Actualiza la configuración de un sensor.
 
@@ -56,16 +54,12 @@ class UpdateSensorUseCase:
         # 1. Obtener la línea
         line = await self._feeding_line_repo.find_by_id(line_id)
         if not line:
-            raise FeedingLineNotFoundException(
-                f"No se encontró la línea de alimentación con ID: {line_id}"
-            )
+            raise FeedingLineNotFoundException(f"No se encontró la línea de alimentación con ID: {line_id}")
 
         # 2. Buscar el sensor
         sensor = line.get_sensor_by_id(sensor_id)
         if not sensor:
-            raise SensorNotFoundException(
-                f"No se encontró el sensor con ID: {sensor_id} en la línea {line_id}"
-            )
+            raise SensorNotFoundException(f"No se encontró el sensor con ID: {sensor_id} en la línea {line_id}")
 
         # 3. Aplicar actualizaciones
         sensor.update(

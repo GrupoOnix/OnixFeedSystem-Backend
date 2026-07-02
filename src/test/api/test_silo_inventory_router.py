@@ -7,12 +7,14 @@ from fastapi.testclient import TestClient
 
 from api.dependencies import (
     get_create_silo_batch_use_case,
+    get_current_user,
     get_list_silo_batches_use_case,
     get_move_silo_batch_use_case,
     get_transfer_silo_stock_use_case,
     get_update_silo_batch_use_case,
     get_withdraw_silo_batch_use_case,
 )
+from application.dtos.auth_dtos import UserResponse
 from application.dtos.silo_dtos import SiloBatchFoodDTO, SiloInventoryBatchDTO
 from application.dtos.silo_inventory_dtos import (
     ListSiloBatchesResponse,
@@ -23,6 +25,17 @@ from main import app
 
 @pytest.fixture
 def client():
+    fake_user = UserResponse(
+        id=str(uuid4()),
+        username="testuser",
+        full_name="Test User",
+        role="user",
+        is_superadmin=False,
+        is_active=True,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    app.dependency_overrides[get_current_user] = lambda: fake_user
     yield TestClient(app)
     app.dependency_overrides.clear()
 

@@ -2,6 +2,7 @@
 
 from .activity_log_repository import ActivityLogRepository
 from .alert_repository import AlertRepository
+from .cage_group_activity_log_repository import CageGroupActivityLogRepository
 from .biometry_log_repository import BiometryLogRepository
 from .cage_feeding_repository import CageFeedingRepository
 from .cage_group_repository import CageGroupRepository
@@ -22,9 +23,11 @@ from .silo_repository import SiloRepository
 from .silo_inventory_repository import SiloInventoryRepository
 from .slot_assignment_repository import SlotAssignmentRepository
 from .system_config_repository import SystemConfigRepository
+from .user_repository import UserRepository
 
 __all__ = [
     "ActivityLogRepository",
+    "CageGroupActivityLogRepository",
     "SiloRepository",
     "SiloInventoryRepository",
     "CageRepository",
@@ -46,4 +49,5 @@ __all__ = [
     "MortalityLogRepository",
     "ConfigChangeLogRepository",
     "SystemConfigRepository",
+    "UserRepository",
 ]

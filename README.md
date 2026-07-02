@@ -35,6 +35,74 @@ docker-compose ps
 - **Documentación interactiva**: http://localhost:8000/docs
 - **API alternativa**: http://localhost:8000/redoc
 
+## 🔐 Autenticación
+
+La API usa tokens JWT. Casi todos los endpoints requieren autenticación; los únicos abiertos son los de health (`/`, `/health`) y la documentación OpenAPI (`/docs`, `/openapi.json`).
+
+### Usuario administrador por defecto
+
+Al iniciar la aplicación se crea automáticamente un superadministrador si no existe:
+
+- **username**: `adminOnix`
+- **password**: `OnixServicios`
+- **role**: `admin`
+- **superadmin**: `true`
+
+### Obtener un token
+
+```bash
+curl -X POST http://localhost:8000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "adminOnix", "password": "OnixServicios"}'
+```
+
+Respuesta:
+
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIs...",
+  "token_type": "bearer",
+  "user": {
+    "id": "...",
+    "username": "adminOnix",
+    "full_name": "Administrador Onix",
+    "role": "admin",
+    "is_superadmin": true,
+    "is_active": true
+  }
+}
+```
+
+### Usar el token
+
+Incluye el header `Authorization: Bearer <token>` en cada petición protegida:
+
+```bash
+curl http://localhost:8000/api/cages \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+### Roles y permisos
+
+| Rol | Permisos |
+|-----|----------|
+| `user` | Operar el sistema: alimentaciones, consultar estados, configuraciones operativas. No puede gestionar usuarios. |
+| `admin` | Todo lo de `user`, más crear/listar/desactivar usuarios con rol `user`. Puede cambiar su propia contraseña. |
+| `superadmin` | Todo lo de `admin`, más crear/modificar/desactivar otros admins, cambiar roles y resetear contraseñas de cualquier usuario. |
+
+### Endpoints de autenticación y usuarios
+
+| Método | Endpoint | Descripción | Permiso |
+|--------|----------|-------------|---------|
+| POST | `/api/auth/login` | Iniciar sesión y obtener JWT | Público |
+| GET | `/api/auth/me` | Obtener usuario actual | Autenticado |
+| PATCH | `/api/auth/me/password` | Cambiar contraseña propia | Autenticado |
+| POST | `/api/users` | Crear usuario | Admin o superadmin |
+| GET | `/api/users` | Listar usuarios | Admin o superadmin |
+| PATCH | `/api/users/{id}/status` | Activar/desactivar usuario | Admin (solo `user`) / superadmin (todos) |
+| PATCH | `/api/users/{id}/role` | Cambiar rol de usuario | Superadmin |
+| PATCH | `/api/users/{id}/password` | Resetear contraseña | Superadmin |
+
 ### Comandos útiles
 
 ```bash
@@ -65,6 +133,10 @@ DB_USER=postgres
 DB_PASSWORD=tu_password_seguro
 DB_NAME=feeding_system
 DB_ECHO=false
+
+JWT_SECRET_KEY=cambia-esto-en-produccion
+JWT_ALGORITHM=HS256
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=120
 ```
 
 ## 🗄️ Base de Datos

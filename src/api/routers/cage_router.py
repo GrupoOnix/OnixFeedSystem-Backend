@@ -41,6 +41,7 @@ from api.dependencies import (
     UpdateBiometryUseCaseDep,
     UpdateCageConfigUseCaseDep,
     UpdateCageUseCaseDep,
+    CurrentUserDep,
 )
 from application.dtos.cage_dtos import (
     AdjustPopulationRequest,
@@ -63,6 +64,7 @@ router = APIRouter(prefix="/cages", tags=["Cages"])
 
 @router.post("", response_model=CageResponseModel, status_code=201)
 async def create_cage(
+    current_user: CurrentUserDep,
     request: CreateCageRequestModel,
     use_case: CreateCageUseCaseDep,
 ) -> CageResponseModel:
@@ -93,6 +95,7 @@ async def create_cage(
 
 @router.get("", response_model=ListCagesResponseModel)
 async def list_cages(
+    current_user: CurrentUserDep,
     use_case: ListCagesUseCaseDep,
 ) -> ListCagesResponseModel:
     """Lista todas las jaulas."""
@@ -101,15 +104,17 @@ async def list_cages(
         return ListCagesResponseModel.from_dto(result)
     except Exception as e:
         import traceback
-        print("="*80)
+
+        print("=" * 80)
         print("ERROR EN LIST_CAGES:")
         print(traceback.format_exc())
-        print("="*80)
+        print("=" * 80)
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 
 @router.get("/{cage_id}", response_model=CageResponseModel)
 async def get_cage(
+    current_user: CurrentUserDep,
     cage_id: str,
     use_case: GetCageUseCaseDep,
 ) -> CageResponseModel:
@@ -123,6 +128,7 @@ async def get_cage(
 
 @router.patch("/{cage_id}", response_model=CageResponseModel)
 async def update_cage(
+    current_user: CurrentUserDep,
     cage_id: str,
     request: UpdateCageRequestModel,
     use_case: UpdateCageUseCaseDep,
@@ -148,6 +154,7 @@ async def update_cage(
 
 @router.delete("/{cage_id}", status_code=204)
 async def delete_cage(
+    current_user: CurrentUserDep,
     cage_id: str,
     use_case: DeleteCageUseCaseDep,
 ) -> None:
@@ -165,6 +172,7 @@ async def delete_cage(
 
 @router.patch("/{cage_id}/config", response_model=CageResponseModel)
 async def update_cage_config(
+    current_user: CurrentUserDep,
     cage_id: str,
     request: UpdateCageConfigRequestModel,
     use_case: UpdateCageConfigUseCaseDep,
@@ -190,7 +198,7 @@ async def update_cage_config(
             blower_power=request.blower_power,
             daily_feeding_target_kg=request.daily_feeding_target_kg,
         )
-        result = await use_case.execute(cage_id, dto)
+        result = await use_case.execute(cage_id, dto, current_user.username)
         return CageResponseModel.from_dto(result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -203,6 +211,7 @@ async def update_cage_config(
 
 @router.put("/{cage_id}/population", response_model=CageResponseModel)
 async def set_population(
+    current_user: CurrentUserDep,
     cage_id: str,
     request: SetPopulationRequestModel,
     use_case: SetPopulationUseCaseDep,
@@ -222,7 +231,7 @@ async def set_population(
             event_date=request.event_date,
             note=request.note,
         )
-        result = await use_case.execute(cage_id, dto)
+        result = await use_case.execute(cage_id, dto, current_user.username)
         return CageResponseModel.from_dto(result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -230,6 +239,7 @@ async def set_population(
 
 @router.post("/{cage_id}/mortality", response_model=CageResponseModel)
 async def register_mortality(
+    current_user: CurrentUserDep,
     cage_id: str,
     request: RegisterMortalityRequestModel,
     use_case: RegisterMortalityUseCaseDep,
@@ -247,7 +257,7 @@ async def register_mortality(
             event_date=request.event_date,
             note=request.note,
         )
-        result = await use_case.execute(cage_id, dto)
+        result = await use_case.execute(cage_id, dto, current_user.username)
         return CageResponseModel.from_dto(result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -255,6 +265,7 @@ async def register_mortality(
 
 @router.patch("/{cage_id}/biometry", response_model=CageResponseModel)
 async def update_biometry(
+    current_user: CurrentUserDep,
     cage_id: str,
     request: UpdateBiometryRequestModel,
     use_case: UpdateBiometryUseCaseDep,
@@ -272,7 +283,7 @@ async def update_biometry(
             event_date=request.event_date,
             note=request.note,
         )
-        result = await use_case.execute(cage_id, dto)
+        result = await use_case.execute(cage_id, dto, current_user.username)
         return CageResponseModel.from_dto(result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -280,6 +291,7 @@ async def update_biometry(
 
 @router.post("/{cage_id}/harvest", response_model=CageResponseModel)
 async def harvest(
+    current_user: CurrentUserDep,
     cage_id: str,
     request: HarvestRequestModel,
     use_case: HarvestUseCaseDep,
@@ -297,7 +309,7 @@ async def harvest(
             event_date=request.event_date,
             note=request.note,
         )
-        result = await use_case.execute(cage_id, dto)
+        result = await use_case.execute(cage_id, dto, current_user.username)
         return CageResponseModel.from_dto(result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -305,6 +317,7 @@ async def harvest(
 
 @router.post("/{cage_id}/adjust", response_model=CageResponseModel)
 async def adjust_population(
+    current_user: CurrentUserDep,
     cage_id: str,
     request: AdjustPopulationRequestModel,
     use_case: AdjustPopulationUseCaseDep,
@@ -324,7 +337,7 @@ async def adjust_population(
             event_date=request.event_date,
             note=request.note,
         )
-        result = await use_case.execute(cage_id, dto)
+        result = await use_case.execute(cage_id, dto, current_user.username)
         return CageResponseModel.from_dto(result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -337,6 +350,7 @@ async def adjust_population(
 
 @router.get("/{cage_id}/history", response_model=PopulationHistoryResponseModel)
 async def get_population_history(
+    current_user: CurrentUserDep,
     cage_id: str,
     use_case: GetPopulationHistoryUseCaseDep,
     event_types: Optional[List[str]] = Query(None, description="Filtrar por tipos de evento"),
@@ -370,6 +384,7 @@ async def get_population_history(
 
 @router.get("/{cage_id}/biometry", response_model=PaginatedBiometryResponseModel)
 async def get_biometry_history(
+    current_user: CurrentUserDep,
     cage_id: str,
     use_case: ListBiometryUseCaseDep,
     limit: int = Query(50, ge=1, le=100),
@@ -389,6 +404,7 @@ async def get_biometry_history(
 
 @router.get("/{cage_id}/mortality", response_model=PaginatedMortalityResponseModel)
 async def get_mortality_history(
+    current_user: CurrentUserDep,
     cage_id: str,
     use_case: ListMortalityUseCaseDep,
     limit: int = Query(50, ge=1, le=100),
@@ -408,6 +424,7 @@ async def get_mortality_history(
 
 @router.get("/{cage_id}/config-changes", response_model=PaginatedConfigChangesResponseModel)
 async def get_config_changes_history(
+    current_user: CurrentUserDep,
     cage_id: str,
     use_case: ListConfigChangesUseCaseDep,
     limit: int = Query(50, ge=1, le=100),
@@ -427,6 +444,7 @@ async def get_config_changes_history(
 
 @router.get("/{cage_id}/feeding-history", response_model=CageFeedingHistoryResponseModel)
 async def get_cage_feeding_history(
+    current_user: CurrentUserDep,
     cage_id: str,
     use_case: GetCageFeedingHistoryUseCaseDep,
     limit: int = Query(10, ge=1, le=100),
@@ -450,13 +468,12 @@ async def get_cage_feeding_history(
 
 @router.get("/{cage_id}/activity-log", response_model=PaginatedActivityLogResponseModel)
 async def get_activity_log(
+    current_user: CurrentUserDep,
     cage_id: str,
     use_case: ListActivityLogUseCaseDep,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    event_type: Optional[List[str]] = Query(
-        None, description="Filtrar por tipo: SUCCESS, INFO, CONFIG, ALERT"
-    ),
+    event_type: Optional[List[str]] = Query(None, description="Filtrar por tipo: SUCCESS, INFO, CONFIG, ALERT"),
     category: Optional[List[str]] = Query(
         None,
         description="Filtrar por categoría: FEEDING, CONFIG, BIOMETRY, MORTALITY, POPULATION, DEVICE, SYSTEM",

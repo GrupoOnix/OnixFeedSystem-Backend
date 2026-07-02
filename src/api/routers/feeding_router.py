@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from zoneinfo import ZoneInfo
 
 from api.dependencies import (
+    CurrentUserDep,
     get_cancel_feeding_use_case,
     get_cage_feeding_repo,
     get_cage_repo,
@@ -26,13 +27,14 @@ from api.dependencies import (
     get_start_cyclic_feeding_use_case,
     get_start_manual_feeding_use_case,
     get_silo_inventory_repo,
+    get_system_config_repo,
+    get_update_blower_power_use_case,
     get_update_cage_mode_use_case,
     get_update_cyclic_cage_amount_use_case,
     get_update_cyclic_cage_rate_use_case,
-    get_system_config_repo,
-    get_update_blower_power_use_case,
     get_update_feeding_amount_use_case,
     get_update_feeding_rate_use_case,
+    get_user_repo,
     get_upsert_last_selected_feeding_mode_use_case,
     get_upsert_last_valid_cyclic_feeding_config_use_case,
     get_upsert_last_valid_manual_feeding_config_use_case,
@@ -118,7 +120,7 @@ from application.use_cases.feeding.get_feeding_rate_timeline_use_case import (
 from domain.entities.feeding_event import FeedingEventType
 from domain.entities.feeding_session import SessionStatus
 from domain.exceptions import FeedingLineUnavailableException
-from domain.value_objects import CageId, LineId
+from domain.value_objects import CageId, LineId, UserId
 from infrastructure.persistence.repositories.cage_feeding_repository import CageFeedingRepository
 from infrastructure.persistence.repositories.cage_repository import CageRepository
 from infrastructure.persistence.repositories.feeding_event_repository import FeedingEventRepository
@@ -128,6 +130,7 @@ from infrastructure.persistence.repositories.silo_inventory_repository import (
     SiloInventoryRepository,
 )
 from infrastructure.persistence.repositories.system_config_repository import SystemConfigRepository
+from infrastructure.persistence.repositories.user_repository import UserRepository
 from infrastructure.services.simulated_machine import SimulatedMachine
 
 
@@ -136,11 +139,17 @@ router = APIRouter(prefix="/feeding", tags=["Feeding"])
 
 @router.post("/manual/start", status_code=status.HTTP_201_CREATED)
 async def start_manual_feeding(
+    current_user: CurrentUserDep,
     request: ManualFeedingRequest,
     use_case: Annotated[StartManualFeedingUseCase, Depends(get_start_manual_feeding_use_case)],
 ) -> ManualFeedingResponse:
     try:
-        return await use_case.execute(request)
+        return await use_case.execute(
+            request,
+            operator_id=str(current_user.id),
+            operator_name=current_user.full_name,
+            actor=current_user.username,
+        )
     except FeedingLineUnavailableException as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     except ValueError as e:
@@ -154,14 +163,20 @@ async def start_manual_feeding(
 
 @router.post("/start", status_code=status.HTTP_201_CREATED)
 async def start_feeding(
+    current_user: CurrentUserDep,
     request: ManualFeedingRequest,
     use_case: Annotated[StartManualFeedingUseCase, Depends(get_start_manual_feeding_use_case)],
 ) -> ManualFeedingResponse:
-    return await start_manual_feeding(request, use_case)
+    return await start_manual_feeding(
+        current_user=current_user,
+        request=request,
+        use_case=use_case,
+    )
 
 
 @router.get("/manual/last-valid-configs")
 async def list_last_valid_manual_feeding_configs(
+    current_user: CurrentUserDep,
     use_case: Annotated[
         ListLastValidManualFeedingConfigsUseCase,
         Depends(get_list_last_valid_manual_feeding_configs_use_case),
@@ -172,6 +187,7 @@ async def list_last_valid_manual_feeding_configs(
 
 @router.get("/manual/lines/{line_id}/last-valid-config")
 async def get_last_valid_manual_feeding_config(
+    current_user: CurrentUserDep,
     line_id: str,
     use_case: Annotated[
         GetLastValidManualFeedingConfigUseCase,
@@ -188,6 +204,7 @@ async def get_last_valid_manual_feeding_config(
 
 @router.put("/manual/lines/{line_id}/last-valid-config")
 async def upsert_last_valid_manual_feeding_config(
+    current_user: CurrentUserDep,
     line_id: str,
     request: LastValidManualFeedingConfigPayload,
     use_case: Annotated[
@@ -203,6 +220,7 @@ async def upsert_last_valid_manual_feeding_config(
 
 @router.get("/line-mode-preferences")
 async def list_last_selected_feeding_modes(
+    current_user: CurrentUserDep,
     use_case: Annotated[
         ListLastSelectedFeedingModesUseCase,
         Depends(get_list_last_selected_feeding_modes_use_case),
@@ -213,6 +231,7 @@ async def list_last_selected_feeding_modes(
 
 @router.get("/lines/{line_id}/mode-preference")
 async def get_last_selected_feeding_mode(
+    current_user: CurrentUserDep,
     line_id: str,
     use_case: Annotated[
         GetLastSelectedFeedingModeUseCase,
@@ -229,6 +248,7 @@ async def get_last_selected_feeding_mode(
 
 @router.put("/lines/{line_id}/mode-preference")
 async def upsert_last_selected_feeding_mode(
+    current_user: CurrentUserDep,
     line_id: str,
     request: LastSelectedFeedingModePayload,
     use_case: Annotated[
@@ -244,6 +264,7 @@ async def upsert_last_selected_feeding_mode(
 
 @router.get("/cyclic/last-valid-configs")
 async def list_last_valid_cyclic_feeding_configs(
+    current_user: CurrentUserDep,
     use_case: Annotated[
         ListLastValidCyclicFeedingConfigsUseCase,
         Depends(get_list_last_valid_cyclic_feeding_configs_use_case),
@@ -254,6 +275,7 @@ async def list_last_valid_cyclic_feeding_configs(
 
 @router.get("/cyclic/lines/{line_id}/last-valid-config")
 async def get_last_valid_cyclic_feeding_config(
+    current_user: CurrentUserDep,
     line_id: str,
     use_case: Annotated[
         GetLastValidCyclicFeedingConfigUseCase,
@@ -270,6 +292,7 @@ async def get_last_valid_cyclic_feeding_config(
 
 @router.put("/cyclic/lines/{line_id}/last-valid-config")
 async def upsert_last_valid_cyclic_feeding_config(
+    current_user: CurrentUserDep,
     line_id: str,
     request: LastValidCyclicFeedingConfigPayload,
     use_case: Annotated[
@@ -285,11 +308,17 @@ async def upsert_last_valid_cyclic_feeding_config(
 
 @router.post("/cyclic/start", status_code=status.HTTP_201_CREATED)
 async def start_cyclic_feeding(
+    current_user: CurrentUserDep,
     request: CyclicFeedingRequest,
     use_case: Annotated[StartCyclicFeedingUseCase, Depends(get_start_cyclic_feeding_use_case)],
 ) -> CyclicFeedingResponse:
     try:
-        return await use_case.execute(request)
+        return await use_case.execute(
+            request,
+            operator_id=str(current_user.id),
+            operator_name=current_user.full_name,
+            actor=current_user.username,
+        )
     except FeedingLineUnavailableException as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     except ValueError as e:
@@ -303,6 +332,7 @@ async def start_cyclic_feeding(
 
 @router.patch("/sessions/{session_id}/rate")
 async def update_feeding_rate(
+    current_user: CurrentUserDep,
     session_id: str,
     request: UpdateRateRequest,
     use_case: Annotated[UpdateFeedingRateUseCase, Depends(get_update_feeding_rate_use_case)],
@@ -321,6 +351,7 @@ async def update_feeding_rate(
 
 @router.patch("/sessions/{session_id}/amount")
 async def update_feeding_amount(
+    current_user: CurrentUserDep,
     session_id: str,
     request: UpdateAmountRequest,
     use_case: Annotated[UpdateFeedingAmountUseCase, Depends(get_update_feeding_amount_use_case)],
@@ -339,6 +370,7 @@ async def update_feeding_amount(
 
 @router.patch("/sessions/{session_id}/cages/{cage_id}/mode")
 async def update_cage_mode(
+    current_user: CurrentUserDep,
     session_id: str,
     cage_id: str,
     request: UpdateCageModeRequest,
@@ -349,7 +381,7 @@ async def update_cage_mode(
             session_id=session_id,
             cage_id=cage_id,
             new_mode=request.mode,
-            operator_id=request.operator_id,
+            operator_id=str(current_user.id),
         )
         return UpdateCageModeResponse(
             message="Modo de jaula actualizado para próximas visitas",
@@ -366,6 +398,7 @@ async def update_cage_mode(
 
 @router.patch("/sessions/{session_id}/cages/{cage_id}/amount")
 async def update_cyclic_cage_amount(
+    current_user: CurrentUserDep,
     session_id: str,
     cage_id: str,
     request: UpdateAmountRequest,
@@ -388,6 +421,7 @@ async def update_cyclic_cage_amount(
 
 @router.patch("/sessions/{session_id}/cages/{cage_id}/rate")
 async def update_cyclic_cage_rate(
+    current_user: CurrentUserDep,
     session_id: str,
     cage_id: str,
     request: UpdateRateRequest,
@@ -410,12 +444,18 @@ async def update_cyclic_cage_rate(
 
 @router.post("/sessions/{session_id}/pause")
 async def pause_feeding(
+    current_user: CurrentUserDep,
     session_id: str,
     request: PauseFeedingRequest,
     use_case: Annotated[PauseFeedingUseCase, Depends(get_pause_feeding_use_case)],
 ) -> FeedingActionResponse:
     try:
-        await use_case.execute(session_id, request.operator_id, request.reason)
+        await use_case.execute(
+            session_id,
+            operator_id=str(current_user.id),
+            actor=current_user.username,
+            reason=request.reason,
+        )
         return FeedingActionResponse(message="Alimentación pausada")
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -425,12 +465,17 @@ async def pause_feeding(
 
 @router.post("/sessions/{session_id}/resume")
 async def resume_feeding(
+    current_user: CurrentUserDep,
     session_id: str,
     request: ResumeFeedingRequest,
     use_case: Annotated[ResumeFeedingUseCase, Depends(get_resume_feeding_use_case)],
 ) -> FeedingActionResponse:
     try:
-        await use_case.execute(session_id, request.operator_id)
+        await use_case.execute(
+            session_id,
+            operator_id=str(current_user.id),
+            actor=current_user.username,
+        )
         return FeedingActionResponse(message="Alimentación reanudada")
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -440,12 +485,18 @@ async def resume_feeding(
 
 @router.post("/sessions/{session_id}/cancel")
 async def cancel_feeding(
+    current_user: CurrentUserDep,
     session_id: str,
     request: CancelFeedingRequest,
     use_case: Annotated[CancelFeedingUseCase, Depends(get_cancel_feeding_use_case)],
 ) -> FeedingActionResponse:
     try:
-        await use_case.execute(session_id, request.operator_id, request.reason)
+        await use_case.execute(
+            session_id,
+            operator_id=str(current_user.id),
+            actor=current_user.username,
+            reason=request.reason,
+        )
         return FeedingActionResponse(message="Alimentación cancelada")
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -455,6 +506,7 @@ async def cancel_feeding(
 
 @router.patch("/sessions/{session_id}/blower")
 async def update_blower_power(
+    current_user: CurrentUserDep,
     session_id: str,
     request: UpdateBlowerRequest,
     use_case: Annotated[UpdateBlowerPowerUseCase, Depends(get_update_blower_power_use_case)],
@@ -473,6 +525,7 @@ async def update_blower_power(
 
 @router.get("/sessions/{session_id}/cyclic-status")
 async def get_cyclic_feeding_status(
+    current_user: CurrentUserDep,
     session_id: str,
     session_repo: Annotated[FeedingSessionRepository, Depends(get_feeding_session_repo)],
     cage_feeding_repo: Annotated[CageFeedingRepository, Depends(get_cage_feeding_repo)],
@@ -489,10 +542,7 @@ async def get_cyclic_feeding_status(
 
         from api.models.feeding_models import CageSummaryItem, ActiveCageInfo
 
-        cages_summary = [
-            CageSummaryItem(**cage_data)
-            for cage_data in status_data["cages_summary"]
-        ]
+        cages_summary = [CageSummaryItem(**cage_data) for cage_data in status_data["cages_summary"]]
 
         active_cage = ActiveCageInfo(**status_data["active_cage"]) if status_data["active_cage"] else None
 
@@ -518,6 +568,7 @@ async def get_cyclic_feeding_status(
 
 @router.get("/stats/daily")
 async def get_daily_feeding_stats(
+    current_user: CurrentUserDep,
     session_repo: Annotated[FeedingSessionRepository, Depends(get_feeding_session_repo)],
     config_repo: Annotated[SystemConfigRepository, Depends(get_system_config_repo)],
     date_param: Optional[str] = Query(default=None, alias="date", description="Fecha YYYY-MM-DD (default: hoy)"),
@@ -543,9 +594,7 @@ async def get_daily_feeding_stats(
         total_dispensed_kg = sum(s.total_dispensed_kg for s in sessions)
         total_programmed_kg = sum(s.total_programmed_kg for s in sessions)
         sessions_completed = sum(1 for s in sessions if s.status == SessionStatus.COMPLETED)
-        sessions_in_progress = sum(
-            1 for s in sessions if s.status in (SessionStatus.IN_PROGRESS, SessionStatus.PAUSED)
-        )
+        sessions_in_progress = sum(1 for s in sessions if s.status in (SessionStatus.IN_PROGRESS, SessionStatus.PAUSED))
 
         return DailyFeedingStatsResponse(
             date=target_date.isoformat(),
@@ -560,6 +609,7 @@ async def get_daily_feeding_stats(
 
 @router.get("/stats/daily-summary")
 async def get_daily_feeding_summary(
+    current_user: CurrentUserDep,
     use_case: Annotated[GetDailyFeedingSummaryUseCase, Depends(get_daily_feeding_summary_use_case)],
     start_date: date = Query(description="Fecha inicial YYYY-MM-DD"),
     end_date: date = Query(description="Fecha final YYYY-MM-DD"),
@@ -582,6 +632,7 @@ async def get_daily_feeding_summary(
 
 @router.get("/stats/rate-timeline")
 async def get_feeding_rate_timeline(
+    current_user: CurrentUserDep,
     use_case: Annotated[GetFeedingRateTimelineUseCase, Depends(get_feeding_rate_timeline_use_case)],
     start_at: datetime = Query(description="Inicio del rango en ISO UTC"),
     end_at: datetime = Query(description="Fin del rango en ISO UTC"),
@@ -610,9 +661,11 @@ async def get_feeding_rate_timeline(
 
 @router.get("/history/sessions")
 async def list_sessions_history(
+    current_user: CurrentUserDep,
     session_repo: Annotated[FeedingSessionRepository, Depends(get_feeding_session_repo)],
     config_repo: Annotated[SystemConfigRepository, Depends(get_system_config_repo)],
     line_repo: Annotated[FeedingLineRepository, Depends(get_line_repo)],
+    user_repo: Annotated[UserRepository, Depends(get_user_repo)],
     date_param: Optional[str] = Query(
         default=None,
         alias="date",
@@ -641,6 +694,12 @@ async def list_sessions_history(
             sessions = [s for s in sessions if s.status.value == status_filter]
 
         line_name_cache: dict[str, str] = {}
+        operator_name_cache: dict[str, Optional[str]] = {}
+
+        operator_ids = {s.operator_id for s in sessions if s.operator_id}
+        for operator_id in operator_ids:
+            user = await user_repo.find_by_id(UserId.from_string(operator_id))
+            operator_name_cache[operator_id] = user.full_name if user else None
 
         result = []
         for s in sessions:
@@ -651,19 +710,23 @@ async def list_sessions_history(
             duration = None
             if s.actual_start and s.actual_end:
                 duration = (s.actual_end - s.actual_start).total_seconds()
-            result.append(SessionHistoryItem(
-                session_id=s.id,
-                type=s.type.value,
-                status=s.status.value,
-                line_id=s.line_id,
-                line_name=line_name_cache[s.line_id],
-                operator_id=s.operator_id,
-                started_at=s.actual_start,
-                ended_at=s.actual_end,
-                duration_seconds=duration,
-                total_programmed_kg=s.total_programmed_kg,
-                total_dispensed_kg=s.total_dispensed_kg,
-            ))
+            result.append(
+                SessionHistoryItem(
+                    session_id=s.id,
+                    type=s.type.value,
+                    status=s.status.value,
+                    line_id=s.line_id,
+                    line_name=line_name_cache[s.line_id],
+                    operator_id=s.operator_id,
+                    operator_name=operator_name_cache.get(s.operator_id),
+                    started_at=s.actual_start,
+                    ended_at=s.actual_end,
+                    duration_seconds=duration,
+                    total_programmed_kg=s.total_programmed_kg,
+                    total_dispensed_kg=s.total_dispensed_kg,
+                )
+            )
+
         return result
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
@@ -671,17 +734,24 @@ async def list_sessions_history(
 
 @router.get("/history/sessions/{session_id}")
 async def get_session_history_detail(
+    current_user: CurrentUserDep,
     session_id: str,
     session_repo: Annotated[FeedingSessionRepository, Depends(get_feeding_session_repo)],
     event_repo: Annotated[FeedingEventRepository, Depends(get_feeding_event_repo)],
     line_repo: Annotated[FeedingLineRepository, Depends(get_line_repo)],
     cage_repo: Annotated[CageRepository, Depends(get_cage_repo)],
     inventory_repo: Annotated[SiloInventoryRepository, Depends(get_silo_inventory_repo)],
+    user_repo: Annotated[UserRepository, Depends(get_user_repo)],
 ) -> SessionHistoryDetail:
     try:
         session = await session_repo.find_by_id(session_id)
         if not session:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Sesión {session_id} no encontrada")
+
+        operator_name = None
+        if session.operator_id:
+            user = await user_repo.find_by_id(UserId.from_string(session.operator_id))
+            operator_name = user.full_name if user else None
 
         feeding_line = await line_repo.find_by_id(LineId.from_string(session.line_id))
         line_name = feeding_line.name.value if feeding_line else session.line_id
@@ -727,16 +797,18 @@ async def get_session_history_detail(
                 cage_name_cache[cf.cage_id] = cage.name.value if cage else cf.cage_id
             durations = cage_visit_durations.get(cf.cage_id, [])
             avg_duration = sum(durations) / len(durations) if durations else None
-            cages.append(CageHistorySummary(
-                cage_id=cf.cage_id,
-                cage_name=cage_name_cache[cf.cage_id],
-                mode=cf.mode.value,
-                programmed_kg=cf.programmed_kg,
-                total_dispensed_kg=cf.dispensed_kg,
-                programmed_visits=cf.programmed_visits,
-                completed_visits=cf.completed_visits,
-                avg_visit_duration_seconds=avg_duration,
-            ))
+            cages.append(
+                CageHistorySummary(
+                    cage_id=cf.cage_id,
+                    cage_name=cage_name_cache[cf.cage_id],
+                    mode=cf.mode.value,
+                    programmed_kg=cf.programmed_kg,
+                    total_dispensed_kg=cf.dispensed_kg,
+                    programmed_visits=cf.programmed_visits,
+                    completed_visits=cf.completed_visits,
+                    avg_visit_duration_seconds=avg_duration,
+                )
+            )
 
         rate_changed_events = [e for e in all_events_asc if e.event_type == FeedingEventType.RATE_CHANGED]
 
@@ -758,8 +830,7 @@ async def get_session_history_detail(
         if session.actual_start and session.actual_end:
             duration = (session.actual_end - session.actual_start).total_seconds()
         batch_consumptions = [
-            BatchConsumptionItem(**item)
-            for item in await inventory_repo.list_session_consumptions(session_id)
+            BatchConsumptionItem(**item) for item in await inventory_repo.list_session_consumptions(session_id)
         ]
 
         return SessionHistoryDetail(
@@ -769,6 +840,7 @@ async def get_session_history_detail(
             line_id=session.line_id,
             line_name=line_name,
             operator_id=session.operator_id,
+            operator_name=operator_name,
             started_at=session.actual_start,
             ended_at=session.actual_end,
             duration_seconds=duration,
@@ -787,6 +859,7 @@ async def get_session_history_detail(
 
 @router.get("/history/sessions/{session_id}/cages/{cage_id}/visits")
 async def get_cage_visit_history(
+    current_user: CurrentUserDep,
     session_id: str,
     cage_id: str,
     event_repo: Annotated[FeedingEventRepository, Depends(get_feeding_event_repo)],
@@ -805,14 +878,16 @@ async def get_cage_visit_history(
         visits = []
         for e in cage_events:
             dispensed_grams = e.data.get("dispensed_grams", 0.0)
-            visits.append(VisitHistoryItem(
-                visit_number=e.data.get("visit_number", 0),
-                dispensed_kg=dispensed_grams / 1000,
-                dispensed_grams=dispensed_grams,
-                duration_seconds=e.data.get("duration_seconds", 0.0),
-                completed_at=e.timestamp,
-                is_empty_visit=e.data.get("is_empty_visit", False),
-            ))
+            visits.append(
+                VisitHistoryItem(
+                    visit_number=e.data.get("visit_number", 0),
+                    dispensed_kg=dispensed_grams / 1000,
+                    dispensed_grams=dispensed_grams,
+                    duration_seconds=e.data.get("duration_seconds", 0.0),
+                    completed_at=e.timestamp,
+                    is_empty_visit=e.data.get("is_empty_visit", False),
+                )
+            )
 
         total_dispensed = sum(v.dispensed_kg for v in visits)
         avg_duration = sum(v.duration_seconds for v in visits) / len(visits) if visits else None
@@ -833,6 +908,7 @@ async def get_cage_visit_history(
 
 @router.get("/sessions/active")
 async def list_active_sessions(
+    current_user: CurrentUserDep,
     session_repo: Annotated[FeedingSessionRepository, Depends(get_feeding_session_repo)],
 ) -> List[ActiveSessionItem]:
     try:
@@ -853,6 +929,7 @@ async def list_active_sessions(
 
 @router.get("/sessions/status/batch")
 async def get_batch_session_status(
+    current_user: CurrentUserDep,
     session_repo: Annotated[FeedingSessionRepository, Depends(get_feeding_session_repo)],
     cage_feeding_repo: Annotated[CageFeedingRepository, Depends(get_cage_feeding_repo)],
     cage_repo: Annotated[CageRepository, Depends(get_cage_repo)],
@@ -861,7 +938,7 @@ async def get_batch_session_status(
     session_ids: str = Query(..., description="Comma-separated session UUIDs"),
 ) -> BatchStatusResponse:
     try:
-        session_id_list = [sid.strip() for sid in session_ids.split(',') if sid.strip()]
+        session_id_list = [sid.strip() for sid in session_ids.split(",") if sid.strip()]
         if not session_id_list:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="session_ids no puede estar vacío")
         if len(session_id_list) > 50:
@@ -883,28 +960,27 @@ async def get_batch_session_status(
                     status_data = await build_cyclic_status(session, cage_feeding_repo, cage_repo, line_repo, machine)
                     cages_summary = [CageSummaryItem(**cage_data) for cage_data in status_data["cages_summary"]]
                     active_cage = ActiveCageInfo(**status_data["active_cage"]) if status_data["active_cage"] else None
-                    results.append(BatchStatusSessionCyclic(
-                        session_id=status_data["session_id"],
-                        line_id=status_data["line_id"],
-                        type=status_data["type"],
-                        status=status_data["status"],
-                        started_at=status_data["started_at"],
-                        total_programmed_kg=status_data["total_programmed_kg"],
-                        total_dispensed_kg=status_data["total_dispensed_kg"],
-                        overall_completion_percentage=status_data["overall_completion_percentage"],
-                        current_round=status_data["current_round"],
-                        total_rounds=status_data["total_rounds"],
-                        active_cage=active_cage,
-                        cages_summary=cages_summary,
-                        server_timestamp=status_data["server_timestamp"],
-                    ))
+                    results.append(
+                        BatchStatusSessionCyclic(
+                            session_id=status_data["session_id"],
+                            line_id=status_data["line_id"],
+                            type=status_data["type"],
+                            status=status_data["status"],
+                            started_at=status_data["started_at"],
+                            total_programmed_kg=status_data["total_programmed_kg"],
+                            total_dispensed_kg=status_data["total_dispensed_kg"],
+                            overall_completion_percentage=status_data["overall_completion_percentage"],
+                            current_round=status_data["current_round"],
+                            total_rounds=status_data["total_rounds"],
+                            active_cage=active_cage,
+                            cages_summary=cages_summary,
+                            server_timestamp=status_data["server_timestamp"],
+                        )
+                    )
             except Exception:
                 continue
 
-        return BatchStatusResponse(
-            sessions=results,
-            server_timestamp=datetime.now(timezone.utc)
-        )
+        return BatchStatusResponse(sessions=results, server_timestamp=datetime.now(timezone.utc))
     except HTTPException:
         raise
     except Exception as e:
@@ -913,6 +989,7 @@ async def get_batch_session_status(
 
 @router.get("/sessions/{session_id}/status")
 async def get_feeding_status(
+    current_user: CurrentUserDep,
     session_id: str,
     session_repo: Annotated[FeedingSessionRepository, Depends(get_feeding_session_repo)],
     cage_repo: Annotated[CageRepository, Depends(get_cage_repo)],

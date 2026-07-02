@@ -1,4 +1,3 @@
-
 from datetime import datetime, timezone
 
 from domain.aggregates.system_config import SystemConfig

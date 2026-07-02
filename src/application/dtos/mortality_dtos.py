@@ -6,6 +6,7 @@ from typing import Optional
 @dataclass
 class RegisterMortalityRequest:
     """Request para registrar mortalidad de una jaula."""
+
     dead_fish_count: int
     mortality_date: date
     note: Optional[str] = None
@@ -14,6 +15,7 @@ class RegisterMortalityRequest:
 @dataclass
 class MortalityLogItemResponse:
     """Response item para listado de registros de mortalidad."""
+
     mortality_id: str
     cage_id: str
     dead_fish_count: int
@@ -25,6 +27,7 @@ class MortalityLogItemResponse:
 @dataclass
 class PaginationInfo:
     """Información de paginación."""
+
     total: int
     limit: int
     offset: int
@@ -35,5 +38,6 @@ class PaginationInfo:
 @dataclass
 class PaginatedMortalityResponse:
     """Response paginado para listado de registros de mortalidad."""
+
     logs: list[MortalityLogItemResponse]
     pagination: PaginationInfo

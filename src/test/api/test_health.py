@@ -18,6 +18,7 @@ def client():
     """Fixture que proporciona el TestClient."""
     from fastapi.testclient import TestClient
     from main import app
+
     return TestClient(app)
 
 
@@ -27,7 +28,7 @@ class TestHealthEndpoints:
     def test_root_endpoint_returns_welcome_message(self, client):
         """Test: El endpoint raíz retorna mensaje de bienvenida."""
         response = client.get("/")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "version" in data
@@ -37,7 +38,7 @@ class TestHealthEndpoints:
     def test_health_endpoint_returns_healthy_status(self, client):
         """Test: El endpoint /health retorna estado healthy."""
         response = client.get("/health")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "healthy"
@@ -45,17 +46,17 @@ class TestHealthEndpoints:
     def test_health_endpoint_returns_json_content_type(self, client):
         """Test: El endpoint /health retorna content-type JSON."""
         response = client.get("/health")
-        
+
         assert response.headers["content-type"] == "application/json"
 
     def test_health_endpoint_is_fast(self, client):
         """Test: El endpoint /health responde rápidamente (< 100ms)."""
         import time
-        
+
         start = time.time()
         response = client.get("/health")
         elapsed = time.time() - start
-        
+
         assert response.status_code == 200
         assert elapsed < 0.1  # 100ms
 
@@ -66,7 +67,7 @@ class TestAPIDocumentation:
     def test_swagger_ui_is_available(self, client):
         """Test: Swagger UI está disponible en /docs."""
         response = client.get("/docs")
-        
+
         assert response.status_code == 200
         assert "text/html" in response.headers["content-type"]
         assert "swagger" in response.text.lower()
@@ -74,17 +75,17 @@ class TestAPIDocumentation:
     def test_redoc_is_available(self, client):
         """Test: ReDoc está disponible en /redoc."""
         response = client.get("/redoc")
-        
+
         assert response.status_code == 200
         assert "text/html" in response.headers["content-type"]
 
     def test_openapi_schema_is_available(self, client):
         """Test: El esquema OpenAPI está disponible."""
         response = client.get("/openapi.json")
-        
+
         assert response.status_code == 200
         assert response.headers["content-type"] == "application/json"
-        
+
         schema = response.json()
         assert "openapi" in schema
         assert "paths" in schema

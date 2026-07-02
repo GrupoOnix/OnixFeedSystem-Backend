@@ -14,6 +14,7 @@ from api.dependencies import (
     UpdateBlowerUseCaseDep,
     UpdateDoserUseCaseDep,
     UpdateSelectorUseCaseDep,
+    CurrentUserDep,
 )
 from application.dtos.feeding_line_dtos import (
     AcquireManualControlRequest,
@@ -35,6 +36,7 @@ router = APIRouter(prefix="/feeding-lines", tags=["Feeding Lines"])
 
 @router.get("", response_model=ListFeedingLinesResponse)
 async def list_feeding_lines(
+    current_user: CurrentUserDep,
     use_case: ListFeedingLinesUseCaseDep,
 ) -> ListFeedingLinesResponse:
     """
@@ -66,6 +68,7 @@ async def list_feeding_lines(
     response_model=FeedingLineStatusResponse,
 )
 async def acquire_manual_control(
+    current_user: CurrentUserDep,
     line_id: str,
     request: AcquireManualControlRequest,
     use_case: AcquireManualControlUseCaseDep,
@@ -76,7 +79,7 @@ async def acquire_manual_control(
     try:
         return await use_case.execute(
             line_id=line_id,
-            operator_id=request.operator_id,
+            operator_id=str(current_user.id),
             reason=request.reason,
         )
 
@@ -102,6 +105,7 @@ async def acquire_manual_control(
     response_model=FeedingLineStatusResponse,
 )
 async def release_manual_control(
+    current_user: CurrentUserDep,
     line_id: str,
     use_case: ReleaseManualControlUseCaseDep,
 ) -> FeedingLineStatusResponse:
@@ -129,7 +133,7 @@ async def release_manual_control(
 
 @router.patch("/{line_id}/selector", status_code=status.HTTP_200_OK)
 async def update_selector(
-    line_id: str, request: UpdateSelectorRequest, use_case: UpdateSelectorUseCaseDep
+    current_user: CurrentUserDep, line_id: str, request: UpdateSelectorRequest, use_case: UpdateSelectorUseCaseDep
 ) -> Dict[str, str]:
     """
     Actualiza la configuración del selector de una línea de alimentación.
@@ -168,11 +172,9 @@ async def update_selector(
         )
 
 
-@router.post(
-    "/{line_id}/selector/move-to-slot/{slot_number}", status_code=status.HTTP_200_OK
-)
+@router.post("/{line_id}/selector/move-to-slot/{slot_number}", status_code=status.HTTP_200_OK)
 async def move_selector_to_slot(
-    line_id: str, slot_number: int, use_case: MoveSelectorToSlotUseCaseDep
+    current_user: CurrentUserDep, line_id: str, slot_number: int, use_case: MoveSelectorToSlotUseCaseDep
 ) -> Dict[str, str]:
     """
     Mueve el selector de una línea a un slot específico.
@@ -212,7 +214,7 @@ async def move_selector_to_slot(
 
 @router.post("/{line_id}/selector/reset-position", status_code=status.HTTP_200_OK)
 async def reset_selector_position(
-    line_id: str, use_case: ResetSelectorPositionUseCaseDep
+    current_user: CurrentUserDep, line_id: str, use_case: ResetSelectorPositionUseCaseDep
 ) -> Dict[str, str]:
     """
     Reinicia la posición del selector a neutral/home (None).
@@ -245,7 +247,7 @@ async def reset_selector_position(
 
 @router.patch("/{line_id}/blower", status_code=status.HTTP_200_OK)
 async def update_blower(
-    line_id: str, request: UpdateBlowerRequest, use_case: UpdateBlowerUseCaseDep
+    current_user: CurrentUserDep, line_id: str, request: UpdateBlowerRequest, use_case: UpdateBlowerUseCaseDep
 ) -> Dict[str, str]:
     """
     Actualiza la configuración del blower de una línea de alimentación.
@@ -288,6 +290,7 @@ async def update_blower(
 
 @router.patch("/{line_id}/dosers/{doser_id}", status_code=status.HTTP_200_OK)
 async def update_doser(
+    current_user: CurrentUserDep,
     line_id: str,
     doser_id: str,
     request: UpdateDoserRequest,
@@ -336,7 +339,7 @@ async def update_doser(
 
 @router.get("/{line_id}", response_model=FeedingLineDTO)
 async def get_feeding_line(
-    line_id: str, use_case: GetFeedingLineUseCaseDep
+    current_user: CurrentUserDep, line_id: str, use_case: GetFeedingLineUseCaseDep
 ) -> FeedingLineDTO:
     """
     Obtiene los detalles de una línea de alimentación específica.

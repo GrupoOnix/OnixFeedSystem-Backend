@@ -127,9 +127,7 @@ class GetFeedingRateTimelineUseCase:
             summary=RateTimelineSummaryDTO(
                 total_dispensed_kg=round(total_dispensed_kg, 3),
                 active_minutes=active_minutes,
-                avg_active_rate_kg_per_min=round(total_dispensed_kg / active_minutes, 3)
-                if active_minutes
-                else 0.0,
+                avg_active_rate_kg_per_min=round(total_dispensed_kg / active_minutes, 3) if active_minutes else 0.0,
                 peak_total_rate_kg_per_min=round(peak_rate, 3),
                 peak_total_rate_at=peak_point.timestamp if peak_point and peak_rate > 0 else None,
                 max_overlapping_sessions=max(

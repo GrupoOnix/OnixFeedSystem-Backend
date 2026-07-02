@@ -30,9 +30,7 @@ class ScheduledAlertModel(SQLModel, table=True):
     device_id: Optional[str] = Field(default=None, max_length=100)
     device_name: Optional[str] = Field(default=None, max_length=200)
     custom_days_interval: Optional[int] = Field(default=None)
-    metadata_json: Dict[str, Any] = Field(
-        default_factory=dict, sa_column=Column("metadata", JSONB, nullable=False)
-    )
+    metadata_json: Dict[str, Any] = Field(default_factory=dict, sa_column=Column("metadata", JSONB, nullable=False))
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
     last_triggered_at: Optional[datetime] = Field(
         default=None, sa_column=Column(DateTime(timezone=True), nullable=True)

@@ -34,8 +34,6 @@ class DeleteFoodUseCase:
             raise FoodNotFoundError(f"Alimento con ID {food_id_str} no encontrado")
 
         if await self._inventory_repository.food_is_referenced(food_id.value):
-            raise FoodInUseError(
-                "No se puede eliminar un alimento con partidas o consumos históricos; desactívelo"
-            )
+            raise FoodInUseError("No se puede eliminar un alimento con partidas o consumos históricos; desactívelo")
 
         await self._food_repository.delete(food_id)

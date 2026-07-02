@@ -37,13 +37,14 @@ class SetPopulationUseCase:
         self.event_repository = event_repository
         self.activity_log_repository = activity_log_repository
 
-    async def execute(self, cage_id: str, request: SetPopulationRequest) -> CageResponse:
+    async def execute(self, cage_id: str, request: SetPopulationRequest, actor: str) -> CageResponse:
         """
         Establece la población inicial de una jaula.
 
         Args:
             cage_id: ID de la jaula
             request: Datos de población
+            actor: Usuario que realiza la acción
 
         Returns:
             CageResponse con los datos actualizados
@@ -74,6 +75,7 @@ class SetPopulationUseCase:
                 category=ActivityLogCategory.POPULATION,
                 message="Siembra inicial registrada",
                 details=f"{request.fish_count} peces, {request.avg_weight_grams}g promedio",
+                actor=actor,
             )
         )
 
@@ -95,13 +97,14 @@ class RegisterMortalityUseCase:
         self.mortality_log_repository = mortality_log_repository
         self.activity_log_repository = activity_log_repository
 
-    async def execute(self, cage_id: str, request: RegisterMortalityRequest) -> CageResponse:
+    async def execute(self, cage_id: str, request: RegisterMortalityRequest, actor: str) -> CageResponse:
         """
         Registra mortalidad y resta los peces del total.
 
         Args:
             cage_id: ID de la jaula
             request: Datos de mortalidad
+            actor: Usuario que realiza la acción
 
         Returns:
             CageResponse con los datos actualizados
@@ -140,6 +143,7 @@ class RegisterMortalityUseCase:
                 category=ActivityLogCategory.MORTALITY,
                 message="Registro de mortalidad",
                 details=f"{request.dead_count} peces muertos",
+                actor=actor,
             )
         )
 
@@ -161,13 +165,14 @@ class UpdateBiometryUseCase:
         self.biometry_log_repository = biometry_log_repository
         self.activity_log_repository = activity_log_repository
 
-    async def execute(self, cage_id: str, request: UpdateBiometryRequest) -> CageResponse:
+    async def execute(self, cage_id: str, request: UpdateBiometryRequest, actor: str) -> CageResponse:
         """
         Actualiza el peso promedio de los peces.
 
         Args:
             cage_id: ID de la jaula
             request: Datos de biometría
+            actor: Usuario que realiza la acción
 
         Returns:
             CageResponse con los datos actualizados
@@ -213,6 +218,7 @@ class UpdateBiometryUseCase:
                 category=ActivityLogCategory.BIOMETRY,
                 message="Registro de biometría completado",
                 details=f"Peso promedio: {old_avg_weight}g → {request.avg_weight_grams}g",
+                actor=actor,
             )
         )
 
@@ -232,13 +238,14 @@ class HarvestUseCase:
         self.event_repository = event_repository
         self.activity_log_repository = activity_log_repository
 
-    async def execute(self, cage_id: str, request: HarvestRequest) -> CageResponse:
+    async def execute(self, cage_id: str, request: HarvestRequest, actor: str) -> CageResponse:
         """
         Registra una cosecha (extracción de peces).
 
         Args:
             cage_id: ID de la jaula
             request: Datos de cosecha
+            actor: Usuario que realiza la acción
 
         Returns:
             CageResponse con los datos actualizados
@@ -268,6 +275,7 @@ class HarvestUseCase:
                 category=ActivityLogCategory.POPULATION,
                 message="Cosecha registrada",
                 details=f"{request.count} peces cosechados",
+                actor=actor,
             )
         )
 
@@ -287,13 +295,14 @@ class AdjustPopulationUseCase:
         self.event_repository = event_repository
         self.activity_log_repository = activity_log_repository
 
-    async def execute(self, cage_id: str, request: AdjustPopulationRequest) -> CageResponse:
+    async def execute(self, cage_id: str, request: AdjustPopulationRequest, actor: str) -> CageResponse:
         """
         Ajusta manualmente la población (corrección de inventario).
 
         Args:
             cage_id: ID de la jaula
             request: Datos del ajuste
+            actor: Usuario que realiza la acción
 
         Returns:
             CageResponse con los datos actualizados
@@ -325,6 +334,7 @@ class AdjustPopulationUseCase:
                 category=ActivityLogCategory.POPULATION,
                 message="Ajuste de inventario registrado",
                 details=f"{old_fish_count} → {request.new_fish_count} peces",
+                actor=actor,
             )
         )
 

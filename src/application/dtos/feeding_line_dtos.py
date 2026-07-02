@@ -82,7 +82,6 @@ class ListFeedingLinesResponse:
 class AcquireManualControlRequest:
     """Request para bloquear una línea en modo control manual."""
 
-    operator_id: Optional[str] = None
     reason: Optional[str] = None
 
 
@@ -151,21 +150,13 @@ class UpdateBlowerRequest:
 
     def __post_init__(self):
         """Validaciones del request."""
-        if self.non_feeding_power is not None and not (
-            0 <= self.non_feeding_power <= 100
-        ):
+        if self.non_feeding_power is not None and not (0 <= self.non_feeding_power <= 100):
             raise ValueError("non_feeding_power debe estar entre 0 y 100")
         if self.current_power is not None and not (0 <= self.current_power <= 100):
             raise ValueError("current_power debe estar entre 0 y 100")
-        if (
-            self.blow_before_feeding_time is not None
-            and self.blow_before_feeding_time < 0
-        ):
+        if self.blow_before_feeding_time is not None and self.blow_before_feeding_time < 0:
             raise ValueError("blow_before_feeding_time debe ser mayor o igual a 0")
-        if (
-            self.blow_after_feeding_time is not None
-            and self.blow_after_feeding_time < 0
-        ):
+        if self.blow_after_feeding_time is not None and self.blow_after_feeding_time < 0:
             raise ValueError("blow_after_feeding_time debe ser mayor o igual a 0")
 
 
@@ -184,10 +175,6 @@ class UpdateSelectorRequest:
             raise ValueError("fast_speed debe estar entre 0 y 100")
         if self.slow_speed is not None and not (0 <= self.slow_speed <= 100):
             raise ValueError("slow_speed debe estar entre 0 y 100")
-        if (
-            self.fast_speed is not None
-            and self.slow_speed is not None
-            and self.slow_speed > self.fast_speed
-        ):
+        if self.fast_speed is not None and self.slow_speed is not None and self.slow_speed > self.fast_speed:
             raise ValueError("slow_speed no puede ser mayor que fast_speed")
         # current_slot validation is done by the domain entity

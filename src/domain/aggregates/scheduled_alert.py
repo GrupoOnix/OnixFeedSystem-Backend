@@ -49,13 +49,8 @@ class ScheduledAlert:
         self._last_triggered_at: Optional[datetime] = None
 
         # Validación
-        if (
-            frequency == ScheduledAlertFrequency.CUSTOM_DAYS
-            and not custom_days_interval
-        ):
-            raise ValueError(
-                "custom_days_interval es requerido cuando frequency es CUSTOM_DAYS"
-            )
+        if frequency == ScheduledAlertFrequency.CUSTOM_DAYS and not custom_days_interval:
+            raise ValueError("custom_days_interval es requerido cuando frequency es CUSTOM_DAYS")
 
     # =========================================================================
     # Properties
@@ -135,9 +130,7 @@ class ScheduledAlert:
             return False
 
         # Calcular fecha efectiva de disparo
-        trigger_date = self._next_trigger_date - timedelta(
-            days=self._days_before_warning
-        )
+        trigger_date = self._next_trigger_date - timedelta(days=self._days_before_warning)
 
         if now >= trigger_date:
             # Verificar que no se haya disparado ya para esta fecha
@@ -256,13 +249,8 @@ class ScheduledAlert:
             self._metadata = metadata
 
         # Revalidar después de actualizar
-        if (
-            self._frequency == ScheduledAlertFrequency.CUSTOM_DAYS
-            and not self._custom_days_interval
-        ):
-            raise ValueError(
-                "custom_days_interval es requerido cuando frequency es CUSTOM_DAYS"
-            )
+        if self._frequency == ScheduledAlertFrequency.CUSTOM_DAYS and not self._custom_days_interval:
+            raise ValueError("custom_days_interval es requerido cuando frequency es CUSTOM_DAYS")
 
     # =========================================================================
     # Métodos de reconstrucción (para el repositorio)

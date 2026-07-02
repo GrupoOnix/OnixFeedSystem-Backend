@@ -57,9 +57,7 @@ class ActivityLogRepository(ICageActivityLogRepository):
         to_date: Optional[datetime] = None,
     ) -> int:
         """Cuenta registros de actividad de una jaula con filtros opcionales."""
-        query = select(func.count(col(ActivityLogModel.log_id))).where(
-            col(ActivityLogModel.cage_id) == cage_id.value
-        )
+        query = select(func.count(col(ActivityLogModel.log_id))).where(col(ActivityLogModel.cage_id) == cage_id.value)
 
         if event_type:
             query = query.where(col(ActivityLogModel.event_type).in_([e.value for e in event_type]))

@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class ManualFeedingRequest(BaseModel):
-
     line_id: str = Field(description="ID de la línea de alimentación (UUID)")
     cage_id: str = Field(description="ID de la jaula a alimentar (UUID)")
     doser_id: str = Field(description="ID del doser a usar (UUID)")
@@ -18,13 +17,11 @@ class ManualFeedingRequest(BaseModel):
         le=100,
         description="Potencia del blower en porcentaje (30-100%). Mínimo operativo: 30%.",
     )
-    operator_id: str = Field(description="ID del operador que inicia la alimentación (UUID)")
     allow_overtime: bool = Field(
-        default=False,
-        description="Permitir que la alimentación se extienda más allá del horario operativo"
+        default=False, description="Permitir que la alimentación se extienda más allá del horario operativo"
     )
 
-    @field_validator('line_id', 'cage_id', 'doser_id', 'silo_id', 'operator_id')
+    @field_validator("line_id", "cage_id", "doser_id", "silo_id")
     @classmethod
     def validate_uuid(cls, v: str) -> str:
         try:
@@ -41,8 +38,7 @@ class ManualFeedingRequest(BaseModel):
                     "cage_id": "123e4567-e89b-12d3-a456-426614174001",
                     "quantity_kg": 50.0,
                     "rate_kg_per_min": 5.0,
-                    "operator_id": "123e4567-e89b-12d3-a456-426614174002",
-                    "allow_overtime": False
+                    "allow_overtime": False,
                 }
             ]
         }
@@ -64,7 +60,7 @@ class ManualFeedingResponse(BaseModel):
                     "session_id": "123e4567-e89b-12d3-a456-426614174000",
                     "cage_feeding_id": "123e4567-e89b-12d3-a456-426614174001",
                     "estimated_duration_seconds": 600.0,
-                    "message": "Alimentación manual iniciada exitosamente"
+                    "message": "Alimentación manual iniciada exitosamente",
                 }
             ]
         }
@@ -95,7 +91,6 @@ class UpdateAmountResponse(BaseModel):
 
 class UpdateCageModeRequest(BaseModel):
     mode: str = Field(description="Nuevo modo para próximas visitas: 'NORMAL' o 'PAUSE'")
-    operator_id: str = Field(description="ID del operador (UUID)")
 
     @field_validator("mode")
     @classmethod
@@ -103,15 +98,6 @@ class UpdateCageModeRequest(BaseModel):
         if v not in ("NORMAL", "PAUSE"):
             raise ValueError("mode debe ser 'NORMAL' o 'PAUSE'")
         return v
-
-    @field_validator("operator_id")
-    @classmethod
-    def validate_operator_uuid(cls, v: str) -> str:
-        try:
-            uuid.UUID(v)
-            return v
-        except ValueError:
-            raise ValueError(f"'{v}' no es un UUID válido")
 
 
 class UpdateCageModeResponse(BaseModel):
@@ -123,44 +109,15 @@ class UpdateCageModeResponse(BaseModel):
 
 
 class PauseFeedingRequest(BaseModel):
-    operator_id: str = Field(description="ID del operador (UUID)")
     reason: str = Field(description="Motivo de la pausa")
-
-    @field_validator('operator_id')
-    @classmethod
-    def validate_uuid(cls, v: str) -> str:
-        try:
-            uuid.UUID(v)
-            return v
-        except ValueError:
-            raise ValueError(f"'{v}' no es un UUID válido")
 
 
 class ResumeFeedingRequest(BaseModel):
-    operator_id: str = Field(description="ID del operador (UUID)")
-
-    @field_validator('operator_id')
-    @classmethod
-    def validate_uuid(cls, v: str) -> str:
-        try:
-            uuid.UUID(v)
-            return v
-        except ValueError:
-            raise ValueError(f"'{v}' no es un UUID válido")
+    pass
 
 
 class CancelFeedingRequest(BaseModel):
-    operator_id: str = Field(description="ID del operador (UUID)")
     reason: str = Field(description="Motivo de la cancelación")
-
-    @field_validator('operator_id')
-    @classmethod
-    def validate_uuid(cls, v: str) -> str:
-        try:
-            uuid.UUID(v)
-            return v
-        except ValueError:
-            raise ValueError(f"'{v}' no es un UUID válido")
 
 
 class UpdateBlowerRequest(BaseModel):
@@ -246,13 +203,9 @@ class CageConfigInput(BaseModel):
     def validate_quantities_by_mode(self) -> "CageConfigInput":
         if self.mode != "FASTING":
             if self.quantity_kg <= 0:
-                raise ValueError(
-                    f"quantity_kg debe ser > 0 para el modo '{self.mode}'"
-                )
+                raise ValueError(f"quantity_kg debe ser > 0 para el modo '{self.mode}'")
             if self.rate_kg_per_min <= 0:
-                raise ValueError(
-                    f"rate_kg_per_min debe ser > 0 para el modo '{self.mode}'"
-                )
+                raise ValueError(f"rate_kg_per_min debe ser > 0 para el modo '{self.mode}'")
         return self
 
 
@@ -271,15 +224,12 @@ class CyclicFeedingRequest(BaseModel):
             "si una jaula no declara cage_configs[].visits."
         ),
     )
-    blower_power_percentage: float = Field(
-        ge=30, le=100, description="Potencia del blower en porcentaje (30-100%)"
-    )
+    blower_power_percentage: float = Field(ge=30, le=100, description="Potencia del blower en porcentaje (30-100%)")
     wait_after_visit_seconds: float = Field(
         default=0,
         ge=0,
         description="Tiempo de espera en segundos después de cada visita cíclica, excepto la última.",
     )
-    operator_id: str = Field(description="ID del operador (UUID)")
     allow_overtime: bool = Field(
         default=False,
         description="Permitir que la alimentación se extienda más allá del horario operativo",
@@ -289,7 +239,7 @@ class CyclicFeedingRequest(BaseModel):
         description="Configuración por jaula. Debe incluir todas las jaulas del grupo.",
     )
 
-    @field_validator("line_id", "group_id", "doser_id", "silo_id", "operator_id")
+    @field_validator("line_id", "group_id", "doser_id", "silo_id")
     @classmethod
     def validate_uuid(cls, v: str) -> str:
         try:
@@ -302,9 +252,7 @@ class CyclicFeedingRequest(BaseModel):
     def validate_visits_fallback(self) -> "CyclicFeedingRequest":
         for cage_config in self.cage_configs:
             if cage_config.mode != "FASTING" and cage_config.visits is None and self.visits is None:
-                raise ValueError(
-                    "Cada jaula activa debe declarar visits o el request debe incluir visits global"
-                )
+                raise ValueError("Cada jaula activa debe declarar visits o el request debe incluir visits global")
         return self
 
 
@@ -441,8 +389,8 @@ class SessionHistoryItem(BaseModel):
     status: str
     line_id: str
     line_name: str
-    operator_id: str
-    # TODO: agregar operator_name cuando se implemente gestión de usuarios/autenticación
+    operator_id: Optional[str] = None
+    operator_name: Optional[str] = None
     started_at: Optional[datetime]
     ended_at: Optional[datetime]
     duration_seconds: Optional[float]
@@ -492,7 +440,8 @@ class SessionHistoryDetail(BaseModel):
     status: str
     line_id: str
     line_name: str
-    operator_id: str
+    operator_id: Optional[str] = None
+    operator_name: Optional[str] = None
     started_at: Optional[datetime]
     ended_at: Optional[datetime]
     duration_seconds: Optional[float]

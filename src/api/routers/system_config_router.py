@@ -2,7 +2,12 @@ from typing import Annotated, Union
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from api.dependencies import CheckScheduleUseCaseDep, get_get_system_config_use_case, get_update_system_config_use_case
+from api.dependencies import (
+    CheckScheduleUseCaseDep,
+    get_get_system_config_use_case,
+    get_update_system_config_use_case,
+    CurrentUserDep,
+)
 from api.models.feeding_models import CyclicFeedingRequest, ManualFeedingRequest
 from api.models.system_config_models import ScheduleCheckResponse, SystemConfigResponse, UpdateSystemConfigRequest
 from application.use_cases.system_config import GetSystemConfigUseCase, UpdateSystemConfigUseCase
@@ -12,6 +17,7 @@ router = APIRouter(prefix="/system/config", tags=["System Config"])
 
 @router.get("", response_model=SystemConfigResponse)
 async def get_system_config(
+    current_user: CurrentUserDep,
     use_case: Annotated[GetSystemConfigUseCase, Depends(get_get_system_config_use_case)],
 ) -> SystemConfigResponse:
     try:
@@ -22,6 +28,7 @@ async def get_system_config(
 
 @router.patch("", response_model=SystemConfigResponse)
 async def update_system_config(
+    current_user: CurrentUserDep,
     request: UpdateSystemConfigRequest,
     use_case: Annotated[UpdateSystemConfigUseCase, Depends(get_update_system_config_use_case)],
 ) -> SystemConfigResponse:
@@ -35,6 +42,7 @@ async def update_system_config(
 
 @router.post("/schedule-check", response_model=ScheduleCheckResponse)
 async def check_schedule(
+    current_user: CurrentUserDep,
     request: Union[ManualFeedingRequest, CyclicFeedingRequest],
     use_case: CheckScheduleUseCaseDep,
 ) -> ScheduleCheckResponse:

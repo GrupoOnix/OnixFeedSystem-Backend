@@ -6,7 +6,6 @@ from ..value_objects import CageId, CambioTasa, ComidaId, TasaAlimentacion, Visi
 
 
 class Visita:
-
     def __init__(
         self,
         comida_id: ComidaId,
@@ -102,39 +101,29 @@ class Visita:
 
     def iniciar(self) -> None:
         if self._estado != EstadoVisita.PENDIENTE:
-            raise ValueError(
-                f"No se puede iniciar una visita en estado {self._estado.value}"
-            )
+            raise ValueError(f"No se puede iniciar una visita en estado {self._estado.value}")
 
         self._estado = EstadoVisita.EN_CURSO
         self._fecha_hora_inicio = datetime.utcnow()
 
     def completar(self) -> None:
         if self._estado != EstadoVisita.EN_CURSO:
-            raise ValueError(
-                f"No se puede completar una visita en estado {self._estado.value}"
-            )
+            raise ValueError(f"No se puede completar una visita en estado {self._estado.value}")
 
         self._estado = EstadoVisita.COMPLETADA
         self._fecha_hora_fin = datetime.utcnow()
 
     def cancelar(self) -> None:
         if self._estado not in [EstadoVisita.EN_CURSO, EstadoVisita.PENDIENTE]:
-            raise ValueError(
-                f"No se puede cancelar una visita en estado {self._estado.value}"
-            )
+            raise ValueError(f"No se puede cancelar una visita en estado {self._estado.value}")
 
         self._estado = EstadoVisita.CANCELADA
         if self._estado == EstadoVisita.EN_CURSO:
             self._fecha_hora_fin = datetime.utcnow()
 
-    def cambiar_tasa(
-        self, nueva_tasa: TasaAlimentacion, operador_nombre: str
-    ) -> CambioTasa:
+    def cambiar_tasa(self, nueva_tasa: TasaAlimentacion, operador_nombre: str) -> CambioTasa:
         if self._estado != EstadoVisita.EN_CURSO:
-            raise ValueError(
-                f"No se puede cambiar la tasa en una visita en estado {self._estado.value}"
-            )
+            raise ValueError(f"No se puede cambiar la tasa en una visita en estado {self._estado.value}")
 
         cambio = CambioTasa(
             timestamp=datetime.utcnow(),
@@ -150,9 +139,7 @@ class Visita:
 
     def registrar_alimento_dispensado(self, cantidad: Weight) -> None:
         if self._estado != EstadoVisita.EN_CURSO:
-            raise ValueError(
-                f"No se puede registrar alimento en una visita en estado {self._estado.value}"
-            )
+            raise ValueError(f"No se puede registrar alimento en una visita en estado {self._estado.value}")
 
         self._cantidad_dispensada = self._cantidad_dispensada + cantidad
 
@@ -166,9 +153,7 @@ class Visita:
         if self._cantidad_programada.as_kg == 0:
             return 0.0
 
-        return (
-            self._cantidad_dispensada.as_kg / self._cantidad_programada.as_kg
-        ) * 100.0
+        return (self._cantidad_dispensada.as_kg / self._cantidad_programada.as_kg) * 100.0
 
     def duracion_total_segundos(self) -> Optional[float]:
         if not self._fecha_hora_inicio:

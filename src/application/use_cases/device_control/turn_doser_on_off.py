@@ -71,7 +71,7 @@ class TurnDoserOffUseCase:
     async def execute(self, doser_id: str) -> None:
         """
         Apaga el doser.
-        
+
         El current_rate configurado se mantiene guardado para cuando
         se vuelva a encender.
 

@@ -40,13 +40,7 @@ def calculate_visit_duration(
     dispensing_time = (quantity_kg / rate_kg_per_min) * 60
     blow_before = blower.blow_before_feeding_time.value if include_blow_before else 0.0
     blow_after = blower.blow_after_feeding_time.value if include_blow_after else 0.0
-    return (
-        selector_positioning_seconds
-        + blow_before
-        + dispensing_time
-        + transport_time_seconds
-        + blow_after
-    )
+    return selector_positioning_seconds + blow_before + dispensing_time + transport_time_seconds + blow_after
 
 
 def calculate_cyclic_wait_duration(

@@ -5,6 +5,10 @@ import sys
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 # Agregar src al PYTHONPATH
 src_path = Path(__file__).parent / "src"
 src_path_str = str(src_path.absolute())

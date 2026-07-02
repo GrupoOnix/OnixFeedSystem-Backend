@@ -9,9 +9,7 @@ from sqlmodel import Field, SQLModel
 
 class SiloInventoryBatchModel(SQLModel, table=True):
     __tablename__ = "silo_inventory_batches"
-    __table_args__ = (
-        Index("ix_silo_batches_fifo", "silo_id", "status", "position"),
-    )
+    __table_args__ = (Index("ix_silo_batches_fifo", "silo_id", "status", "position"),)
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     silo_id: UUID = Field(
@@ -38,9 +36,7 @@ class SiloInventoryBatchModel(SQLModel, table=True):
 
 class SiloInventoryMovementModel(SQLModel, table=True):
     __tablename__ = "silo_inventory_movements"
-    __table_args__ = (
-        Index("ix_silo_inventory_movements_silo_created", "silo_id", "created_at"),
-    )
+    __table_args__ = (Index("ix_silo_inventory_movements_silo_created", "silo_id", "created_at"),)
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     silo_id: UUID = Field(

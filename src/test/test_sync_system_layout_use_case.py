@@ -21,7 +21,7 @@ from api.models.system_layout import (
     BlowerConfigModel,
     DoserConfigModel,
     SelectorConfigModel,
-    SlotAssignmentModel
+    SlotAssignmentModel,
 )
 from infrastructure.persistence.mock_repositories import (
     MockFeedingLineRepository,
@@ -36,10 +36,10 @@ from domain.factories import ComponentFactory
 def repositories():
     """Fixture que proporciona repositorios mock limpios."""
     return {
-        'line_repo': MockFeedingLineRepository(),
-        'silo_repo': MockSiloRepository(),
-        'cage_repo': MockCageRepository(),
-        'slot_assignment_repo': MockSlotAssignmentRepository(),
+        "line_repo": MockFeedingLineRepository(),
+        "silo_repo": MockSiloRepository(),
+        "cage_repo": MockCageRepository(),
+        "slot_assignment_repo": MockSlotAssignmentRepository(),
     }
 
 
@@ -47,19 +47,19 @@ def repositories():
 def use_case(repositories):
     """Fixture que proporciona una instancia del caso de uso."""
     return SyncSystemLayoutUseCase(
-        line_repo=repositories['line_repo'],
-        silo_repo=repositories['silo_repo'],
-        cage_repo=repositories['cage_repo'],
-        slot_assignment_repo=repositories['slot_assignment_repo'],
+        line_repo=repositories["line_repo"],
+        silo_repo=repositories["silo_repo"],
+        cage_repo=repositories["cage_repo"],
+        slot_assignment_repo=repositories["slot_assignment_repo"],
         component_factory=ComponentFactory(),
     )
 
 
-@pytest.mark.anyio(backends=['asyncio'])
+@pytest.mark.anyio(backends=["asyncio"])
 async def test_create_simple_system_layout(use_case):
     """
     Test: Crear un layout simple desde cero.
-    
+
     Verifica:
     - Creación de silos, jaulas y líneas con IDs temporales
     - Mapeo correcto de IDs temporales a reales
@@ -67,23 +67,14 @@ async def test_create_simple_system_layout(use_case):
     """
     # Arrange: Preparar DTOs con IDs temporales
     request = SystemLayoutModel(
-        silos=[
-            SiloConfigModel(id="temp_silo_1", name="Silo A", capacity=1000.0)
-        ],
-        cages=[
-            CageConfigModel(id="temp_cage_1", name="Jaula 1"),
-            CageConfigModel(id="temp_cage_2", name="Jaula 2")
-        ],
+        silos=[SiloConfigModel(id="temp_silo_1", name="Silo A", capacity=1000.0)],
+        cages=[CageConfigModel(id="temp_cage_1", name="Jaula 1"), CageConfigModel(id="temp_cage_2", name="Jaula 2")],
         feeding_lines=[
             FeedingLineConfigModel(
                 id="temp_line_1",
                 line_name="Linea Principal",
                 blower_config=BlowerConfigModel(
-                    id="temp_blower_1",
-                    name="Soplador 1",
-                    non_feeding_power=50.0,
-                    blow_before_time=5,
-                    blow_after_time=3
+                    id="temp_blower_1", name="Soplador 1", non_feeding_power=50.0, blow_before_time=5, blow_after_time=3
                 ),
                 dosers_config=[
                     DoserConfigModel(
@@ -93,22 +84,18 @@ async def test_create_simple_system_layout(use_case):
                         doser_type="PULSE_DOSER",
                         min_rate=10.0,
                         max_rate=100.0,
-                        current_rate=50.0
+                        current_rate=50.0,
                     )
                 ],
                 selector_config=SelectorConfigModel(
-                    id="temp_selector_1",
-                    name="Selector 1",
-                    capacity=4,
-                    fast_speed=80.0,
-                    slow_speed=20.0
+                    id="temp_selector_1", name="Selector 1", capacity=4, fast_speed=80.0, slow_speed=20.0
                 ),
                 slot_assignments=[
                     SlotAssignmentModel(slot_number=1, cage_id="temp_cage_1"),
-                    SlotAssignmentModel(slot_number=2, cage_id="temp_cage_2")
-                ]
+                    SlotAssignmentModel(slot_number=2, cage_id="temp_cage_2"),
+                ],
             )
-        ]
+        ],
     )
 
     # Act: Ejecutar el caso de uso
@@ -125,33 +112,25 @@ async def test_create_simple_system_layout(use_case):
     assert len(line_slots) == 2
 
 
-@pytest.mark.anyio(backends=['asyncio'])
+@pytest.mark.anyio(backends=["asyncio"])
 async def test_update_existing_system_layout(use_case, repositories):
     """
     Test: Actualizar un layout existente.
-    
+
     Verifica:
     - Actualización de agregados existentes usando UUIDs reales
     - Preservación de IDs reales
     """
     # Arrange: Crear un layout inicial
     initial_request = SystemLayoutModel(
-        silos=[
-            SiloConfigModel(id="temp_silo_1", name="Silo Original", capacity=1000.0)
-        ],
-        cages=[
-            CageConfigModel(id="temp_cage_1", name="Jaula Original")
-        ],
+        silos=[SiloConfigModel(id="temp_silo_1", name="Silo Original", capacity=1000.0)],
+        cages=[CageConfigModel(id="temp_cage_1", name="Jaula Original")],
         feeding_lines=[
             FeedingLineConfigModel(
                 id="temp_line_1",
                 line_name="Linea Original",
                 blower_config=BlowerConfigModel(
-                    id="temp_blower_1",
-                    name="Soplador 1",
-                    non_feeding_power=50.0,
-                    blow_before_time=5,
-                    blow_after_time=3
+                    id="temp_blower_1", name="Soplador 1", non_feeding_power=50.0, blow_before_time=5, blow_after_time=3
                 ),
                 dosers_config=[
                     DoserConfigModel(
@@ -161,19 +140,13 @@ async def test_update_existing_system_layout(use_case, repositories):
                         doser_type="PULSE_DOSER",
                         min_rate=10.0,
                         max_rate=100.0,
-                        current_rate=50.0
+                        current_rate=50.0,
                     )
                 ],
                 selector_config=SelectorConfigModel(
-                    id="temp_selector_1",
-                    name="Selector 1",
-                    capacity=2,
-                    fast_speed=80.0,
-                    slow_speed=20.0
+                    id="temp_selector_1", name="Selector 1", capacity=2, fast_speed=80.0, slow_speed=20.0
                 ),
-                slot_assignments=[
-                    SlotAssignmentModel(slot_number=1, cage_id="temp_cage_1")
-                ]
+                slot_assignments=[SlotAssignmentModel(slot_number=1, cage_id="temp_cage_1")],
             )
         ],
     )
@@ -181,9 +154,9 @@ async def test_update_existing_system_layout(use_case, repositories):
     await use_case.execute(initial_request)
 
     # Obtener IDs reales
-    silos = await repositories['silo_repo'].get_all()
-    cages = await repositories['cage_repo'].get_all()
-    lines = await repositories['line_repo'].get_all()
+    silos = await repositories["silo_repo"].get_all()
+    cages = await repositories["cage_repo"].get_all()
+    lines = await repositories["line_repo"].get_all()
 
     silo_id = str(silos[0].id)
     cage_id = str(cages[0].id)
@@ -191,12 +164,8 @@ async def test_update_existing_system_layout(use_case, repositories):
 
     # Act: Actualizar con IDs reales
     update_request = SystemLayoutModel(
-        silos=[
-            SiloConfigModel(id=silo_id, name="Silo Actualizado", capacity=1000.0)
-        ],
-        cages=[
-            CageConfigModel(id=cage_id, name="Jaula Actualizada")
-        ],
+        silos=[SiloConfigModel(id=silo_id, name="Silo Actualizado", capacity=1000.0)],
+        cages=[CageConfigModel(id=cage_id, name="Jaula Actualizada")],
         feeding_lines=[
             FeedingLineConfigModel(
                 id=line_id,
@@ -206,7 +175,7 @@ async def test_update_existing_system_layout(use_case, repositories):
                     name="Soplador Actualizado",
                     non_feeding_power=60.0,
                     blow_before_time=7,
-                    blow_after_time=4
+                    blow_after_time=4,
                 ),
                 dosers_config=[
                     DoserConfigModel(
@@ -216,19 +185,13 @@ async def test_update_existing_system_layout(use_case, repositories):
                         doser_type="VARI_DOSER",
                         min_rate=15.0,
                         max_rate=120.0,
-                        current_rate=60.0
+                        current_rate=60.0,
                     )
                 ],
                 selector_config=SelectorConfigModel(
-                    id="temp_selector_2",
-                    name="Selector Actualizado",
-                    capacity=3,
-                    fast_speed=85.0,
-                    slow_speed=25.0
+                    id="temp_selector_2", name="Selector Actualizado", capacity=3, fast_speed=85.0, slow_speed=25.0
                 ),
-                slot_assignments=[
-                    SlotAssignmentModel(slot_number=1, cage_id=cage_id)
-                ]
+                slot_assignments=[SlotAssignmentModel(slot_number=1, cage_id=cage_id)],
             )
         ],
     )
@@ -236,20 +199,20 @@ async def test_update_existing_system_layout(use_case, repositories):
     await use_case.execute(update_request)
 
     # Assert: Verificar que los nombres fueron actualizados
-    updated_silo = await repositories['silo_repo'].find_by_id(silos[0].id)
-    updated_cage = await repositories['cage_repo'].find_by_id(cages[0].id)
-    updated_line = await repositories['line_repo'].find_by_id(lines[0].id)
+    updated_silo = await repositories["silo_repo"].find_by_id(silos[0].id)
+    updated_cage = await repositories["cage_repo"].find_by_id(cages[0].id)
+    updated_line = await repositories["line_repo"].find_by_id(lines[0].id)
 
     assert str(updated_silo.name) == "Silo Actualizado"
     assert str(updated_cage.name) == "Jaula Actualizada"
     assert str(updated_line.name) == "Linea Actualizada"
 
 
-@pytest.mark.anyio(backends=['asyncio'])
+@pytest.mark.anyio(backends=["asyncio"])
 async def test_delete_aggregates_not_in_request(use_case, repositories):
     """
     Test: Eliminar agregados que no están en el request.
-    
+
     Verifica:
     - Fase 2: Eliminación de agregados ausentes en el request
     """
@@ -257,7 +220,7 @@ async def test_delete_aggregates_not_in_request(use_case, repositories):
     initial_request = SystemLayoutModel(
         silos=[
             SiloConfigModel(id="temp_silo_1", name="Silo 1", capacity=1000.0),
-            SiloConfigModel(id="temp_silo_2", name="Silo 2", capacity=2000.0)
+            SiloConfigModel(id="temp_silo_2", name="Silo 2", capacity=2000.0),
         ],
         cages=[],
         feeding_lines=[],
@@ -266,16 +229,14 @@ async def test_delete_aggregates_not_in_request(use_case, repositories):
     await use_case.execute(initial_request)
 
     # Verificar que hay 2 silos
-    silos = await repositories['silo_repo'].get_all()
+    silos = await repositories["silo_repo"].get_all()
     assert len(silos) == 2
 
     silo_1_id = str(silos[0].id)
 
     # Act: Enviar request solo con 1 silo (el otro debe eliminarse)
     update_request = SystemLayoutModel(
-        silos=[
-            SiloConfigModel(id=silo_1_id, name="Silo 1", capacity=1000.0)
-        ],
+        silos=[SiloConfigModel(id=silo_1_id, name="Silo 1", capacity=1000.0)],
         cages=[],
         feeding_lines=[],
     )
@@ -283,6 +244,6 @@ async def test_delete_aggregates_not_in_request(use_case, repositories):
     response = await use_case.execute(update_request)
 
     # Assert: Verificar que solo queda 1 silo
-    remaining_silos = await repositories['silo_repo'].get_all()
+    remaining_silos = await repositories["silo_repo"].get_all()
     assert len(remaining_silos) == 1
     assert str(remaining_silos[0].id) == silo_1_id

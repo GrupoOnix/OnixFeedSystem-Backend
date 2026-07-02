@@ -49,9 +49,7 @@ def mock_machine():
 @pytest.fixture
 def manual_strategy():
     """Fixture que proporciona una estrategia manual."""
-    return ManualFeedingStrategy(
-        target_slot=1, blower_speed=70.0, doser_speed=50.0, target_amount_kg=100.0
-    )
+    return ManualFeedingStrategy(target_slot=1, blower_speed=70.0, doser_speed=50.0, target_amount_kg=100.0)
 
 
 class TestFeedingSession_Creation:
@@ -90,9 +88,7 @@ class TestFeedingSession_StartOperation:
     """Tests para inicio de operaciones."""
 
     @pytest.mark.asyncio
-    async def test_start_operation_creates_new_operation(
-        self, line_id, cage_id, manual_strategy, mock_machine
-    ):
+    async def test_start_operation_creates_new_operation(self, line_id, cage_id, manual_strategy, mock_machine):
         """Debe crear una nueva operación."""
         session = FeedingSession(line_id=line_id)
 
@@ -109,9 +105,7 @@ class TestFeedingSession_StartOperation:
         assert session.current_operation.cage_id == cage_id
 
     @pytest.mark.asyncio
-    async def test_start_operation_sends_config_to_machine(
-        self, line_id, cage_id, manual_strategy, mock_machine
-    ):
+    async def test_start_operation_sends_config_to_machine(self, line_id, cage_id, manual_strategy, mock_machine):
         """Debe enviar configuración al PLC."""
         session = FeedingSession(line_id=line_id)
 
@@ -128,9 +122,7 @@ class TestFeedingSession_StartOperation:
         assert isinstance(args[0][1], MachineConfiguration)  # config
 
     @pytest.mark.asyncio
-    async def test_start_operation_initializes_slot_counter(
-        self, line_id, cage_id, manual_strategy, mock_machine
-    ):
+    async def test_start_operation_initializes_slot_counter(self, line_id, cage_id, manual_strategy, mock_machine):
         """Debe inicializar contador de slot si no existe."""
         session = FeedingSession(line_id=line_id)
 
@@ -145,9 +137,7 @@ class TestFeedingSession_StartOperation:
         assert session.dispensed_by_slot[1] == Weight.zero()
 
     @pytest.mark.asyncio
-    async def test_start_operation_rejects_if_operation_active(
-        self, line_id, cage_id, manual_strategy, mock_machine
-    ):
+    async def test_start_operation_rejects_if_operation_active(self, line_id, cage_id, manual_strategy, mock_machine):
         """Debe rechazar si ya hay operación activa."""
         session = FeedingSession(line_id=line_id)
 
@@ -171,9 +161,7 @@ class TestFeedingSession_StartOperation:
         assert "operación activa" in str(exc_info.value).lower()
 
     @pytest.mark.asyncio
-    async def test_start_operation_logs_event(
-        self, line_id, cage_id, manual_strategy, mock_machine
-    ):
+    async def test_start_operation_logs_event(self, line_id, cage_id, manual_strategy, mock_machine):
         """Debe registrar evento de sesión."""
         session = FeedingSession(line_id=line_id)
 
@@ -193,9 +181,7 @@ class TestFeedingSession_StopOperation:
     """Tests para detención de operaciones."""
 
     @pytest.mark.asyncio
-    async def test_stop_operation_stops_current_operation(
-        self, line_id, cage_id, manual_strategy, mock_machine
-    ):
+    async def test_stop_operation_stops_current_operation(self, line_id, cage_id, manual_strategy, mock_machine):
         """Debe detener la operación actual."""
         session = FeedingSession(line_id=line_id)
         await session.start_operation(cage_id, 1, manual_strategy, mock_machine)
@@ -205,9 +191,7 @@ class TestFeedingSession_StopOperation:
         assert session.current_operation is None
 
     @pytest.mark.asyncio
-    async def test_stop_operation_sends_stop_to_machine(
-        self, line_id, cage_id, manual_strategy, mock_machine
-    ):
+    async def test_stop_operation_sends_stop_to_machine(self, line_id, cage_id, manual_strategy, mock_machine):
         """Debe enviar comando STOP al PLC."""
         session = FeedingSession(line_id=line_id)
         await session.start_operation(cage_id, 1, manual_strategy, mock_machine)
@@ -225,9 +209,7 @@ class TestFeedingSession_StopOperation:
         await session.stop_current_operation(mock_machine)
 
     @pytest.mark.asyncio
-    async def test_stop_operation_logs_event(
-        self, line_id, cage_id, manual_strategy, mock_machine
-    ):
+    async def test_stop_operation_logs_event(self, line_id, cage_id, manual_strategy, mock_machine):
         """Debe registrar evento de sesión."""
         session = FeedingSession(line_id=line_id)
         await session.start_operation(cage_id, 1, manual_strategy, mock_machine)
@@ -243,9 +225,7 @@ class TestFeedingSession_PauseResume:
     """Tests para pausa y reanudación."""
 
     @pytest.mark.asyncio
-    async def test_pause_operation_pauses_current_operation(
-        self, line_id, cage_id, manual_strategy, mock_machine
-    ):
+    async def test_pause_operation_pauses_current_operation(self, line_id, cage_id, manual_strategy, mock_machine):
         """Debe pausar la operación actual."""
         session = FeedingSession(line_id=line_id)
         await session.start_operation(cage_id, 1, manual_strategy, mock_machine)
@@ -255,9 +235,7 @@ class TestFeedingSession_PauseResume:
         assert session.current_operation.status == OperationStatus.PAUSED
 
     @pytest.mark.asyncio
-    async def test_pause_operation_sends_pause_to_machine(
-        self, line_id, cage_id, manual_strategy, mock_machine
-    ):
+    async def test_pause_operation_sends_pause_to_machine(self, line_id, cage_id, manual_strategy, mock_machine):
         """Debe enviar comando PAUSE al PLC."""
         session = FeedingSession(line_id=line_id)
         await session.start_operation(cage_id, 1, manual_strategy, mock_machine)
@@ -275,9 +253,7 @@ class TestFeedingSession_PauseResume:
             await session.pause_current_operation(mock_machine)
 
     @pytest.mark.asyncio
-    async def test_resume_operation_resumes_paused_operation(
-        self, line_id, cage_id, manual_strategy, mock_machine
-    ):
+    async def test_resume_operation_resumes_paused_operation(self, line_id, cage_id, manual_strategy, mock_machine):
         """Debe reanudar operación pausada."""
         session = FeedingSession(line_id=line_id)
         await session.start_operation(cage_id, 1, manual_strategy, mock_machine)
@@ -288,9 +264,7 @@ class TestFeedingSession_PauseResume:
         assert session.current_operation.status == OperationStatus.RUNNING
 
     @pytest.mark.asyncio
-    async def test_resume_operation_sends_resume_to_machine(
-        self, line_id, cage_id, manual_strategy, mock_machine
-    ):
+    async def test_resume_operation_sends_resume_to_machine(self, line_id, cage_id, manual_strategy, mock_machine):
         """Debe enviar comando RESUME al PLC."""
         session = FeedingSession(line_id=line_id)
         await session.start_operation(cage_id, 1, manual_strategy, mock_machine)
@@ -313,9 +287,7 @@ class TestFeedingSession_CloseSession:
         assert session.status == SessionStatus.CLOSED
 
     @pytest.mark.asyncio
-    async def test_close_session_rejects_if_operation_active(
-        self, line_id, cage_id, manual_strategy, mock_machine
-    ):
+    async def test_close_session_rejects_if_operation_active(self, line_id, cage_id, manual_strategy, mock_machine):
         """Debe rechazar si hay operación activa."""
         session = FeedingSession(line_id=line_id)
         await session.start_operation(cage_id, 1, manual_strategy, mock_machine)
@@ -343,9 +315,7 @@ class TestFeedingSession_DailySummary:
         assert "current_operation" in summary
 
     @pytest.mark.asyncio
-    async def test_get_daily_summary_with_operation(
-        self, line_id, cage_id, manual_strategy, mock_machine
-    ):
+    async def test_get_daily_summary_with_operation(self, line_id, cage_id, manual_strategy, mock_machine):
         """Debe incluir información de operación actual."""
         session = FeedingSession(line_id=line_id)
         await session.start_operation(cage_id, 1, manual_strategy, mock_machine)

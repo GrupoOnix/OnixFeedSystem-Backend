@@ -9,7 +9,13 @@ from application.dtos.cage_group_dtos import (
 )
 from domain.aggregates.cage import Cage
 from domain.aggregates.cage_group import CageGroup
-from domain.repositories import ICageGroupRepository, ICageRepository
+from domain.enums import ActivityLogCategory, ActivityLogEventType
+from domain.repositories import (
+    ICageGroupActivityLogRepository,
+    ICageGroupRepository,
+    ICageRepository,
+)
+from domain.value_objects import CageGroupActivityLogEntry
 from domain.value_objects.identifiers import CageId
 
 
@@ -20,16 +26,19 @@ class CreateCageGroupUseCase:
         self,
         group_repository: ICageGroupRepository,
         cage_repository: ICageRepository,
+        activity_log_repository: ICageGroupActivityLogRepository,
     ):
         self.group_repository = group_repository
         self.cage_repository = cage_repository
+        self.activity_log_repository = activity_log_repository
 
-    async def execute(self, request: CreateCageGroupRequest) -> CageGroupResponse:
+    async def execute(self, request: CreateCageGroupRequest, actor: str) -> CageGroupResponse:
         """
         Crea un nuevo grupo de jaulas.
 
         Args:
             request: Datos del grupo a crear
+            actor: Usuario que realiza la acción
 
         Returns:
             CageGroupResponse con los datos del grupo creado
@@ -54,7 +63,19 @@ class CreateCageGroupUseCase:
         # 4. Persistir
         await self.group_repository.save(cage_group)
 
-        # 5. Cargar jaulas para calcular métricas y retornar
+        # 5. Registrar actividad
+        await self.activity_log_repository.save(
+            CageGroupActivityLogEntry.create(
+                cage_group_id=cage_group.id,
+                event_type=ActivityLogEventType.INFO,
+                category=ActivityLogCategory.CONFIG,
+                message="Grupo de jaulas creado",
+                details=f"Nombre: {request.name}, jaulas: {len(request.cage_ids)}",
+                actor=actor,
+            )
+        )
+
+        # 6. Cargar jaulas para calcular métricas y retornar
         cages = await self._load_cages(cage_group.cage_ids)
         return self._to_response(cage_group, cages)
 
@@ -82,9 +103,7 @@ class CreateCageGroupUseCase:
                 cages.append(cage)
         return cages
 
-    def _to_response(
-        self, cage_group: CageGroup, cages: List[Cage]
-    ) -> CageGroupResponse:
+    def _to_response(self, cage_group: CageGroup, cages: List[Cage]) -> CageGroupResponse:
         """Convierte la entidad a response DTO."""
         metrics = cage_group.calculate_metrics(cages)
 

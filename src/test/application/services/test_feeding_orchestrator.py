@@ -252,10 +252,7 @@ async def test_cyclic_run_keeps_visiting_finished_cages_without_dispensing(monke
             self.db = db
 
         async def find_by_id(self, cage_feeding_id):
-            return next(
-                cf for cf in (first, second)
-                if cf.id == cage_feeding_id
-            )
+            return next(cf for cf in (first, second) if cf.id == cage_feeding_id)
 
     async def _execute_visit(self, **kwargs):
         cage_feeding = kwargs["cage_feeding"]
@@ -299,11 +296,7 @@ async def test_cyclic_run_keeps_visiting_finished_cages_without_dispensing(monke
     assert len(calls) == 30
     assert calls.count(("food", first.cage_id, 15)) == 1
     assert calls.count(("food", second.cage_id, 10)) == 1
-    assert [
-        call
-        for call in calls
-        if call[0] == "empty" and call[1] == second.cage_id
-    ] == [
+    assert [call for call in calls if call[0] == "empty" and call[1] == second.cage_id] == [
         ("empty", second.cage_id, 11),
         ("empty", second.cage_id, 12),
         ("empty", second.cage_id, 13),
@@ -374,10 +367,7 @@ async def test_cyclic_run_applies_blow_before_once_and_blow_after_once_after_ref
             self.db = db
 
         async def find_by_id(self, cage_feeding_id):
-            original = next(
-                cf for cf in (first, second)
-                if cf.id == cage_feeding_id
-            )
+            original = next(cf for cf in (first, second) if cf.id == cage_feeding_id)
             return _clone_cage_feeding(original)
 
     async def _execute_visit(self, **kwargs):
@@ -517,6 +507,7 @@ async def test_cyclic_run_waits_after_intermediate_visits_only(monkeypatch):
 
     assert visits == [1, 2, 3]
     assert sleeps == [9, 9]
+
 
 @pytest.fixture(autouse=True)
 def _mock_inventory_repository(monkeypatch):

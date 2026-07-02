@@ -16,13 +16,11 @@ class Silo:
         critical_threshold_percentage: float = 10.0,
     ):
         if warning_threshold_percentage <= critical_threshold_percentage:
-            raise ValueError(
-                "El umbral de advertencia debe ser mayor que el umbral crítico."
-            )
-        
+            raise ValueError("El umbral de advertencia debe ser mayor que el umbral crítico.")
+
         if not (0 <= critical_threshold_percentage <= 100):
             raise ValueError("Los umbrales deben estar entre 0 y 100.")
-        
+
         if not (0 <= warning_threshold_percentage <= 100):
             raise ValueError("Los umbrales deben estar entre 0 y 100.")
 
@@ -62,8 +60,7 @@ class Silo:
         """
         if new_capacity < self._total_stock:
             raise ValueError(
-                f"La nueva capacidad ({new_capacity}) no puede ser menor "
-                f"al stock actual ({self._total_stock})"
+                f"La nueva capacidad ({new_capacity}) no puede ser menor al stock actual ({self._total_stock})"
             )
         self._capacity = new_capacity
 
@@ -122,15 +119,13 @@ class Silo:
     def warning_threshold_percentage(self, value: float) -> None:
         """
         Actualiza el umbral de advertencia.
-        
+
         Regla de negocio: Debe ser mayor que el umbral crítico y estar entre 0-100.
         """
         if not (0 <= value <= 100):
             raise ValueError("El umbral debe estar entre 0 y 100.")
         if value <= self._critical_threshold_percentage:
-            raise ValueError(
-                "El umbral de advertencia debe ser mayor que el umbral crítico."
-            )
+            raise ValueError("El umbral de advertencia debe ser mayor que el umbral crítico.")
         self._warning_threshold_percentage = value
 
     @property
@@ -142,15 +137,13 @@ class Silo:
     def critical_threshold_percentage(self, value: float) -> None:
         """
         Actualiza el umbral crítico.
-        
+
         Regla de negocio: Debe ser menor que el umbral de advertencia y estar entre 0-100.
         """
         if not (0 <= value <= 100):
             raise ValueError("El umbral debe estar entre 0 y 100.")
         if value >= self._warning_threshold_percentage:
-            raise ValueError(
-                "El umbral crítico debe ser menor que el umbral de advertencia."
-            )
+            raise ValueError("El umbral crítico debe ser menor que el umbral de advertencia.")
         self._critical_threshold_percentage = value
 
     def assign_to_doser(self) -> None:

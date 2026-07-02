@@ -67,10 +67,7 @@ class AlertSchedulerService:
                     await self._scheduled_alert_repo.save(sa)
 
                     triggered_count += 1
-                    logger.info(
-                        f"Alerta programada disparada: {sa.title} "
-                        f"(scheduled_alert_id={sa.id})"
-                    )
+                    logger.info(f"Alerta programada disparada: {sa.title} (scheduled_alert_id={sa.id})")
 
             except Exception as e:
                 logger.error(

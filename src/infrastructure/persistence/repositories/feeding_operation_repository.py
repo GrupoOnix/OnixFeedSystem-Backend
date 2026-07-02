@@ -69,9 +69,7 @@ class FeedingOperationRepository(IFeedingOperationRepository):
     async def find_by_id(self, operation_id: OperationId) -> Optional[FeedingOperation]:
         """Busca una operación por su ID."""
         result = await self.db.execute(
-            select(FeedingOperationModel).where(
-                col(FeedingOperationModel.id) == operation_id.value
-            )
+            select(FeedingOperationModel).where(col(FeedingOperationModel.id) == operation_id.value)
         )
         model = result.scalar_one_or_none()
         return self._to_domain(model) if model else None
@@ -82,9 +80,7 @@ class FeedingOperationRepository(IFeedingOperationRepository):
             select(FeedingOperationModel)
             .where(
                 col(FeedingOperationModel.session_id) == session_id.value,
-                col(FeedingOperationModel.status).in_(
-                    [OperationStatus.RUNNING.value, OperationStatus.PAUSED.value]
-                ),
+                col(FeedingOperationModel.status).in_([OperationStatus.RUNNING.value, OperationStatus.PAUSED.value]),
             )
             .order_by(desc(col(FeedingOperationModel.started_at)))
         )
@@ -179,9 +175,7 @@ class FeedingOperationRepository(IFeedingOperationRepository):
         query = (
             select(
                 col(FeedingOperationModel.cage_id),
-                func.coalesce(func.sum(col(FeedingOperationModel.dispensed_kg)), 0).label(
-                    "total_dispensed"
-                ),
+                func.coalesce(func.sum(col(FeedingOperationModel.dispensed_kg)), 0).label("total_dispensed"),
             )
             .where(
                 col(FeedingOperationModel.cage_id).in_(cage_uuid_list),

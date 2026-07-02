@@ -30,16 +30,12 @@ class CreateFoodUseCase:
         food_name = FoodName(request.name)
         existing_by_name = await self._food_repository.find_by_name(food_name)
         if existing_by_name:
-            raise DuplicateFoodNameError(
-                f"Ya existe un alimento con el nombre '{request.name}'"
-            )
+            raise DuplicateFoodNameError(f"Ya existe un alimento con el nombre '{request.name}'")
 
         # Validar que el código no exista
         existing_by_code = await self._food_repository.find_by_code(request.code)
         if existing_by_code:
-            raise DuplicateFoodCodeError(
-                f"Ya existe un alimento con el código '{request.code}'"
-            )
+            raise DuplicateFoodCodeError(f"Ya existe un alimento con el código '{request.code}'")
 
         # Crear el agregado
         food = Food(
