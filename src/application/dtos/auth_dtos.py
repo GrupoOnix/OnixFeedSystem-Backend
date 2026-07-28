@@ -38,9 +38,7 @@ class ChangePasswordRequest:
 
 @dataclass
 class ResetPasswordRequest:
-    """Request para resetear la contraseña de un usuario."""
-
-    new_password: str
+    """Request para resetear la contraseña de un usuario (vacío, el backend genera la temporal)."""
 
 
 @dataclass
@@ -72,8 +70,16 @@ class UserResponse:
     role: str
     is_superadmin: bool
     is_active: bool
+    must_change_password: bool
     created_at: datetime
     updated_at: datetime
+
+
+@dataclass
+class ResetPasswordResponse(UserResponse):
+    """Response al resetear la contraseña, incluye la contraseña temporal."""
+
+    temporary_password: str
 
 
 @dataclass

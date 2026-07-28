@@ -21,6 +21,7 @@ def test_user_creation_default_values():
     assert user.role == UserRole.USER
     assert user.is_active is True
     assert user.is_superadmin is False
+    assert user.must_change_password is False
 
 
 def test_user_creation_admin():
@@ -77,6 +78,36 @@ def test_user_change_password():
     user.change_password("new_hash")
 
     assert user.hashed_password == "new_hash"
+    assert user.must_change_password is False
+
+
+def test_user_change_password_resets_must_change_flag():
+    """Cambiar la contraseña limpia el flag must_change_password."""
+    user = User.create(
+        username="operator1",
+        full_name="Operador Uno",
+        hashed_password="old_hash",
+        must_change_password=True,
+    )
+
+    user.change_password("new_hash", reset_must_change=True)
+
+    assert user.hashed_password == "new_hash"
+    assert user.must_change_password is False
+
+
+def test_user_force_password_change():
+    """Un superadmin puede forzar el cambio de contraseña de un usuario."""
+    user = User.create(
+        username="operator1",
+        full_name="Operador Uno",
+        hashed_password="old_hash",
+    )
+
+    user.force_password_change("new_hash")
+
+    assert user.hashed_password == "new_hash"
+    assert user.must_change_password is True
 
 
 def test_user_update_role():

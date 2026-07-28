@@ -5,7 +5,8 @@ from fastapi import APIRouter, HTTPException, status
 from api.dependencies import (
     AuthenticateUserUseCaseDep,
     ChangePasswordUseCaseDep,
-    CurrentUserDep,
+    CurrentUserForPasswordChangeDep,
+    CurrentUserReadDep,
 )
 from api.models.auth_models import (
     ChangePasswordRequestModel,
@@ -45,7 +46,7 @@ async def login(
 
 
 @router.get("/me", response_model=UserResponseModel)
-async def get_current_user(current_user: CurrentUserDep) -> UserResponseModel:
+async def get_current_user(current_user: CurrentUserReadDep) -> UserResponseModel:
     """Devuelve los datos del usuario autenticado."""
     return UserResponseModel.from_dto(current_user)
 
@@ -53,7 +54,7 @@ async def get_current_user(current_user: CurrentUserDep) -> UserResponseModel:
 @router.patch("/me/password", status_code=status.HTTP_204_NO_CONTENT)
 async def change_password(
     request: ChangePasswordRequestModel,
-    current_user: CurrentUserDep,
+    current_user: CurrentUserForPasswordChangeDep,
     use_case: ChangePasswordUseCaseDep,
 ) -> None:
     """Cambia la contraseña del usuario autenticado."""

@@ -69,6 +69,7 @@ class UpdateUserStatusUseCase:
             role=user.role.value,
             is_superadmin=user.is_superadmin,
             is_active=user.is_active,
+            must_change_password=user.must_change_password,
             created_at=user.created_at,
             updated_at=user.updated_at,
         )

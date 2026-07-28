@@ -11,7 +11,7 @@ from api.dependencies import (
     UpdateUserRoleUseCaseDep,
     UpdateUserStatusUseCaseDep,
 )
-from api.models.auth_models import UserResponseModel
+from api.models.auth_models import ResetPasswordResponseModel, UserResponseModel
 from api.models.user_models import (
     ListUsersResponseModel,
     RegisterUserRequestModel,
@@ -137,23 +137,23 @@ async def update_user_role(
         )
 
 
-@router.patch("/{user_id}/password", response_model=UserResponseModel)
+@router.patch("/{user_id}/password", response_model=ResetPasswordResponseModel)
 async def reset_user_password(
     user_id: str,
     request: ResetPasswordRequestModel,
     current_user: CurrentSuperAdminUserDep,
     use_case: ResetUserPasswordUseCaseDep,
-) -> UserResponseModel:
-    """Resetea la contraseña de un usuario. Requiere superadmin."""
+) -> ResetPasswordResponseModel:
+    """Resetea la contraseña de un usuario generando una temporal. Requiere superadmin."""
     try:
-        dto = ResetPasswordRequest(new_password=request.new_password)
+        dto = ResetPasswordRequest()
         result = await use_case.execute(
             user_id=user_id,
             request=dto,
             requester_id=current_user.id,
             requester_is_superadmin=True,
         )
-        return UserResponseModel.from_dto(result)
+        return ResetPasswordResponseModel.from_dto(result)
     except InsufficientPermissionsError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

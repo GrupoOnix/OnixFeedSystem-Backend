@@ -27,6 +27,7 @@ def client():
         role="user",
         is_superadmin=False,
         is_active=True,
+        must_change_password=False,
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
     )

@@ -18,7 +18,7 @@ from api.dependencies import (
     get_update_user_role_use_case,
     get_update_user_status_use_case,
 )
-from application.dtos.auth_dtos import ListUsersResponse, UserResponse
+from application.dtos.auth_dtos import ListUsersResponse, ResetPasswordResponse, UserResponse
 from main import app
 
 
@@ -41,6 +41,7 @@ def admin_user_response():
         role="admin",
         is_superadmin=True,
         is_active=True,
+        must_change_password=False,
         created_at=datetime(2024, 1, 1, 0, 0),
         updated_at=datetime(2024, 1, 1, 0, 0),
     )
@@ -56,6 +57,7 @@ def regular_user_response():
         role="user",
         is_superadmin=False,
         is_active=True,
+        must_change_password=False,
         created_at=datetime(2024, 1, 1, 0, 0),
         updated_at=datetime(2024, 1, 1, 0, 0),
     )
@@ -157,16 +159,30 @@ class TestResetUserPassword:
 
     def test_reset_password_by_superadmin(self, client, admin_user_response, regular_user_response):
         """Test: Un superadmin puede resetear la contraseña de un usuario."""
+        reset_response = ResetPasswordResponse(
+            id=regular_user_response.id,
+            username=regular_user_response.username,
+            full_name=regular_user_response.full_name,
+            role=regular_user_response.role,
+            is_superadmin=regular_user_response.is_superadmin,
+            is_active=regular_user_response.is_active,
+            must_change_password=True,
+            created_at=regular_user_response.created_at,
+            updated_at=regular_user_response.updated_at,
+            temporary_password="123456",
+        )
         mock_use_case = MagicMock()
-        mock_use_case.execute = AsyncMock(return_value=regular_user_response)
+        mock_use_case.execute = AsyncMock(return_value=reset_response)
         app.dependency_overrides[get_current_superadmin_user] = lambda: admin_user_response
         app.dependency_overrides[get_reset_user_password_use_case] = lambda: mock_use_case
 
         response = client.patch(
             f"/api/users/{regular_user_response.id}/password",
-            json={"new_password": "newpass123"},
+            json={},
         )
 
         assert response.status_code == 200
         data = response.json()
         assert data["username"] == "operator1"
+        assert data["must_change_password"] is True
+        assert data["temporary_password"] == "123456"

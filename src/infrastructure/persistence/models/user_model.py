@@ -22,6 +22,7 @@ class UserModel(SQLModel, table=True):
     role: str = Field(max_length=20, default=UserRole.USER.value)
     is_superadmin: bool = Field(default=False)
     is_active: bool = Field(default=True)
+    must_change_password: bool = Field(default=False)
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
     updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
 
@@ -36,6 +37,7 @@ class UserModel(SQLModel, table=True):
             role=user.role.value,
             is_superadmin=user.is_superadmin,
             is_active=user.is_active,
+            must_change_password=user.must_change_password,
             created_at=user.created_at,
             updated_at=user.updated_at,
         )
@@ -50,6 +52,7 @@ class UserModel(SQLModel, table=True):
             role=UserRole(self.role),
             is_superadmin=self.is_superadmin,
             is_active=self.is_active,
+            must_change_password=self.must_change_password,
             created_at=self.created_at,
             updated_at=self.updated_at,
         )

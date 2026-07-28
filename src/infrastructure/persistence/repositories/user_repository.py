@@ -29,6 +29,7 @@ class UserRepository(IUserRepository):
             existing.role = user.role.value
             existing.is_superadmin = user.is_superadmin
             existing.is_active = user.is_active
+            existing.must_change_password = user.must_change_password
             existing.updated_at = user.updated_at
         else:
             user_model = UserModel.from_domain(user)

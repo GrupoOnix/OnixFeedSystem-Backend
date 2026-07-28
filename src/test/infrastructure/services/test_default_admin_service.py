@@ -37,9 +37,7 @@ def mock_user_repository():
 class TestSeedDefaultAdmin:
     """Tests para seed_default_admin_if_needed."""
 
-    async def test_creates_default_admin_when_not_exists(
-        self, mock_session, mock_user_repository, monkeypatch
-    ):
+    async def test_creates_default_admin_when_not_exists(self, mock_session, mock_user_repository, monkeypatch):
         """Debe crear el admin por defecto si no existe."""
         from infrastructure import services
 
@@ -63,9 +61,7 @@ class TestSeedDefaultAdmin:
         assert saved_user.is_active is True
         assert saved_user.hashed_password != DEFAULT_ADMIN_PASSWORD
 
-    async def test_does_nothing_when_admin_already_exists(
-        self, mock_session, mock_user_repository, monkeypatch
-    ):
+    async def test_does_nothing_when_admin_already_exists(self, mock_session, mock_user_repository, monkeypatch):
         """No debe crear nada si el admin por defecto ya existe."""
         from infrastructure import services
 

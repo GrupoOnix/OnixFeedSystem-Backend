@@ -1,6 +1,6 @@
 """Modelos de API para gestión de usuarios."""
 
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -30,9 +30,14 @@ class UpdateUserRoleRequestModel(BaseModel):
 
 
 class ResetPasswordRequestModel(BaseModel):
-    """Request para resetear la contraseña de un usuario."""
+    """Request para resetear la contraseña de un usuario (el backend genera la temporal)."""
 
-    new_password: str = Field(..., min_length=6, max_length=255)
+    new_password: Optional[str] = Field(
+        default=None,
+        min_length=6,
+        max_length=255,
+        description="Campo deprecado; el backend genera una contraseña temporal automáticamente",
+    )
 
 
 class ListUsersResponseModel(BaseModel):

@@ -31,6 +31,7 @@ class User:
         role: UserRole = UserRole.USER,
         is_superadmin: bool = False,
         is_active: bool = True,
+        must_change_password: bool = False,
     ):
         """
         Crea un nuevo usuario.
@@ -42,6 +43,7 @@ class User:
             role: Rol del usuario (user o admin)
             is_superadmin: Indica si tiene permisos de superadmin
             is_active: Indica si el usuario puede autenticarse
+            must_change_password: Indica si debe cambiar la contraseña en el próximo login
 
         Raises:
             ValueError: Si username o full_name están vacíos
@@ -60,6 +62,7 @@ class User:
         self._role = role
         self._is_superadmin = is_superadmin
         self._is_active = is_active
+        self._must_change_password = must_change_password
         self._created_at = datetime.now(timezone.utc)
         self._updated_at = datetime.now(timezone.utc)
 
@@ -103,6 +106,11 @@ class User:
         return self._is_active
 
     @property
+    def must_change_password(self) -> bool:
+        """Indica si el usuario debe cambiar su contraseña."""
+        return self._must_change_password
+
+    @property
     def created_at(self) -> datetime:
         """Fecha de creación del usuario."""
         return self._created_at
@@ -116,11 +124,31 @@ class User:
     # MÉTODOS DE DOMINIO
     # =========================================================================
 
-    def change_password(self, new_hashed_password: str) -> None:
-        """Actualiza el hash de contraseña del usuario."""
+    def change_password(self, new_hashed_password: str, *, reset_must_change: bool = False) -> None:
+        """
+        Actualiza el hash de contraseña del usuario.
+
+        Args:
+            new_hashed_password: Nuevo hash de contraseña
+            reset_must_change: Si es True, limpia el flag must_change_password
+        """
         if not new_hashed_password or not new_hashed_password.strip():
             raise ValueError("El hash de contraseña no puede estar vacío")
         self._hashed_password = new_hashed_password
+        if reset_must_change:
+            self._must_change_password = False
+        self._updated_at = datetime.now(timezone.utc)
+
+    def force_password_change(self, new_hashed_password: str) -> None:
+        """
+        Fuerza el cambio de contraseña en el próximo login.
+
+        Usado por superadmins al resetear la contraseña de un usuario.
+        """
+        if not new_hashed_password or not new_hashed_password.strip():
+            raise ValueError("El hash de contraseña no puede estar vacío")
+        self._hashed_password = new_hashed_password
+        self._must_change_password = True
         self._updated_at = datetime.now(timezone.utc)
 
     def update_role(self, role: UserRole) -> None:
@@ -168,6 +196,10 @@ class User:
         """Solo para uso del repositorio al reconstruir desde BD."""
         self._updated_at = updated_at
 
+    def _set_must_change_password(self, must_change_password: bool) -> None:
+        """Solo para uso del repositorio al reconstruir desde BD."""
+        self._must_change_password = must_change_password
+
     # =========================================================================
     # FACTORY METHOD
     # =========================================================================
@@ -181,6 +213,7 @@ class User:
         role: UserRole = UserRole.USER,
         is_superadmin: bool = False,
         is_active: bool = True,
+        must_change_password: bool = False,
     ) -> "User":
         """Factory method para crear un nuevo usuario."""
         return cls(
@@ -190,6 +223,7 @@ class User:
             role=role,
             is_superadmin=is_superadmin,
             is_active=is_active,
+            must_change_password=must_change_password,
         )
 
     @classmethod
@@ -202,6 +236,7 @@ class User:
         role: UserRole,
         is_superadmin: bool,
         is_active: bool,
+        must_change_password: bool,
         created_at: datetime,
         updated_at: datetime,
     ) -> "User":
@@ -213,6 +248,7 @@ class User:
             role=role,
             is_superadmin=is_superadmin,
             is_active=is_active,
+            must_change_password=must_change_password,
         )
         user._set_id(user_id)
         user._set_created_at(created_at)

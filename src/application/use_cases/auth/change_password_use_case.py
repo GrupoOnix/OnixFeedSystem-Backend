@@ -41,5 +41,5 @@ class ChangePasswordUseCase:
             raise ValueError("La nueva contraseña debe tener al menos 6 caracteres")
 
         new_hashed = self.password_service.hash_password(request.new_password)
-        user.change_password(new_hashed)
+        user.change_password(new_hashed, reset_must_change=True)
         await self.user_repository.save(user)

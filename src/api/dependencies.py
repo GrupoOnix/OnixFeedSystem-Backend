@@ -2118,11 +2118,11 @@ async def _extract_token(
     return parts[1]
 
 
-async def get_current_user(
+async def _get_current_user_base(
     token: str = Depends(_extract_token),
     use_case: GetCurrentUserUseCase = Depends(get_get_current_user_use_case),
 ) -> UserResponse:
-    """Dependencia que devuelve el usuario autenticado."""
+    """Base que devuelve el usuario autenticado sin verificar must_change_password."""
     try:
         return await use_case.execute(token)
     except TokenError as exc:
@@ -2131,6 +2131,32 @@ async def get_current_user(
             detail=str(exc),
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+async def get_current_user(
+    current_user: UserResponse = Depends(_get_current_user_base),
+) -> UserResponse:
+    """Dependencia que devuelve el usuario autenticado y bloquea si debe cambiar contraseña."""
+    if current_user.must_change_password:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Debes cambiar tu contraseña antes de continuar",
+        )
+    return current_user
+
+
+async def get_current_user_for_password_change(
+    current_user: UserResponse = Depends(_get_current_user_base),
+) -> UserResponse:
+    """Dependencia para el endpoint de cambio de contraseña; no bloquea por must_change_password."""
+    return current_user
+
+
+async def get_current_user_read(
+    current_user: UserResponse = Depends(_get_current_user_base),
+) -> UserResponse:
+    """Dependencia para lectura del usuario actual; no bloquea por must_change_password."""
+    return current_user
 
 
 async def get_current_admin_user(
@@ -2186,6 +2212,10 @@ ResetUserPasswordUseCaseDep = Annotated[ResetUserPasswordUseCase, Depends(get_re
 # ============================================================================
 
 CurrentUserDep = Annotated[UserResponse, Depends(get_current_user)]
+
+CurrentUserForPasswordChangeDep = Annotated[UserResponse, Depends(get_current_user_for_password_change)]
+
+CurrentUserReadDep = Annotated[UserResponse, Depends(get_current_user_read)]
 
 CurrentAdminUserDep = Annotated[UserResponse, Depends(get_current_admin_user)]
 
