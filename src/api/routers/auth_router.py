@@ -28,7 +28,7 @@ async def login(
     """
     Inicia sesión con username y password.
 
-    Devuelve un JWT de acceso válido por 2 horas.
+    Devuelve un JWT de acceso válido por 24 horas.
     """
     try:
         dto = LoginRequest(

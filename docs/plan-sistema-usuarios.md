@@ -10,7 +10,7 @@
 | Tema | Decisión |
 |------|----------|
 | Login | `username` + `password` |
-| Token | JWT con PyJWT, expira en **2 horas**, sin refresh tokens |
+| Token | JWT con PyJWT, expira en **24 horas**, sin refresh tokens |
 | Password hashing | `bcrypt` directo |
 | Roles | `user` y `admin`; `adminOnix` es **superadmin** (`is_superadmin=True`) |
 | `operator_id` en sesiones | UUID del usuario autenticado, guardado como string |
@@ -35,7 +35,7 @@ bcrypt==4.2.0
 ```env
 JWT_SECRET_KEY=cambia-esto-en-produccion
 JWT_ALGORITHM=HS256
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=120
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=1440
 ```
 
 ---
