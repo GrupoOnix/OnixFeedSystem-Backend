@@ -22,6 +22,8 @@ from api.dependencies import (
     get_list_last_valid_cyclic_feeding_configs_use_case,
     get_list_last_valid_manual_feeding_configs_use_case,
     get_pause_feeding_use_case,
+    get_scheduled_feeding_plan_repo,
+    get_scheduled_feeding_planner,
     get_resume_feeding_use_case,
     get_simulated_machine,
     get_start_cyclic_feeding_use_case,
@@ -66,6 +68,9 @@ from api.models.feeding_models import (
     FeedingSessionStatusResponse,
     ManualFeedingRequest,
     ManualFeedingResponse,
+    ScheduledFeedingPlanRequest,
+    ScheduledFeedingPlanResponse,
+    ToggleScheduledFeedingPlanRequest,
     PauseFeedingRequest,
     RateChartPoint,
     ResumeFeedingRequest,
@@ -117,6 +122,7 @@ from application.use_cases.feeding.get_daily_feeding_summary_use_case import (
 from application.use_cases.feeding.get_feeding_rate_timeline_use_case import (
     GetFeedingRateTimelineUseCase,
 )
+from application.services.scheduled_feeding_planner import ScheduledFeedingPlanner
 from domain.entities.feeding_event import FeedingEventType
 from domain.entities.feeding_session import SessionStatus
 from domain.exceptions import FeedingLineUnavailableException
@@ -131,10 +137,127 @@ from infrastructure.persistence.repositories.silo_inventory_repository import (
 )
 from infrastructure.persistence.repositories.system_config_repository import SystemConfigRepository
 from infrastructure.persistence.repositories.user_repository import UserRepository
+from infrastructure.persistence.repositories.scheduled_feeding_plan_repository import (
+    ScheduledFeedingPlanRepository,
+)
+from infrastructure.persistence.models.scheduled_feeding_plan_model import (
+    ScheduledFeedingPlanModel,
+)
 from infrastructure.services.simulated_machine import SimulatedMachine
 
 
 router = APIRouter(prefix="/feeding", tags=["Feeding"])
+
+
+def _scheduled_plan_response(plan: ScheduledFeedingPlanModel) -> ScheduledFeedingPlanResponse:
+    cage_plans = plan.cage_plans
+    return ScheduledFeedingPlanResponse(
+        id=str(plan.id),
+        name=plan.name,
+        line_id=str(plan.line_id),
+        group_id=str(plan.group_id),
+        doser_id=str(plan.doser_id),
+        silo_id=str(plan.silo_id),
+        start_time=plan.start_time,
+        end_time=plan.end_time,
+        timezone=plan.timezone,
+        blower_power_percentage=plan.blower_power_percentage,
+        wait_after_visit_seconds=plan.wait_after_visit_seconds,
+        is_active=plan.is_active,
+        total_rounds=plan.total_rounds,
+        total_requested_kg=plan.total_requested_kg,
+        total_planned_kg=plan.total_planned_kg,
+        rounding_excess_kg=round(plan.total_planned_kg - plan.total_requested_kg, 6),
+        estimated_total_seconds=plan.estimated_total_seconds,
+        window_seconds=0,
+        remaining_seconds=0,
+        cage_plans=cage_plans,
+        last_run_on=plan.last_run_on,
+        last_session_id=plan.last_session_id,
+        last_error=plan.last_error,
+    )
+
+
+@router.post("/scheduled/preview", response_model=ScheduledFeedingPlanResponse)
+async def preview_scheduled_feeding_plan(
+    current_user: CurrentUserDep,
+    request: ScheduledFeedingPlanRequest,
+    planner: Annotated[ScheduledFeedingPlanner, Depends(get_scheduled_feeding_planner)],
+) -> ScheduledFeedingPlanResponse:
+    try:
+        return await planner.calculate(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.get("/scheduled", response_model=list[ScheduledFeedingPlanResponse])
+async def list_scheduled_feeding_plans(
+    current_user: CurrentUserDep,
+    repository: Annotated[ScheduledFeedingPlanRepository, Depends(get_scheduled_feeding_plan_repo)],
+) -> list[ScheduledFeedingPlanResponse]:
+    return [_scheduled_plan_response(plan) for plan in await repository.list()]
+
+
+@router.post("/scheduled", response_model=ScheduledFeedingPlanResponse, status_code=status.HTTP_201_CREATED)
+async def create_scheduled_feeding_plan(
+    current_user: CurrentUserDep,
+    request: ScheduledFeedingPlanRequest,
+    planner: Annotated[ScheduledFeedingPlanner, Depends(get_scheduled_feeding_planner)],
+    repository: Annotated[ScheduledFeedingPlanRepository, Depends(get_scheduled_feeding_plan_repo)],
+) -> ScheduledFeedingPlanResponse:
+    try:
+        calculated = await planner.calculate(request)
+        plan = ScheduledFeedingPlanModel(
+            line_id=UUID(calculated.line_id),
+            group_id=UUID(calculated.group_id),
+            doser_id=UUID(calculated.doser_id),
+            silo_id=UUID(calculated.silo_id),
+            name=calculated.name,
+            start_time=calculated.start_time,
+            end_time=calculated.end_time,
+            timezone=calculated.timezone,
+            blower_power_percentage=calculated.blower_power_percentage,
+            wait_after_visit_seconds=calculated.wait_after_visit_seconds,
+            is_active=calculated.is_active,
+            total_rounds=calculated.total_rounds,
+            total_requested_kg=calculated.total_requested_kg,
+            total_planned_kg=calculated.total_planned_kg,
+            estimated_total_seconds=calculated.estimated_total_seconds,
+            cage_plans=[item.model_dump() for item in calculated.cage_plans],
+            created_by_id=UUID(current_user.id),
+            created_by_name=current_user.username,
+        )
+        await repository.save(plan)
+        return _scheduled_plan_response(plan)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.patch("/scheduled/{plan_id}/active", response_model=ScheduledFeedingPlanResponse)
+async def toggle_scheduled_feeding_plan(
+    current_user: CurrentUserDep,
+    plan_id: UUID,
+    request: ToggleScheduledFeedingPlanRequest,
+    repository: Annotated[ScheduledFeedingPlanRepository, Depends(get_scheduled_feeding_plan_repo)],
+) -> ScheduledFeedingPlanResponse:
+    plan = await repository.find_by_id(plan_id)
+    if not plan:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan programado no encontrado")
+    plan.is_active = request.is_active
+    await repository.save(plan)
+    return _scheduled_plan_response(plan)
+
+
+@router.delete("/scheduled/{plan_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_scheduled_feeding_plan(
+    current_user: CurrentUserDep,
+    plan_id: UUID,
+    repository: Annotated[ScheduledFeedingPlanRepository, Depends(get_scheduled_feeding_plan_repo)],
+) -> None:
+    plan = await repository.find_by_id(plan_id)
+    if not plan:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan programado no encontrado")
+    await repository.delete(plan)
 
 
 @router.post("/manual/start", status_code=status.HTTP_201_CREATED)

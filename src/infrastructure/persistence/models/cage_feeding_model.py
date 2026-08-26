@@ -5,7 +5,7 @@ from typing import Optional, TYPE_CHECKING
 from uuid import UUID
 
 from datetime import timezone
-from sqlalchemy import Column, DateTime
+from sqlalchemy import JSON, Column, DateTime
 from sqlmodel import Field, SQLModel, Relationship
 
 from domain.entities.cage_feeding import CageFeeding, CageFeedingMode, CageFeedingStatus
@@ -57,6 +57,7 @@ class CageFeedingModel(SQLModel, table=True):
     programmed_kg: float = Field(nullable=False)
     programmed_visits: int = Field(nullable=False)
     rate_kg_per_min: float = Field(nullable=False)
+    visit_quantities_kg: Optional[list[float]] = Field(default=None, sa_column=Column(JSON, nullable=True))
 
     # Progreso
     dispensed_kg: float = Field(default=0.0)
@@ -86,6 +87,7 @@ class CageFeedingModel(SQLModel, table=True):
             programmed_kg=cage_feeding.programmed_kg,
             programmed_visits=cage_feeding.programmed_visits,
             rate_kg_per_min=cage_feeding.rate_kg_per_min,
+            visit_quantities_kg=cage_feeding.visit_quantities_kg,
             dispensed_kg=cage_feeding.dispensed_kg,
             completed_visits=cage_feeding.completed_visits,
             status=cage_feeding.status.value,
@@ -106,6 +108,7 @@ class CageFeedingModel(SQLModel, table=True):
         cage_feeding._programmed_kg = self.programmed_kg
         cage_feeding._programmed_visits = self.programmed_visits
         cage_feeding._rate_kg_per_min = self.rate_kg_per_min
+        cage_feeding._visit_quantities_kg = self.visit_quantities_kg
         cage_feeding._dispensed_kg = self.dispensed_kg
         cage_feeding._completed_visits = self.completed_visits
         cage_feeding._status = CageFeedingStatus(self.status)

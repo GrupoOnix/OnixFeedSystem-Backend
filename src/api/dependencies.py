@@ -103,6 +103,7 @@ from application.use_cases.device_control import (
 #     UpdateFeedingParametersUseCase,
 # )
 from application.services.feeding_orchestrator import FeedingOrchestrator
+from application.services.scheduled_feeding_planner import ScheduledFeedingPlanner
 from application.use_cases.feeding.control_feeding_use_cases import (
     CancelFeedingUseCase,
     PauseFeedingUseCase,
@@ -198,6 +199,7 @@ from infrastructure.persistence.repositories import (
     LastValidManualFeedingConfigRepository,
     MortalityLogRepository,
     ScheduledAlertRepository,
+    ScheduledFeedingPlanRepository,
     SiloRepository,
     SiloInventoryRepository,
     UserRepository,
@@ -381,6 +383,12 @@ async def get_last_selected_feeding_mode_repo(
     return LastSelectedFeedingModeRepository(session)
 
 
+async def get_scheduled_feeding_plan_repo(
+    session: AsyncSession = Depends(get_session),
+) -> ScheduledFeedingPlanRepository:
+    return ScheduledFeedingPlanRepository(session)
+
+
 async def get_user_repo(
     session: AsyncSession = Depends(get_session),
 ) -> UserRepository:
@@ -433,6 +441,27 @@ def get_feeding_orchestrator(
     return FeedingOrchestrator(
         machine=machine,
         session_factory=async_session_maker,
+    )
+
+
+async def get_scheduled_feeding_planner(
+    line_repo: FeedingLineRepository = Depends(get_line_repo),
+    cage_repo: CageRepository = Depends(get_cage_repo),
+    cage_group_repo: CageGroupRepository = Depends(get_cage_group_repo),
+    doser_repo: DoserRepository = Depends(get_doser_repo),
+    silo_repo: SiloRepository = Depends(get_silo_repo),
+    slot_assignment_repo: SlotAssignmentRepository = Depends(get_slot_assignment_repo),
+    system_config_repo: SystemConfigRepository = Depends(get_system_config_repo),
+) -> ScheduledFeedingPlanner:
+    config = await system_config_repo.get()
+    return ScheduledFeedingPlanner(
+        line_repository=line_repo,
+        cage_repository=cage_repo,
+        cage_group_repository=cage_group_repo,
+        doser_repository=doser_repo,
+        silo_repository=silo_repo,
+        slot_assignment_repository=slot_assignment_repo,
+        selector_positioning_seconds=float(config.selector_positioning_time_seconds),
     )
 
 

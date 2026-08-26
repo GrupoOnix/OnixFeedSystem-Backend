@@ -26,6 +26,7 @@ from .mortality_log_model import MortalityLogModel
 # from .operation_event_model import OperationEventModel  # REMOVED - Old feeding system
 from .population_event_model import PopulationEventModel
 from .scheduled_alert_model import ScheduledAlertModel
+from .scheduled_feeding_plan_model import ScheduledFeedingPlanModel
 from .selector_model import SelectorModel
 from .sensor_model import SensorModel
 from .silo_model import SiloModel
@@ -73,6 +74,7 @@ __all__ = [
     "MortalityLogModel",
     # "OperationEventModel",  # REMOVED - Old feeding system
     "ScheduledAlertModel",
+    "ScheduledFeedingPlanModel",
     "SystemConfigModel",
     "UserModel",
 ]

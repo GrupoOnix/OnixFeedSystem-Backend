@@ -31,6 +31,7 @@ class CageFeeding:
         programmed_visits: int,
         rate_kg_per_min: float,
         mode: CageFeedingMode = CageFeedingMode.NORMAL,
+        visit_quantities_kg: list[float] | None = None,
     ):
         self._id = str(uuid.uuid4())
         self._feeding_session_id = feeding_session_id
@@ -45,13 +46,14 @@ class CageFeeding:
             raise ValueError("El orden de ejecución debe ser mayor a 0")
         self._execution_order = execution_order
 
-        if mode != CageFeedingMode.FASTING and programmed_kg <= 0:
+        if mode == CageFeedingMode.NORMAL and programmed_kg <= 0:
             raise ValueError("La cantidad programada debe ser mayor a 0")
         self._programmed_kg = programmed_kg
 
         if mode != CageFeedingMode.FASTING and programmed_visits <= 0:
             raise ValueError("Las visitas programadas deben ser mayor a 0")
         self._programmed_visits = programmed_visits
+        self._visit_quantities_kg = list(visit_quantities_kg) if visit_quantities_kg is not None else None
 
         self._dispensed_kg: float = 0.0
         self._completed_visits: int = 0
@@ -97,6 +99,10 @@ class CageFeeding:
         return self._completed_visits
 
     @property
+    def visit_quantities_kg(self):
+        return list(self._visit_quantities_kg) if self._visit_quantities_kg is not None else None
+
+    @property
     def status(self):
         return self._status
 
@@ -119,7 +125,7 @@ class CageFeeding:
         self._rate_kg_per_min = rate_kg_per_min
 
     def set_programmed_kg(self, programmed_kg: float):
-        if self._mode != CageFeedingMode.FASTING and programmed_kg <= 0:
+        if self._mode == CageFeedingMode.NORMAL and programmed_kg <= 0:
             raise ValueError("La cantidad programada debe ser mayor a 0")
         self._programmed_kg = programmed_kg
 

@@ -150,7 +150,6 @@ def test_transfer_silo_stock_returns_transferred_batches(client):
             "destination_silo_id": destination_silo_id,
             "quantity_kg": 100,
             "operator_id": str(uuid4()),
-            "reason": "Balanceo de inventario",
         },
     )
 

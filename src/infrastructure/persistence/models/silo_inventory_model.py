@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Index, String, Text
+from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlmodel import Field, SQLModel
 
@@ -51,7 +51,6 @@ class SiloInventoryMovementModel(SQLModel, table=True):
     )
     movement_type: str = Field(sa_column=Column(String(30), nullable=False))
     operator_id: str = Field(sa_column=Column(String, nullable=False))
-    reason: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
     quantity_delta_mg: int = Field(sa_column=Column(BigInteger, nullable=False, default=0))
     previous_quantity_mg: int = Field(sa_column=Column(BigInteger, nullable=False))
     new_quantity_mg: int = Field(sa_column=Column(BigInteger, nullable=False))

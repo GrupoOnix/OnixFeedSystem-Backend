@@ -44,7 +44,6 @@ async def test_transfer_silo_stock_maps_repository_result():
             destination_silo_id=str(destination_silo_id),
             quantity_kg=75,
             operator_id="operator-1",
-            reason="Balanceo",
         ),
     )
 
@@ -53,7 +52,6 @@ async def test_transfer_silo_stock_maps_repository_result():
         destination_silo_id,
         75,
         "operator-1",
-        reason="Balanceo",
     )
     assert response.source_silo_id == str(source_silo_id)
     assert response.destination_silo_id == str(destination_silo_id)

@@ -28,9 +28,6 @@ class CreateSiloBatchUseCase:
             UUID(request.food_id),
             request.quantity_kg,
             request.operator_id,
-            before_batch_id=UUID(request.before_batch_id) if request.before_batch_id else None,
-            after_batch_id=UUID(request.after_batch_id) if request.after_batch_id else None,
-            reason=request.reason,
         )
         return to_batch_dto(batch)
 
@@ -46,7 +43,6 @@ class UpdateSiloBatchUseCase:
             request.operator_id,
             food_id=UUID(request.food_id) if request.food_id else None,
             remaining_quantity_kg=request.remaining_quantity_kg,
-            reason=request.reason,
         )
         return to_batch_dto(batch)
 
@@ -62,7 +58,6 @@ class MoveSiloBatchUseCase:
             request.operator_id,
             before_batch_id=UUID(request.before_batch_id) if request.before_batch_id else None,
             after_batch_id=UUID(request.after_batch_id) if request.after_batch_id else None,
-            reason=request.reason,
         )
         return to_batch_dto(batch)
 
@@ -76,7 +71,6 @@ class WithdrawSiloBatchUseCase:
             UUID(silo_id),
             UUID(batch_id),
             request.operator_id,
-            reason=request.reason,
         )
         return to_batch_dto(batch)
 
@@ -95,7 +89,6 @@ class TransferSiloStockUseCase:
             UUID(request.destination_silo_id),
             request.quantity_kg,
             request.operator_id,
-            reason=request.reason,
         )
         return TransferSiloStockResponse(
             source_silo_id=source_silo_id,

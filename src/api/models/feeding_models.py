@@ -182,6 +182,10 @@ class CageConfigInput(BaseModel):
         ),
     )
     mode: str = Field(description="Modo de alimentación: 'NORMAL', 'PAUSE' o 'FASTING'")
+    visit_quantities_kg: Optional[List[float]] = Field(
+        default=None,
+        description="Plan opcional por ronda. Permite visitas vacías y cantidades distintas.",
+    )
 
     @field_validator("cage_id")
     @classmethod
@@ -201,11 +205,19 @@ class CageConfigInput(BaseModel):
 
     @model_validator(mode="after")
     def validate_quantities_by_mode(self) -> "CageConfigInput":
-        if self.mode != "FASTING":
+        if self.mode == "NORMAL":
             if self.quantity_kg <= 0:
                 raise ValueError(f"quantity_kg debe ser > 0 para el modo '{self.mode}'")
             if self.rate_kg_per_min <= 0:
                 raise ValueError(f"rate_kg_per_min debe ser > 0 para el modo '{self.mode}'")
+        if self.mode != "FASTING":
+            if self.visit_quantities_kg is not None:
+                if any(quantity < 0 for quantity in self.visit_quantities_kg):
+                    raise ValueError("visit_quantities_kg no puede contener valores negativos")
+                if self.visits is not None and len(self.visit_quantities_kg) != self.visits:
+                    raise ValueError("visit_quantities_kg debe tener una entrada por visita")
+                if round(sum(self.visit_quantities_kg), 6) != round(self.quantity_kg, 6):
+                    raise ValueError("visit_quantities_kg debe sumar quantity_kg")
         return self
 
 
@@ -254,6 +266,100 @@ class CyclicFeedingRequest(BaseModel):
             if cage_config.mode != "FASTING" and cage_config.visits is None and self.visits is None:
                 raise ValueError("Cada jaula activa debe declarar visits o el request debe incluir visits global")
         return self
+
+
+class ScheduledPlanCageInput(BaseModel):
+    """Meta diaria de una jaula usada para calcular una programación."""
+
+    cage_id: str
+    daily_target_kg: float = Field(ge=0)
+    mode: str = "NORMAL"
+
+    @field_validator("cage_id")
+    @classmethod
+    def validate_uuid(cls, value: str) -> str:
+        try:
+            uuid.UUID(value)
+        except ValueError as exc:
+            raise ValueError(f"'{value}' no es un UUID válido") from exc
+        return value
+
+    @field_validator("mode")
+    @classmethod
+    def validate_mode(cls, value: str) -> str:
+        if value not in ("NORMAL", "PAUSE", "FASTING"):
+            raise ValueError("mode debe ser 'NORMAL', 'PAUSE' o 'FASTING'")
+        return value
+
+
+class ScheduledFeedingPlanRequest(BaseModel):
+    """Datos necesarios para calcular y guardar un plan diario."""
+
+    name: str = Field(min_length=1, max_length=120)
+    line_id: str
+    group_id: str
+    doser_id: str
+    silo_id: str
+    start_time: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    end_time: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    timezone: str = Field(default="America/Santiago", max_length=64)
+    blower_power_percentage: float = Field(default=70, ge=30, le=100)
+    wait_after_visit_seconds: float = Field(default=0, ge=0)
+    is_active: bool = True
+    cage_configs: List[ScheduledPlanCageInput] = Field(min_length=1)
+
+    @field_validator("line_id", "group_id", "doser_id", "silo_id")
+    @classmethod
+    def validate_uuid(cls, value: str) -> str:
+        try:
+            uuid.UUID(value)
+        except ValueError as exc:
+            raise ValueError(f"'{value}' no es un UUID válido") from exc
+        return value
+
+
+class ScheduledPlanCageResponse(BaseModel):
+    cage_id: str
+    cage_name: str
+    mode: str
+    rate_kg_per_min: float
+    requested_kg: float
+    grams_per_pulse: float | None
+    planned_pulses: int
+    planned_kg: float
+    rounding_excess_kg: float
+    pulse_schedule: List[int]
+    quantity_schedule_kg: List[float]
+
+
+class ScheduledFeedingPlanResponse(BaseModel):
+    id: Optional[str] = None
+    name: str
+    line_id: str
+    group_id: str
+    doser_id: str
+    silo_id: str
+    start_time: str
+    end_time: str
+    timezone: str
+    blower_power_percentage: float
+    wait_after_visit_seconds: float
+    is_active: bool
+    total_rounds: int
+    total_requested_kg: float
+    total_planned_kg: float
+    rounding_excess_kg: float
+    estimated_total_seconds: float
+    window_seconds: float
+    remaining_seconds: float
+    cage_plans: List[ScheduledPlanCageResponse]
+    last_run_on: Optional[str] = None
+    last_session_id: Optional[str] = None
+    last_error: Optional[str] = None
+
+
+class ToggleScheduledFeedingPlanRequest(BaseModel):
+    is_active: bool
 
 
 class CyclicFeedingResponse(BaseModel):

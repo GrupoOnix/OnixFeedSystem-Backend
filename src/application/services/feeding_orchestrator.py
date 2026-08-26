@@ -107,7 +107,16 @@ class FeedingOrchestrator:
                 actual_blow_before = blow_before_seconds if is_first_visit else 0.0
                 actual_blow_after = blow_after_seconds if is_last_visit else 0.0
 
-                is_empty_visit = round_number >= cage_feeding.programmed_visits
+                planned_quantities = cage_feeding.visit_quantities_kg
+                planned_quantity = (
+                    planned_quantities[round_number]
+                    if planned_quantities is not None and round_number < len(planned_quantities)
+                    else None
+                )
+                is_empty_visit = (
+                    round_number >= cage_feeding.programmed_visits
+                    or planned_quantity == 0
+                )
 
                 if is_empty_visit:
                     slot_number = slot_map[cage_feeding.cage_id]
@@ -122,6 +131,7 @@ class FeedingOrchestrator:
                         blow_before_seconds=actual_blow_before,
                         blow_after_seconds=actual_blow_after,
                         selector_positioning_seconds=selector_positioning_seconds,
+                        count_completed_visit=round_number < cage_feeding.programmed_visits,
                     )
                 elif cage_feeding.mode == CageFeedingMode.PAUSE:
                     await self._execute_pause(
@@ -132,6 +142,7 @@ class FeedingOrchestrator:
                         blow_after_seconds=actual_blow_after,
                         transport_time_seconds=transport_time,
                         selector_positioning_seconds=selector_positioning_seconds,
+                        target_kg=planned_quantity,
                     )
                 else:
                     slot_number = slot_map[cage_feeding.cage_id]
@@ -147,6 +158,7 @@ class FeedingOrchestrator:
                         blow_before_seconds=actual_blow_before,
                         blow_after_seconds=actual_blow_after,
                         selector_positioning_seconds=selector_positioning_seconds,
+                        target_kg=planned_quantity,
                     )
 
                 completed_visit_executions += 1
@@ -266,6 +278,7 @@ class FeedingOrchestrator:
         blow_before_seconds: float = 0.0,
         blow_after_seconds: float = 0.0,
         selector_positioning_seconds: float = 5.0,
+        count_completed_visit: bool = False,
     ) -> None:
         await self._execute_visit(
             session=session,
@@ -281,7 +294,7 @@ class FeedingOrchestrator:
             selector_positioning_seconds=selector_positioning_seconds,
             target_kg=0.0,
             doser_rate_kg_per_min=0.0,
-            count_completed_visit=False,
+            count_completed_visit=count_completed_visit,
             is_empty_visit=True,
         )
 

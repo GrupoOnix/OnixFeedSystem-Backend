@@ -114,13 +114,7 @@ class SiloInventoryRepository:
         food_id: UUID,
         quantity_kg: float,
         operator_id: str,
-        *,
-        before_batch_id: Optional[UUID] = None,
-        after_batch_id: Optional[UUID] = None,
-        reason: Optional[str] = None,
     ) -> SiloInventoryBatch:
-        if before_batch_id and after_batch_id:
-            raise ValueError("Debe indicar before_batch_id o after_batch_id, no ambos")
         quantity_mg = self._to_mg(quantity_kg)
         if quantity_mg <= 0:
             raise ValueError("La cantidad debe ser mayor a cero")
@@ -130,15 +124,31 @@ class SiloInventoryRepository:
         if summary.total_stock_mg + quantity_mg > silo.capacity_mg:
             raise ValueError("La carga supera la capacidad disponible del silo")
         batches = await self._active_models(silo_id, lock=True)
-        insert_index = self._resolve_insert_index(batches, before_batch_id, after_batch_id)
-        for index, batch in enumerate(batches):
-            batch.position = index + (2 if index >= insert_index else 1)
         now = datetime.now(timezone.utc)
+        top_batch = batches[-1] if batches else None
+        if top_batch and top_batch.food_id == food_id:
+            previous_quantity_mg = top_batch.remaining_quantity_mg
+            top_batch.remaining_quantity_mg += quantity_mg
+            top_batch.updated_at = now
+            self._add_movement(
+                top_batch,
+                SiloInventoryMovementType.INITIAL_LOAD,
+                operator_id,
+                previous_quantity_mg=previous_quantity_mg,
+                new_quantity_mg=top_batch.remaining_quantity_mg,
+                previous_food_id=food_id,
+                new_food_id=food_id,
+                previous_position=top_batch.position,
+                new_position=top_batch.position,
+            )
+            await self.session.flush()
+            return await self.get_batch(silo_id, top_batch.id)
+
         model = SiloInventoryBatchModel(
             silo_id=silo_id,
             food_id=food_id,
             remaining_quantity_mg=quantity_mg,
-            position=insert_index + 1,
+            position=len(batches) + 1,
             status=SiloInventoryBatchStatus.ACTIVE.value,
             received_at=now,
             created_by_operator_id=operator_id,
@@ -151,7 +161,6 @@ class SiloInventoryRepository:
             model,
             SiloInventoryMovementType.INITIAL_LOAD,
             operator_id,
-            reason=reason,
             previous_quantity_mg=0,
             new_quantity_mg=quantity_mg,
             new_food_id=food_id,
@@ -175,7 +184,6 @@ class SiloInventoryRepository:
         *,
         food_id: Optional[UUID] = None,
         remaining_quantity_kg: Optional[float] = None,
-        reason: Optional[str] = None,
     ) -> SiloInventoryBatch:
         silo = await self._lock_silo(silo_id)
         model = await self._batch_model(silo_id, batch_id, lock=True)
@@ -191,7 +199,6 @@ class SiloInventoryRepository:
                 model,
                 SiloInventoryMovementType.FOOD_CHANGED,
                 operator_id,
-                reason=reason,
                 previous_quantity_mg=model.remaining_quantity_mg,
                 new_quantity_mg=model.remaining_quantity_mg,
                 previous_food_id=previous_food_id,
@@ -215,7 +222,6 @@ class SiloInventoryRepository:
                 model,
                 SiloInventoryMovementType.ADJUSTMENT,
                 operator_id,
-                reason=reason,
                 previous_quantity_mg=previous_quantity_mg,
                 new_quantity_mg=new_quantity_mg,
             )
@@ -232,7 +238,6 @@ class SiloInventoryRepository:
         *,
         before_batch_id: Optional[UUID] = None,
         after_batch_id: Optional[UUID] = None,
-        reason: Optional[str] = None,
     ) -> SiloInventoryBatch:
         if before_batch_id and after_batch_id:
             raise ValueError("Debe indicar before_batch_id o after_batch_id, no ambos")
@@ -252,7 +257,6 @@ class SiloInventoryRepository:
             target,
             SiloInventoryMovementType.REORDERED,
             operator_id,
-            reason=reason,
             previous_quantity_mg=target.remaining_quantity_mg,
             new_quantity_mg=target.remaining_quantity_mg,
             previous_position=previous_position,
@@ -266,7 +270,6 @@ class SiloInventoryRepository:
         silo_id: UUID,
         batch_id: UUID,
         operator_id: str,
-        reason: Optional[str] = None,
     ) -> SiloInventoryBatch:
         await self._lock_silo(silo_id)
         model = await self._batch_model(silo_id, batch_id, lock=True)
@@ -280,7 +283,6 @@ class SiloInventoryRepository:
             model,
             SiloInventoryMovementType.WITHDRAWAL,
             operator_id,
-            reason=reason,
             previous_quantity_mg=previous,
             new_quantity_mg=0,
         )
@@ -294,8 +296,6 @@ class SiloInventoryRepository:
         destination_silo_id: UUID,
         quantity_kg: float,
         operator_id: str,
-        *,
-        reason: Optional[str] = None,
     ) -> list[SiloInventoryBatch]:
         if source_silo_id == destination_silo_id:
             raise ValueError("El silo de origen y destino deben ser distintos")
@@ -337,7 +337,6 @@ class SiloInventoryRepository:
                 source_batch,
                 SiloInventoryMovementType.TRANSFER_OUT,
                 operator_id,
-                reason=reason,
                 previous_quantity_mg=previous_source_mg,
                 new_quantity_mg=source_batch.remaining_quantity_mg,
                 previous_food_id=source_batch.food_id,
@@ -363,7 +362,6 @@ class SiloInventoryRepository:
                 destination_batch,
                 SiloInventoryMovementType.TRANSFER_IN,
                 operator_id,
-                reason=reason,
                 previous_quantity_mg=0,
                 new_quantity_mg=transferred_mg,
                 new_food_id=destination_batch.food_id,
@@ -762,7 +760,6 @@ class SiloInventoryRepository:
         movement_type: SiloInventoryMovementType,
         operator_id: str,
         *,
-        reason: Optional[str] = None,
         previous_quantity_mg: int,
         new_quantity_mg: int,
         previous_food_id: Optional[UUID] = None,
@@ -778,7 +775,6 @@ class SiloInventoryRepository:
                 batch_id=batch.id,
                 movement_type=movement_type.value,
                 operator_id=operator_id,
-                reason=reason,
                 quantity_delta_mg=new_quantity_mg - previous_quantity_mg,
                 previous_quantity_mg=previous_quantity_mg,
                 new_quantity_mg=new_quantity_mg,

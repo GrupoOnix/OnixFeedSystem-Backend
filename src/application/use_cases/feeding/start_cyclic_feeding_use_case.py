@@ -34,10 +34,19 @@ from infrastructure.persistence.repositories.silo_inventory_repository import (
 
 
 def _visits_for_config(request: CyclicFeedingRequest, cfg) -> int:
+    if cfg.visit_quantities_kg is not None:
+        return len(cfg.visit_quantities_kg)
     visits = cfg.visits if cfg.visits is not None else request.visits
     if visits is None:
         raise ValueError("Cada jaula activa debe declarar visits o el request debe incluir visits global")
     return visits
+
+
+def _visit_quantities_for_config(request: CyclicFeedingRequest, cfg) -> list[float]:
+    if cfg.visit_quantities_kg is not None:
+        return list(cfg.visit_quantities_kg)
+    visits = _visits_for_config(request, cfg)
+    return [cfg.quantity_kg / visits] * visits
 
 
 def _empty_visit_duration_seconds(
@@ -116,29 +125,13 @@ class StartCyclicFeedingUseCase:
         selector_positioning_seconds = float(config.selector_positioning_time_seconds)
 
         active_visit_counts: List[int] = []
-        per_cage_visit_seconds: Dict[str, float] = {}
-        per_cage_empty_visit_seconds: Dict[str, float] = {}
+        per_cage_visit_quantities: Dict[str, list[float]] = {}
         for cfg, cage, _assignment in cage_data:
             if cfg.mode == "FASTING":
                 continue
             visits = _visits_for_config(request, cfg)
             active_visit_counts.append(visits)
-            transport_time = int(float(cage.config.transport_time_seconds))
-            kg_per_visit = round(cfg.quantity_kg / visits, 3)
-            visit_seconds = calculate_visit_duration(
-                quantity_kg=kg_per_visit,
-                rate_kg_per_min=cfg.rate_kg_per_min,
-                transport_time_seconds=transport_time,
-                blower=line.blower,
-                selector_positioning_seconds=selector_positioning_seconds,
-                include_blow_before=False,
-                include_blow_after=False,
-            )
-            per_cage_visit_seconds[cfg.cage_id] = visit_seconds
-            per_cage_empty_visit_seconds[cfg.cage_id] = _empty_visit_duration_seconds(
-                transport_time_seconds=transport_time,
-                selector_positioning_seconds=selector_positioning_seconds,
-            )
+            per_cage_visit_quantities[cfg.cage_id] = _visit_quantities_for_config(request, cfg)
         estimated_total_seconds = 0.0
         total_rounds = max(active_visit_counts, default=0)
         active_cage_count = len(active_visit_counts)
@@ -147,10 +140,26 @@ class StartCyclicFeedingUseCase:
                 if cfg.mode == "FASTING":
                     continue
                 visits = _visits_for_config(request, cfg)
-                if round_number < visits:
-                    estimated_total_seconds += per_cage_visit_seconds[cfg.cage_id]
+                quantity = (
+                    per_cage_visit_quantities[cfg.cage_id][round_number]
+                    if round_number < visits
+                    else 0.0
+                )
+                if quantity > 0:
+                    estimated_total_seconds += calculate_visit_duration(
+                        quantity_kg=quantity,
+                        rate_kg_per_min=cfg.rate_kg_per_min,
+                        transport_time_seconds=int(float(_cage.config.transport_time_seconds)),
+                        blower=line.blower,
+                        selector_positioning_seconds=selector_positioning_seconds,
+                        include_blow_before=False,
+                        include_blow_after=False,
+                    )
                 else:
-                    estimated_total_seconds += per_cage_empty_visit_seconds[cfg.cage_id]
+                    estimated_total_seconds += _empty_visit_duration_seconds(
+                        transport_time_seconds=int(float(_cage.config.transport_time_seconds)),
+                        selector_positioning_seconds=selector_positioning_seconds,
+                    )
         estimated_total_seconds += calculate_cyclic_wait_duration(
             total_rounds=total_rounds,
             active_cage_count=active_cage_count,
@@ -184,7 +193,10 @@ class StartCyclicFeedingUseCase:
             programmed_visits = 0 if mode == CageFeedingMode.FASTING else _visits_for_config(request, cfg)
 
             # Calcular kg por visita (quantity_kg del request es el total para la jaula)
-            kg_per_visit = round(cfg.quantity_kg / programmed_visits, 3) if programmed_visits > 0 else 0.0
+            visit_quantities = (
+                _visit_quantities_for_config(request, cfg) if programmed_visits > 0 else None
+            )
+            kg_per_visit = round(cfg.quantity_kg / programmed_visits, 6) if programmed_visits > 0 else 0.0
 
             cage_feeding = CageFeeding(
                 feeding_session_id=session.id,
@@ -196,6 +208,7 @@ class StartCyclicFeedingUseCase:
                 programmed_visits=programmed_visits,
                 rate_kg_per_min=cfg.rate_kg_per_min,
                 mode=mode,
+                visit_quantities_kg=visit_quantities,
             )
             cage_feedings.append(cage_feeding)
 
