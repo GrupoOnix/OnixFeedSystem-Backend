@@ -59,6 +59,7 @@ class GetFeedingRateTimelineUseCase:
         feeding_type: str | None = None,
         bucket_seconds: int = 60,
         include_series: str = "lines",
+        operator_id: str | None = None,
     ) -> FeedingRateTimelineDTO:
         if end_at <= start_at:
             raise ValueError("end_at debe ser mayor que start_at")
@@ -77,13 +78,16 @@ class GetFeedingRateTimelineUseCase:
         timezone_id = system_config.timezone_id
         ZoneInfo(timezone_id)
 
-        visits = await self._event_repository.list_rate_timeline_visits(
-            start=start_at,
-            end=end_at,
-            line_id=line_id,
-            cage_id=cage_id,
-            feeding_type=feeding_type,
-        )
+        visit_filters = {
+            "start": start_at,
+            "end": end_at,
+            "line_id": line_id,
+            "cage_id": cage_id,
+            "feeding_type": feeding_type,
+        }
+        if operator_id:
+            visit_filters["operator_id"] = operator_id
+        visits = await self._event_repository.list_rate_timeline_visits(**visit_filters)
 
         total_buckets = [_TimelineBucket() for _ in range(bucket_count)]
         series_buckets: dict[str, dict[int, _TimelineBucket]] = {}

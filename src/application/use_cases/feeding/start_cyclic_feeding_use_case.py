@@ -1,4 +1,3 @@
-import asyncio
 from typing import Dict, List
 
 from api.models.feeding_models import CyclicFeedingRequest, CyclicFeedingResponse
@@ -20,6 +19,7 @@ from domain.repositories import (
     ISystemConfigRepository,
 )
 from domain.services.feeding_time_calculator import (
+    calculate_paused_visit_duration,
     calculate_cyclic_wait_duration,
     calculate_visit_duration,
 )
@@ -30,6 +30,9 @@ from domain.value_objects.identifiers import CageGroupId, DoserId
 from domain.value_objects.measurements import Weight
 from infrastructure.persistence.repositories.silo_inventory_repository import (
     SiloInventoryRepository,
+)
+from infrastructure.persistence.repositories.feeding_execution_job_repository import (
+    FeedingExecutionJobRepository,
 )
 
 
@@ -140,12 +143,15 @@ class StartCyclicFeedingUseCase:
                 if cfg.mode == "FASTING":
                     continue
                 visits = _visits_for_config(request, cfg)
-                quantity = (
-                    per_cage_visit_quantities[cfg.cage_id][round_number]
-                    if round_number < visits
-                    else 0.0
-                )
-                if quantity > 0:
+                quantity = per_cage_visit_quantities[cfg.cage_id][round_number] if round_number < visits else 0.0
+                if cfg.mode == "PAUSE":
+                    estimated_total_seconds += calculate_paused_visit_duration(
+                        quantity_kg=quantity,
+                        rate_kg_per_min=cfg.rate_kg_per_min,
+                        transport_time_seconds=float(_cage.config.transport_time_seconds),
+                        selector_positioning_seconds=selector_positioning_seconds,
+                    )
+                elif quantity > 0:
                     estimated_total_seconds += calculate_visit_duration(
                         quantity_kg=quantity,
                         rate_kg_per_min=cfg.rate_kg_per_min,
@@ -165,8 +171,9 @@ class StartCyclicFeedingUseCase:
             active_cage_count=active_cage_count,
             wait_after_visit_seconds=request.wait_after_visit_seconds,
         )
-        # Soplido previo al inicio y posterior al final: una sola vez cada uno
-        estimated_total_seconds += blow_before + blow_after
+        # El soplado solo ocurre si existe al menos una visita física NORMAL.
+        if any(cfg.mode == "NORMAL" for cfg, _cage, _assignment in cage_data):
+            estimated_total_seconds += blow_before + blow_after
 
         # Validar horario operativo
         if not request.allow_overtime:
@@ -193,9 +200,7 @@ class StartCyclicFeedingUseCase:
             programmed_visits = 0 if mode == CageFeedingMode.FASTING else _visits_for_config(request, cfg)
 
             # Calcular kg por visita (quantity_kg del request es el total para la jaula)
-            visit_quantities = (
-                _visit_quantities_for_config(request, cfg) if programmed_visits > 0 else None
-            )
+            visit_quantities = _visit_quantities_for_config(request, cfg) if programmed_visits > 0 else None
             kg_per_visit = round(cfg.quantity_kg / programmed_visits, 6) if programmed_visits > 0 else 0.0
 
             cage_feeding = CageFeeding(
@@ -227,6 +232,20 @@ class StartCyclicFeedingUseCase:
             await self.cage_feeding_repo.save(cf)
         await self.event_repo.save(session_started_event)
         await self.inventory_repo.reserve(session.id, silo_id.value, total_programmed_kg)
+        await FeedingExecutionJobRepository(self.inventory_repo.session).enqueue(
+            session.id,
+            {
+                "line_id": request.line_id,
+                "silo_id": request.silo_id,
+                "slot_map": slot_map,
+                "blower_power_percentage": request.blower_power_percentage,
+                "transport_time_map": transport_time_map,
+                "blow_before_seconds": blow_before,
+                "blow_after_seconds": blow_after,
+                "selector_positioning_seconds": selector_positioning_seconds,
+                "wait_after_visit_seconds": request.wait_after_visit_seconds,
+            },
+        )
 
         # Crear log de actividad por cada jaula NORMAL
         for cf, cage, _assignment in cage_data:
@@ -246,25 +265,6 @@ class StartCyclicFeedingUseCase:
                     source_entity_id=session.id,
                 )
             )
-
-        await self.inventory_repo.session.commit()
-
-        # Paso 7: Lanzar orquestador en background
-        asyncio.create_task(
-            self.orchestrator.run(
-                session=session,
-                cage_feedings=cage_feedings,
-                line_id=LineId.from_string(request.line_id),
-                slot_map=slot_map,
-                silo_id=silo_id,
-                blower_power_percentage=request.blower_power_percentage,
-                transport_time_map=transport_time_map,
-                blow_before_seconds=blow_before,
-                blow_after_seconds=blow_after,
-                selector_positioning_seconds=selector_positioning_seconds,
-                wait_after_visit_seconds=request.wait_after_visit_seconds,
-            )
-        )
 
         return CyclicFeedingResponse(
             session_id=session.id,
@@ -322,6 +322,8 @@ class StartCyclicFeedingUseCase:
         # Validar cada jaula
         cage_data = []
         for cfg in request.cage_configs:
+            if cfg.mode == "PAUSE" and cfg.quantity_kg > 0 and cfg.rate_kg_per_min <= 0:
+                raise ValueError("La tasa debe ser mayor a 0 para PAUSE con cantidad simulada")
             cage = await self.cage_repo.find_by_id(CageId.from_string(cfg.cage_id))
             if not cage:
                 raise ValueError(f"Jaula con ID {cfg.cage_id} no encontrada")

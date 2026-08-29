@@ -1,6 +1,6 @@
 """Sistema de inyección de dependencias para FastAPI."""
 
-from typing import Annotated, Optional
+from typing import Annotated, Any, Optional
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -2212,6 +2212,19 @@ async def get_current_superadmin_user(
     return current_user
 
 
+async def get_accessible_feeding_session(
+    session_id: str,
+    current_user: UserResponse = Depends(get_current_user),
+    session_repo: FeedingSessionRepository = Depends(get_feeding_session_repo),
+):
+    """Obtiene una sesión visible para su operador o para un administrador."""
+    feeding_session = await session_repo.find_by_id(session_id)
+    is_admin = current_user.is_superadmin or current_user.role == "admin"
+    if not feeding_session or (not is_admin and feeding_session.operator_id != current_user.id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sesión de alimentación no encontrada")
+    return feeding_session
+
+
 # ============================================================================
 # Type Aliases para Endpoints - Auth
 # ============================================================================
@@ -2249,3 +2262,5 @@ CurrentUserReadDep = Annotated[UserResponse, Depends(get_current_user_read)]
 CurrentAdminUserDep = Annotated[UserResponse, Depends(get_current_admin_user)]
 
 CurrentSuperAdminUserDep = Annotated[UserResponse, Depends(get_current_superadmin_user)]
+
+AccessibleFeedingSessionDep = Annotated[Any, Depends(get_accessible_feeding_session)]

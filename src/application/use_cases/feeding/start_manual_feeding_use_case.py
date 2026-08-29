@@ -1,5 +1,3 @@
-import asyncio
-
 from api.models.feeding_models import ManualFeedingRequest, ManualFeedingResponse
 from application.services.feeding_orchestrator import FeedingOrchestrator
 from domain.entities.cage_feeding import CageFeeding, CageFeedingMode
@@ -25,6 +23,9 @@ from domain.value_objects.identifiers import DoserId
 from domain.value_objects.measurements import Weight
 from infrastructure.persistence.repositories.silo_inventory_repository import (
     SiloInventoryRepository,
+)
+from infrastructure.persistence.repositories.feeding_execution_job_repository import (
+    FeedingExecutionJobRepository,
 )
 
 
@@ -120,6 +121,20 @@ class StartManualFeedingUseCase:
             SiloId.from_string(request.silo_id).value,
             request.quantity_kg,
         )
+        await FeedingExecutionJobRepository(self.inventory_repo.session).enqueue(
+            session.id,
+            {
+                "line_id": request.line_id,
+                "silo_id": request.silo_id,
+                "slot_map": {cage_feeding.cage_id: assignment.slot_number},
+                "blower_power_percentage": request.blower_power_percentage,
+                "transport_time_map": {cage_feeding.cage_id: float(cage.config.transport_time_seconds)},
+                "blow_before_seconds": float(line.blower.blow_before_feeding_time.value),
+                "blow_after_seconds": float(line.blower.blow_after_feeding_time.value),
+                "selector_positioning_seconds": float(config.selector_positioning_time_seconds),
+                "wait_after_visit_seconds": 0.0,
+            },
+        )
 
         await self.activity_log_repo.save(
             ActivityLogEntry.create(
@@ -131,26 +146,6 @@ class StartManualFeedingUseCase:
                 actor=actor,
                 source_entity_type="feeding_session",
                 source_entity_id=session.id,
-            )
-        )
-
-        # El orquestador usa otra sesión de base de datos; publicar sesión y reservas
-        # atómicamente antes de iniciar la tarea evita que observe estado incompleto.
-        await self.inventory_repo.session.commit()
-
-        # Paso 4: LANZAR ORQUESTADOR EN BACKGROUND
-        asyncio.create_task(
-            self.orchestrator.run(
-                session=session,
-                cage_feedings=[cage_feeding],
-                line_id=LineId.from_string(request.line_id),
-                slot_map={cage_feeding.cage_id: assignment.slot_number},
-                silo_id=SiloId.from_string(request.silo_id),
-                blower_power_percentage=request.blower_power_percentage,
-                transport_time_map={cage_feeding.cage_id: float(cage.config.transport_time_seconds)},  # type: ignore[arg-type]
-                blow_before_seconds=float(line.blower.blow_before_feeding_time.value),
-                blow_after_seconds=float(line.blower.blow_after_feeding_time.value),
-                selector_positioning_seconds=float(config.selector_positioning_time_seconds),
             )
         )
 

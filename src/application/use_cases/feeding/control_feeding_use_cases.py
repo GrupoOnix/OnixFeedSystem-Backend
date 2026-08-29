@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from domain.entities.cage_feeding import CageFeeding, CageFeedingMode
 from domain.entities.feeding_event import FeedingEvent
 from domain.entities.feeding_session import FeedingSession
@@ -20,6 +22,14 @@ from infrastructure.persistence.repositories.silo_inventory_repository import (
 
 LIVE_SESSION_STATUSES = {"IN_PROGRESS", "PAUSED"}
 LIVE_VISIT_STAGES = {"POSITIONING_SELECTOR", "BLOWING_BEFORE", "FEEDING", "BLOWING_AFTER"}
+
+
+@dataclass(frozen=True)
+class CyclicCageAmountUpdate:
+    total_amount_kg: float
+    current_visit_target_kg: float | None
+    remaining_visit_quantities_kg: list[float]
+    applied_immediately: bool
 
 
 def _is_live_cage_visit(session: FeedingSession, machine_status, cage_feeding: CageFeeding) -> bool:
@@ -94,10 +104,9 @@ class UpdateFeedingRateUseCase:
                     )
 
         previous_rate = current.rate_kg_per_min
-        current.set_rate(new_rate)
 
         await self._machine.set_doser_rate(LineId.from_string(session.line_id), new_rate)
-        await self._cage_feeding_repo.save(current)
+        await self._cage_feeding_repo.update_rate(current.id, new_rate)
 
         event = FeedingEvent.rate_changed(
             feeding_session_id=session_id,
@@ -152,12 +161,15 @@ class UpdateFeedingAmountUseCase:
         previous_amount_kg = current.programmed_kg
         if self._inventory_repo:
             await self._inventory_repo.resize_reservation(session_id, new_amount_kg)
-        current.set_programmed_kg(new_amount_kg)
 
         await self._machine.set_target_amount(line_id, new_amount_kg)
-        await self._cage_feeding_repo.save(current)
+        current = await self._cage_feeding_repo.update_programmed_kg(current.id, new_amount_kg)
 
-        total_programmed_kg = sum(cf.programmed_kg * cf.programmed_visits for cf in cage_feedings)
+        total_programmed_kg = sum(
+            (current if cf.id == current.id else cf).programmed_kg
+            * (current if cf.id == current.id else cf).programmed_visits
+            for cf in cage_feedings
+        )
         session.set_total_programmed_kg(total_programmed_kg)
         await self._session_repo.save(session)
 
@@ -213,11 +225,10 @@ class UpdateCyclicCageRateUseCase:
         machine_status = await self._machine.get_status(line_id)
         applied_immediately = _is_live_cage_visit(session, machine_status, cage_feeding)
         previous_rate = cage_feeding.rate_kg_per_min
-        cage_feeding.set_rate(new_rate)
 
         if applied_immediately:
             await self._machine.set_doser_rate(line_id, new_rate)
-        await self._cage_feeding_repo.save(cage_feeding)
+        await self._cage_feeding_repo.update_rate(cage_feeding.id, new_rate)
 
         event = FeedingEvent.rate_changed(
             feeding_session_id=session_id,
@@ -246,7 +257,12 @@ class UpdateCyclicCageAmountUseCase:
         self._machine = machine
         self._inventory_repo = inventory_repo
 
-    async def execute(self, session_id: str, cage_id: str, new_total_amount_kg: float) -> float:
+    async def execute(
+        self,
+        session_id: str,
+        cage_id: str,
+        new_total_amount_kg: float,
+    ) -> CyclicCageAmountUpdate:
         session = await self._session_repo.find_by_id(session_id)
         if not session:
             raise ValueError(f"Sesión {session_id} no encontrada")
@@ -266,32 +282,34 @@ class UpdateCyclicCageAmountUseCase:
                 f"dispensado para la jaula ({already_dispensed} kg)"
             )
 
-        remaining_visits = cage_feeding.programmed_visits - cage_feeding.completed_visits
-        new_amount_per_visit = (new_total_amount_kg - already_dispensed) / remaining_visits
-        if new_amount_per_visit <= 0:
-            raise ValueError("La nueva cantidad debe dejar alimento pendiente para las visitas restantes")
+        visit_quantities_kg, new_amount_per_visit, current_visit_target_kg = self._build_remaining_visit_plan(
+            cage_feeding=cage_feeding,
+            new_total_amount_kg=new_total_amount_kg,
+            live_dispensed_kg=live_dispensed_kg,
+            applied_immediately=applied_immediately,
+        )
 
         previous_amount_kg = cage_feeding.programmed_kg
         new_session_total = self._recalculate_session_total(
             cage_feedings=cage_feedings,
             updated_cage_feeding=cage_feeding,
-            live_dispensed_kg=live_dispensed_kg,
-            applied_immediately=applied_immediately,
-            override_amount_per_visit=new_amount_per_visit,
+            updated_visit_quantities_kg=visit_quantities_kg,
         )
         if self._inventory_repo:
             await self._inventory_repo.resize_reservation(session_id, new_session_total)
-        cage_feeding.set_programmed_kg(new_amount_per_visit)
 
         if applied_immediately:
-            await self._machine.set_target_amount(line_id, new_amount_per_visit)
-        await self._cage_feeding_repo.save(cage_feeding)
+            await self._machine.set_target_amount(line_id, current_visit_target_kg)
+        cage_feeding = await self._cage_feeding_repo.update_amount_plan(
+            cage_feeding.id,
+            new_amount_per_visit,
+            visit_quantities_kg,
+        )
 
         total_programmed_kg = self._recalculate_session_total(
             cage_feedings=cage_feedings,
             updated_cage_feeding=cage_feeding,
-            live_dispensed_kg=live_dispensed_kg,
-            applied_immediately=applied_immediately,
+            updated_visit_quantities_kg=cage_feeding.visit_quantities_kg,
         )
         session.set_total_programmed_kg(total_programmed_kg)
         await self._session_repo.save(session)
@@ -306,29 +324,78 @@ class UpdateCyclicCageAmountUseCase:
         )
         await self._event_repo.save(event)
 
-        return new_total_amount_kg
+        return CyclicCageAmountUpdate(
+            total_amount_kg=new_total_amount_kg,
+            current_visit_target_kg=current_visit_target_kg,
+            remaining_visit_quantities_kg=visit_quantities_kg[cage_feeding.completed_visits :],
+            applied_immediately=applied_immediately,
+        )
+
+    def _build_remaining_visit_plan(
+        self,
+        cage_feeding: CageFeeding,
+        new_total_amount_kg: float,
+        live_dispensed_kg: float,
+        applied_immediately: bool,
+    ) -> tuple[list[float], float, float | None]:
+        remaining_visits = cage_feeding.programmed_visits - cage_feeding.completed_visits
+        if remaining_visits <= 0:
+            raise ValueError("La jaula ya completó sus visitas programadas")
+
+        existing_plan = cage_feeding.visit_quantities_kg
+        if existing_plan is None:
+            existing_plan = [cage_feeding.programmed_kg] * cage_feeding.programmed_visits
+        if len(existing_plan) != cage_feeding.programmed_visits:
+            raise ValueError("El plan por visita almacenado es inválido")
+
+        remaining_amount = new_total_amount_kg - cage_feeding.dispensed_kg
+        if applied_immediately:
+            remaining_amount -= live_dispensed_kg
+        if remaining_amount < -0.000001:
+            raise ValueError("La nueva cantidad no puede ser menor a lo ya dispensado")
+        remaining_amount = max(remaining_amount, 0.0)
+
+        scheduled_remaining = self._split_amount(remaining_amount, remaining_visits)
+        completed_plan = existing_plan[: cage_feeding.completed_visits]
+        if applied_immediately:
+            current_visit_target_kg = round(live_dispensed_kg + scheduled_remaining[0], 6)
+            visit_quantities_kg = [
+                *completed_plan,
+                current_visit_target_kg,
+                *scheduled_remaining[1:],
+            ]
+        else:
+            current_visit_target_kg = None
+            visit_quantities_kg = [*completed_plan, *scheduled_remaining]
+
+        return visit_quantities_kg, scheduled_remaining[0], current_visit_target_kg
+
+    @staticmethod
+    def _split_amount(amount_kg: float, visits: int) -> list[float]:
+        amount_per_visit = round(amount_kg / visits, 6)
+        quantities = [amount_per_visit] * visits
+        quantities[-1] = round(amount_kg - sum(quantities[:-1]), 6)
+        return quantities
 
     def _recalculate_session_total(
         self,
         cage_feedings: list[CageFeeding],
         updated_cage_feeding: CageFeeding,
-        live_dispensed_kg: float,
-        applied_immediately: bool,
-        override_amount_per_visit: float | None = None,
+        updated_visit_quantities_kg: list[float] | None,
     ) -> float:
         total = 0.0
         for cf in cage_feedings:
             current = updated_cage_feeding if cf.id == updated_cage_feeding.id else cf
             if current.mode == CageFeedingMode.FASTING:
                 continue
-            remaining_visits = max(current.programmed_visits - current.completed_visits, 0)
-            live_for_cage = live_dispensed_kg if applied_immediately and current.id == updated_cage_feeding.id else 0.0
-            amount_per_visit = (
-                override_amount_per_visit
-                if override_amount_per_visit is not None and current.id == updated_cage_feeding.id
-                else current.programmed_kg
+            visit_quantities_kg = (
+                updated_visit_quantities_kg
+                if current.id == updated_cage_feeding.id and updated_visit_quantities_kg is not None
+                else current.visit_quantities_kg
             )
-            total += current.dispensed_kg + live_for_cage + amount_per_visit * remaining_visits
+            if visit_quantities_kg is None:
+                visit_quantities_kg = [current.programmed_kg] * current.programmed_visits
+            total += current.dispensed_kg + sum(visit_quantities_kg[current.completed_visits :])
         return total
 
 
@@ -378,8 +445,7 @@ class UpdateCageModeUseCase:
         if previous_mode == mode.value:
             return previous_mode, mode.value
 
-        cage_feeding.set_mode(mode)
-        await self._cage_feeding_repo.save(cage_feeding)
+        await self._cage_feeding_repo.update_mode(cage_feeding.id, mode)
 
         event = FeedingEvent.cage_mode_changed(
             feeding_session_id=session_id,
@@ -516,7 +582,11 @@ class CancelFeedingUseCase:
         machine_status = await self._machine.get_status(line_id)
         if self._inventory_repo and current and machine_status.dispensed_kg > 0:
             current.add_dispensed_amount(machine_status.dispensed_kg)
-            await self._cage_feeding_repo.save(current)
+            await self._cage_feeding_repo.record_visit_progress(
+                current.id,
+                dispensed_kg=machine_status.dispensed_kg,
+                completed_visit=False,
+            )
             await self._inventory_repo.consume(
                 session_id,
                 current.id,

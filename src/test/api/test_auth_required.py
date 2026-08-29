@@ -3,6 +3,7 @@
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import jwt
@@ -11,6 +12,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from main import app
+from api.dependencies import get_authenticate_user_use_case
+from application.dtos.auth_dtos import LoginResponse, UserResponse
 
 # main carga las variables de entorno, por lo que es seguro importar la
 # configuración de JWT después de importar main.
@@ -68,6 +71,27 @@ def test_protected_endpoint_rejects_request_without_token(client, method, path, 
 )
 def test_login_endpoint_is_public(client, method, path, body):
     """El endpoint de login debe ser público (no requiere token)."""
+    if method == "post":
+        mock_use_case = MagicMock()
+        mock_use_case.execute = AsyncMock(
+            return_value=LoginResponse(
+                access_token="test-token",
+                token_type="bearer",
+                user=UserResponse(
+                    id=str(uuid4()),
+                    username="adminOnix",
+                    full_name="Admin Onix",
+                    role="admin",
+                    is_superadmin=True,
+                    is_active=True,
+                    must_change_password=False,
+                    created_at=datetime.now(timezone.utc),
+                    updated_at=datetime.now(timezone.utc),
+                ),
+            )
+        )
+        app.dependency_overrides[get_authenticate_user_use_case] = lambda: mock_use_case
+
     response = client.request(method, path, json=body)
     assert response.status_code != 401, f"{method.upper()} {path} no debería requerir token"
 

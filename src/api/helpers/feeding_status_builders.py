@@ -15,6 +15,20 @@ from infrastructure.services.simulated_machine import SimulatedMachine
 LIVE_SESSION_STATUSES = {"IN_PROGRESS", "PAUSED"}
 
 
+def _visit_quantity(cage_feeding, visit_index: int) -> float:
+    plan = cage_feeding.visit_quantities_kg
+    if plan is not None and 0 <= visit_index < len(plan):
+        return plan[visit_index]
+    return cage_feeding.programmed_kg
+
+
+def _cage_total_target(cage_feeding) -> float:
+    plan = cage_feeding.visit_quantities_kg
+    if plan is None:
+        plan = [cage_feeding.programmed_kg] * cage_feeding.programmed_visits
+    return cage_feeding.dispensed_kg + sum(plan[cage_feeding.completed_visits :])
+
+
 def _calculate_pulse_metrics(
     programmed_kg_per_visit: float,
     programmed_visits: int,
@@ -170,7 +184,7 @@ async def build_cyclic_status(
             else active_cf.completed_visits + 1
         )
         current_visit_dispensed_kg = machine_status.dispensed_kg
-        current_visit_programmed_kg = 0.0 if is_empty_visit else active_cf.programmed_kg
+        current_visit_programmed_kg = 0.0 if is_empty_visit else _visit_quantity(active_cf, active_cf.completed_visits)
         current_visit_completion_percentage = (
             (current_visit_dispensed_kg / current_visit_programmed_kg * 100) if current_visit_programmed_kg > 0 else 0.0
         )
@@ -205,7 +219,7 @@ async def build_cyclic_status(
             cage_name_cache[cf.cage_id] = cage.name.value if cage else cf.cage_id
 
         programmed_kg_per_visit = cf.programmed_kg
-        total_programmed_kg_for_cage = programmed_kg_per_visit * cf.programmed_visits
+        total_programmed_kg_for_cage = _cage_total_target(cf)
         total_dispensed_kg_for_cage = cf.dispensed_kg
         if active_cf and cf.id == active_cf.id:
             total_dispensed_kg_for_cage += machine_status.dispensed_kg

@@ -7,10 +7,10 @@ periódicamente durante el ciclo de vida de la aplicación.
 
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import timedelta
 from typing import Optional
-from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI
 
@@ -19,24 +19,12 @@ from infrastructure.persistence.repositories import (
     AlertRepository,
     ScheduledAlertRepository,
     SiloRepository,
-    ScheduledFeedingPlanRepository,
-    CageFeedingRepository,
-    CageGroupRepository,
-    CageRepository,
-    FeedingEventRepository,
-    FeedingLineRepository,
-    FeedingSessionRepository,
-    SlotAssignmentRepository,
-    SystemConfigRepository,
-    ActivityLogRepository,
-    SiloInventoryRepository,
 )
 from infrastructure.services.alert_scheduler_service import AlertSchedulerService
 from infrastructure.services.default_admin_service import seed_default_admin_if_needed
 from infrastructure.services.silo_monitor_service import SiloMonitorService
-from application.services.feeding_orchestrator import FeedingOrchestrator
-from application.use_cases.feeding.start_cyclic_feeding_use_case import StartCyclicFeedingUseCase
-from api.models.feeding_models import CageConfigInput, CyclicFeedingRequest
+from infrastructure.services.feeding_execution_worker import FeedingExecutionWorker
+from infrastructure.services.scheduled_feeding_dispatcher import ScheduledFeedingDispatcher
 from infrastructure.persistence.database import async_session_maker
 
 logger = logging.getLogger(__name__)
@@ -45,6 +33,18 @@ logger = logging.getLogger(__name__)
 _scheduler_task: Optional[asyncio.Task] = None
 _silo_monitor_task: Optional[asyncio.Task] = None
 _scheduled_feeding_task: Optional[asyncio.Task] = None
+_feeding_execution_worker_task: Optional[asyncio.Task] = None
+
+
+def _positive_int_from_env(name: str, default: int) -> int:
+    try:
+        value = int(os.getenv(name, str(default)))
+        if value > 0:
+            return value
+    except ValueError:
+        pass
+    logger.warning("%s debe ser un entero positivo; se usará %s", name, default)
+    return default
 
 
 async def scheduled_alerts_job():
@@ -124,84 +124,18 @@ async def silo_monitor_job():
         await asyncio.sleep(300)
 
 
-async def scheduled_feeding_job():
+async def scheduled_feeding_job(dispatcher: ScheduledFeedingDispatcher, poll_interval_seconds: int = 15):
     """Dispara una vez al día los planes calculados y persistidos."""
     logger.info("Iniciando job de alimentación programada")
     while True:
         try:
-            async with get_session_context() as session:
-                plan_repo = ScheduledFeedingPlanRepository(session)
-                for plan in await plan_repo.list():
-                    if not plan.is_active:
-                        continue
-                    try:
-                        now = datetime.now(ZoneInfo(plan.timezone))
-                    except Exception:
-                        now = datetime.now(ZoneInfo("America/Santiago"))
-                    today = now.date().isoformat()
-                    if now.strftime("%H:%M") != plan.start_time or plan.last_run_on == today:
-                        continue
-                    # Marcar antes de iniciar para que una falla no cree sesiones duplicadas cada minuto.
-                    plan.last_run_on = today
-                    plan.last_error = None
-                    try:
-                        request = CyclicFeedingRequest(
-                            line_id=str(plan.line_id),
-                            group_id=str(plan.group_id),
-                            doser_id=str(plan.doser_id),
-                            silo_id=str(plan.silo_id),
-                            blower_power_percentage=plan.blower_power_percentage,
-                            wait_after_visit_seconds=plan.wait_after_visit_seconds,
-                            allow_overtime=True,
-                            cage_configs=[
-                                CageConfigInput(
-                                    cage_id=item["cage_id"],
-                                    quantity_kg=round(sum(item["quantity_schedule_kg"]), 6),
-                                    visits=len(item["quantity_schedule_kg"]),
-                                    visit_quantities_kg=item["quantity_schedule_kg"],
-                                    rate_kg_per_min=item["rate_kg_per_min"],
-                                    mode=item["mode"],
-                                )
-                                for item in plan.cage_plans
-                            ],
-                        )
-                        # Import tardío para compartir el mismo simulador que usan los
-                        # controles manuales, sin crear un ciclo de imports al iniciar FastAPI.
-                        from api.dependencies import get_simulated_machine
-
-                        use_case = StartCyclicFeedingUseCase(
-                            session_repository=FeedingSessionRepository(session),
-                            cage_feeding_repository=CageFeedingRepository(session),
-                            event_repository=FeedingEventRepository(session),
-                            line_repository=FeedingLineRepository(session),
-                            cage_repository=CageRepository(session),
-                            cage_group_repository=CageGroupRepository(session),
-                            silo_repository=SiloRepository(session),
-                            slot_assignment_repository=SlotAssignmentRepository(session),
-                            orchestrator=FeedingOrchestrator(get_simulated_machine(), async_session_maker),
-                            system_config_repository=SystemConfigRepository(session),
-                            activity_log_repository=ActivityLogRepository(session),
-                            inventory_repository=SiloInventoryRepository(session),
-                        )
-                        result = await use_case.execute(
-                            request,
-                            operator_id=str(plan.created_by_id or "00000000-0000-0000-0000-000000000000"),
-                            operator_name=plan.created_by_name or "Programación diaria",
-                            actor=plan.created_by_name or "scheduled-feeding",
-                        )
-                        plan.last_session_id = result.session_id
-                        logger.info("Plan programado %s inició sesión %s", plan.id, result.session_id)
-                    except Exception as exc:
-                        plan.last_error = str(exc)[:500]
-                        logger.error("No se pudo ejecutar plan programado %s: %s", plan.id, exc, exc_info=True)
-                    await plan_repo.save(plan)
-                await session.commit()
+            await dispatcher.dispatch_due_plans()
         except asyncio.CancelledError:
             logger.info("Job de alimentación programada cancelado")
             raise
         except Exception as exc:
             logger.error("Error en scheduled_feeding_job: %s", exc, exc_info=True)
-        await asyncio.sleep(60)
+        await asyncio.sleep(poll_interval_seconds)
 
 
 @asynccontextmanager
@@ -218,7 +152,7 @@ async def lifespan_with_scheduler(app: FastAPI):
 
         app = FastAPI(lifespan=lifespan_with_scheduler)
     """
-    global _scheduler_task, _silo_monitor_task, _scheduled_feeding_task
+    global _scheduler_task, _silo_monitor_task, _scheduled_feeding_task, _feeding_execution_worker_task
 
     # Startup
     logger.info("Iniciando background tasks...")
@@ -232,7 +166,21 @@ async def lifespan_with_scheduler(app: FastAPI):
 
     _scheduler_task = asyncio.create_task(scheduled_alerts_job())
     _silo_monitor_task = asyncio.create_task(silo_monitor_job())
-    _scheduled_feeding_task = asyncio.create_task(scheduled_feeding_job())
+    # Cada proceso puede ejecutar un worker: PostgreSQL garantiza que solo uno
+    # reclame cada job mediante SKIP LOCKED y leases persistidos.
+    from api.dependencies import get_simulated_machine
+
+    machine = get_simulated_machine()
+    grace_minutes = _positive_int_from_env("SCHEDULED_FEEDING_GRACE_MINUTES", 15)
+    poll_seconds = _positive_int_from_env("SCHEDULED_FEEDING_POLL_SECONDS", 15)
+    scheduled_dispatcher = ScheduledFeedingDispatcher(
+        machine,
+        async_session_maker,
+        grace_period=timedelta(minutes=grace_minutes),
+    )
+    _scheduled_feeding_task = asyncio.create_task(scheduled_feeding_job(scheduled_dispatcher, poll_seconds))
+    feeding_worker = FeedingExecutionWorker(machine, async_session_maker)
+    _feeding_execution_worker_task = asyncio.create_task(feeding_worker.run())
 
     yield
 
@@ -257,6 +205,13 @@ async def lifespan_with_scheduler(app: FastAPI):
         _scheduled_feeding_task.cancel()
         try:
             await _scheduled_feeding_task
+        except asyncio.CancelledError:
+            pass
+
+    if _feeding_execution_worker_task:
+        _feeding_execution_worker_task.cancel()
+        try:
+            await _feeding_execution_worker_task
         except asyncio.CancelledError:
             pass
 

@@ -37,6 +37,38 @@ class _CageFeedingRepo:
     async def save(self, cage_feeding):
         self.saved = cage_feeding
 
+    async def update_rate(self, cage_feeding_id, rate_kg_per_min):
+        cage_feeding = next(cf for cf in self.cage_feedings if cf.id == cage_feeding_id)
+        cage_feeding.set_rate(rate_kg_per_min)
+        self.saved = cage_feeding
+        return cage_feeding
+
+    async def update_programmed_kg(self, cage_feeding_id, programmed_kg):
+        cage_feeding = next(cf for cf in self.cage_feedings if cf.id == cage_feeding_id)
+        cage_feeding.set_programmed_kg(programmed_kg)
+        self.saved = cage_feeding
+        return cage_feeding
+
+    async def update_amount_plan(self, cage_feeding_id, programmed_kg, visit_quantities_kg):
+        cage_feeding = next(cf for cf in self.cage_feedings if cf.id == cage_feeding_id)
+        cage_feeding.set_amount_plan(programmed_kg, visit_quantities_kg)
+        self.saved = cage_feeding
+        return cage_feeding
+
+    async def update_mode(self, cage_feeding_id, mode):
+        cage_feeding = next(cf for cf in self.cage_feedings if cf.id == cage_feeding_id)
+        cage_feeding.set_mode(mode)
+        self.saved = cage_feeding
+        return cage_feeding
+
+    async def record_visit_progress(self, cage_feeding_id, dispensed_kg, completed_visit):
+        cage_feeding = next(cf for cf in self.cage_feedings if cf.id == cage_feeding_id)
+        cage_feeding.add_dispensed_amount(dispensed_kg)
+        if completed_visit:
+            cage_feeding.increment_completed_visits()
+        self.saved = cage_feeding
+        return cage_feeding
+
 
 class _EventRepo:
     def __init__(self):
@@ -323,11 +355,12 @@ async def test_update_cyclic_cage_amount_active_repartitions_remaining_visits_an
         machine=machine,
     )
 
-    new_total = await use_case.execute(session.id, cage_feeding.cage_id, 52.0)
+    update = await use_case.execute(session.id, cage_feeding.cage_id, 52.0)
 
-    assert new_total == 52.0
+    assert update.total_amount_kg == 52.0
     assert cage_feeding_repo.saved.programmed_kg == pytest.approx(40.0 / 3)
-    assert machine.target_amount == pytest.approx(40.0 / 3)
+    assert machine.target_amount == pytest.approx(46.0 / 3)
+    assert cage_feeding_repo.saved.visit_quantities_kg == pytest.approx([10.0, 46.0 / 3, 40.0 / 3, 40.0 / 3])
     assert session_repo.saved.total_programmed_kg == pytest.approx(52.0)
     assert event_repo.saved[0].event_type == FeedingEventType.AMOUNT_CHANGED
     assert event_repo.saved[0].data["applied_immediately"] is True
@@ -365,12 +398,53 @@ async def test_update_cyclic_cage_amount_pending_repartitions_without_touching_m
         machine=machine,
     )
 
-    await use_case.execute(session.id, cage_feeding.cage_id, 60.0)
+    update = await use_case.execute(session.id, cage_feeding.cage_id, 60.0)
 
     assert cage_feeding_repo.saved.programmed_kg == 15.0
+    assert cage_feeding_repo.saved.visit_quantities_kg == [15.0, 15.0, 15.0, 15.0]
+    assert update.remaining_visit_quantities_kg == [15.0, 15.0, 15.0, 15.0]
     assert machine.target_amount is None
     assert session_repo.saved.total_programmed_kg == 60.0
     assert event_repo.saved[0].data["applied_immediately"] is False
+
+
+@pytest.mark.asyncio
+async def test_update_cyclic_cage_amount_allows_empty_remaining_visits():
+    line_id = LineId.generate()
+    session = FeedingSession(
+        feeding_type=FeedingType.CYCLIC,
+        line_id=str(line_id),
+        operator_id="operator-1",
+        total_programmed_kg=40.0,
+    )
+    session.start()
+    cage_feeding = CageFeeding(
+        feeding_session_id=session.id,
+        cage_id="123e4567-e89b-12d3-a456-426614174001",
+        doser_id="123e4567-e89b-12d3-a456-426614174002",
+        silo_id="123e4567-e89b-12d3-a456-426614174003",
+        execution_order=1,
+        programmed_kg=10.0,
+        programmed_visits=4,
+        rate_kg_per_min=2.0,
+        visit_quantities_kg=[10.0, 10.0, 10.0, 10.0],
+    )
+    cage_feeding.start()
+    cage_feeding.increment_completed_visits()
+    cage_feeding.add_dispensed_amount(10.0)
+    cage_feeding_repo = _CageFeedingRepo([cage_feeding])
+    use_case = UpdateCyclicCageAmountUseCase(
+        session_repo=_SessionRepo(session),
+        cage_feeding_repo=cage_feeding_repo,
+        event_repo=_EventRepo(),
+        machine=_Machine(),
+    )
+
+    update = await use_case.execute(session.id, cage_feeding.cage_id, 10.0)
+
+    assert cage_feeding_repo.saved.programmed_kg == 0.0
+    assert cage_feeding_repo.saved.visit_quantities_kg == [10.0, 0.0, 0.0, 0.0]
+    assert update.remaining_visit_quantities_kg == [0.0, 0.0, 0.0]
 
 
 @pytest.mark.asyncio

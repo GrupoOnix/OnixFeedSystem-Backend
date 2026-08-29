@@ -48,7 +48,12 @@ class _UpdateCyclicCageAmountUseCase:
 
     async def execute(self, session_id, cage_id, new_amount):
         self.calls.append((session_id, cage_id, new_amount))
-        return new_amount
+        return SimpleNamespace(
+            total_amount_kg=new_amount,
+            current_visit_target_kg=14.0,
+            remaining_visit_quantities_kg=[14.0, 13.0],
+            applied_immediately=True,
+        )
 
 
 class _UpdateCyclicCageRateUseCase:
@@ -201,6 +206,9 @@ async def test_patch_cyclic_cage_amount_response_contract():
 
     assert response.message == "Cantidad de alimentación de jaula actualizada"
     assert response.new_amount_kg == 52.0
+    assert response.current_visit_target_kg == 14.0
+    assert response.remaining_visit_quantities_kg == [14.0, 13.0]
+    assert response.applied_immediately is True
     assert use_case.calls == [(session_id, cage_id, 52.0)]
 
 

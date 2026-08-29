@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from zoneinfo import ZoneInfo
 
 from api.dependencies import (
+    AccessibleFeedingSessionDep,
     CurrentUserDep,
     get_cancel_feeding_use_case,
     get_cage_feeding_repo,
@@ -144,6 +145,11 @@ from infrastructure.persistence.models.scheduled_feeding_plan_model import (
     ScheduledFeedingPlanModel,
 )
 from infrastructure.services.simulated_machine import SimulatedMachine
+from domain.services.scheduled_feeding_time import calculate_remaining_seconds, calculate_window_seconds
+from application.services.scheduled_plan_conflict_service import (
+    ScheduledPlanConflictError,
+    assert_no_scheduled_plan_conflict,
+)
 
 
 router = APIRouter(prefix="/feeding", tags=["Feeding"])
@@ -151,6 +157,7 @@ router = APIRouter(prefix="/feeding", tags=["Feeding"])
 
 def _scheduled_plan_response(plan: ScheduledFeedingPlanModel) -> ScheduledFeedingPlanResponse:
     cage_plans = plan.cage_plans
+    window_seconds = calculate_window_seconds(plan.start_time, plan.end_time)
     return ScheduledFeedingPlanResponse(
         id=str(plan.id),
         name=plan.name,
@@ -169,13 +176,22 @@ def _scheduled_plan_response(plan: ScheduledFeedingPlanModel) -> ScheduledFeedin
         total_planned_kg=plan.total_planned_kg,
         rounding_excess_kg=round(plan.total_planned_kg - plan.total_requested_kg, 6),
         estimated_total_seconds=plan.estimated_total_seconds,
-        window_seconds=0,
-        remaining_seconds=0,
+        window_seconds=window_seconds,
+        remaining_seconds=calculate_remaining_seconds(window_seconds, plan.estimated_total_seconds),
         cage_plans=cage_plans,
         last_run_on=plan.last_run_on,
         last_session_id=plan.last_session_id,
         last_error=plan.last_error,
     )
+
+
+def _is_admin(current_user: CurrentUserDep) -> bool:
+    return current_user.is_superadmin or current_user.role == "admin"
+
+
+def _assert_plan_access(plan: ScheduledFeedingPlanModel, current_user: CurrentUserDep) -> None:
+    if not _is_admin(current_user) and plan.created_by_id != UUID(current_user.id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan programado no encontrado")
 
 
 @router.post("/scheduled/preview", response_model=ScheduledFeedingPlanResponse)
@@ -195,7 +211,10 @@ async def list_scheduled_feeding_plans(
     current_user: CurrentUserDep,
     repository: Annotated[ScheduledFeedingPlanRepository, Depends(get_scheduled_feeding_plan_repo)],
 ) -> list[ScheduledFeedingPlanResponse]:
-    return [_scheduled_plan_response(plan) for plan in await repository.list()]
+    plans = (
+        await repository.list() if _is_admin(current_user) else await repository.list_for_owner(UUID(current_user.id))
+    )
+    return [_scheduled_plan_response(plan) for plan in plans]
 
 
 @router.post("/scheduled", response_model=ScheduledFeedingPlanResponse, status_code=status.HTTP_201_CREATED)
@@ -207,6 +226,15 @@ async def create_scheduled_feeding_plan(
 ) -> ScheduledFeedingPlanResponse:
     try:
         calculated = await planner.calculate(request)
+        if calculated.is_active:
+            line_id = UUID(calculated.line_id)
+            await repository.lock_line_schedule(line_id)
+            assert_no_scheduled_plan_conflict(
+                start_time=calculated.start_time,
+                end_time=calculated.end_time,
+                timezone=calculated.timezone,
+                existing_plans=await repository.list_active_by_line(line_id),
+            )
         plan = ScheduledFeedingPlanModel(
             line_id=UUID(calculated.line_id),
             group_id=UUID(calculated.group_id),
@@ -229,6 +257,8 @@ async def create_scheduled_feeding_plan(
         )
         await repository.save(plan)
         return _scheduled_plan_response(plan)
+    except ScheduledPlanConflictError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
@@ -240,12 +270,24 @@ async def toggle_scheduled_feeding_plan(
     request: ToggleScheduledFeedingPlanRequest,
     repository: Annotated[ScheduledFeedingPlanRepository, Depends(get_scheduled_feeding_plan_repo)],
 ) -> ScheduledFeedingPlanResponse:
-    plan = await repository.find_by_id(plan_id)
-    if not plan:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan programado no encontrado")
-    plan.is_active = request.is_active
-    await repository.save(plan)
-    return _scheduled_plan_response(plan)
+    try:
+        plan = await repository.find_by_id(plan_id)
+        if not plan:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan programado no encontrado")
+        _assert_plan_access(plan, current_user)
+        if request.is_active:
+            await repository.lock_line_schedule(plan.line_id)
+            assert_no_scheduled_plan_conflict(
+                start_time=plan.start_time,
+                end_time=plan.end_time,
+                timezone=plan.timezone,
+                existing_plans=await repository.list_active_by_line(plan.line_id, exclude_plan_id=plan.id),
+            )
+        plan.is_active = request.is_active
+        await repository.save(plan)
+        return _scheduled_plan_response(plan)
+    except ScheduledPlanConflictError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
 
 @router.delete("/scheduled/{plan_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -257,6 +299,7 @@ async def delete_scheduled_feeding_plan(
     plan = await repository.find_by_id(plan_id)
     if not plan:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan programado no encontrado")
+    _assert_plan_access(plan, current_user)
     await repository.delete(plan)
 
 
@@ -459,6 +502,7 @@ async def update_feeding_rate(
     session_id: str,
     request: UpdateRateRequest,
     use_case: Annotated[UpdateFeedingRateUseCase, Depends(get_update_feeding_rate_use_case)],
+    accessible_session: AccessibleFeedingSessionDep = None,
 ) -> UpdateRateResponse:
     try:
         new_rate = await use_case.execute(session_id, request.rate_kg_per_min)
@@ -478,6 +522,7 @@ async def update_feeding_amount(
     session_id: str,
     request: UpdateAmountRequest,
     use_case: Annotated[UpdateFeedingAmountUseCase, Depends(get_update_feeding_amount_use_case)],
+    accessible_session: AccessibleFeedingSessionDep = None,
 ) -> UpdateAmountResponse:
     try:
         new_amount = await use_case.execute(session_id, request.amount_kg)
@@ -498,6 +543,7 @@ async def update_cage_mode(
     cage_id: str,
     request: UpdateCageModeRequest,
     use_case: Annotated[UpdateCageModeUseCase, Depends(get_update_cage_mode_use_case)],
+    accessible_session: AccessibleFeedingSessionDep = None,
 ) -> UpdateCageModeResponse:
     try:
         previous_mode, new_mode = await use_case.execute(
@@ -529,12 +575,16 @@ async def update_cyclic_cage_amount(
         UpdateCyclicCageAmountUseCase,
         Depends(get_update_cyclic_cage_amount_use_case),
     ],
+    accessible_session: AccessibleFeedingSessionDep = None,
 ) -> UpdateAmountResponse:
     try:
-        new_amount = await use_case.execute(session_id, cage_id, request.amount_kg)
+        update = await use_case.execute(session_id, cage_id, request.amount_kg)
         return UpdateAmountResponse(
             message="Cantidad de alimentación de jaula actualizada",
-            new_amount_kg=new_amount,
+            new_amount_kg=update.total_amount_kg,
+            current_visit_target_kg=update.current_visit_target_kg,
+            remaining_visit_quantities_kg=update.remaining_visit_quantities_kg,
+            applied_immediately=update.applied_immediately,
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -552,6 +602,7 @@ async def update_cyclic_cage_rate(
         UpdateCyclicCageRateUseCase,
         Depends(get_update_cyclic_cage_rate_use_case),
     ],
+    accessible_session: AccessibleFeedingSessionDep = None,
 ) -> UpdateRateResponse:
     try:
         new_rate = await use_case.execute(session_id, cage_id, request.rate_kg_per_min)
@@ -571,6 +622,7 @@ async def pause_feeding(
     session_id: str,
     request: PauseFeedingRequest,
     use_case: Annotated[PauseFeedingUseCase, Depends(get_pause_feeding_use_case)],
+    accessible_session: AccessibleFeedingSessionDep = None,
 ) -> FeedingActionResponse:
     try:
         await use_case.execute(
@@ -592,6 +644,7 @@ async def resume_feeding(
     session_id: str,
     request: ResumeFeedingRequest,
     use_case: Annotated[ResumeFeedingUseCase, Depends(get_resume_feeding_use_case)],
+    accessible_session: AccessibleFeedingSessionDep = None,
 ) -> FeedingActionResponse:
     try:
         await use_case.execute(
@@ -612,6 +665,7 @@ async def cancel_feeding(
     session_id: str,
     request: CancelFeedingRequest,
     use_case: Annotated[CancelFeedingUseCase, Depends(get_cancel_feeding_use_case)],
+    accessible_session: AccessibleFeedingSessionDep = None,
 ) -> FeedingActionResponse:
     try:
         await use_case.execute(
@@ -633,6 +687,7 @@ async def update_blower_power(
     session_id: str,
     request: UpdateBlowerRequest,
     use_case: Annotated[UpdateBlowerPowerUseCase, Depends(get_update_blower_power_use_case)],
+    accessible_session: AccessibleFeedingSessionDep = None,
 ) -> UpdateBlowerResponse:
     try:
         power = await use_case.execute(session_id, request.power_percentage)
@@ -655,6 +710,7 @@ async def get_cyclic_feeding_status(
     cage_repo: Annotated[CageRepository, Depends(get_cage_repo)],
     line_repo: Annotated[FeedingLineRepository, Depends(get_line_repo)],
     machine: Annotated[SimulatedMachine, Depends(get_simulated_machine)],
+    accessible_session: AccessibleFeedingSessionDep = None,
 ) -> CyclicSessionStatusResponse:
     try:
         session = await session_repo.find_by_id(session_id)
@@ -711,6 +767,9 @@ async def get_daily_feeding_stats(
 
         sessions = await session_repo.list_by_date_range(day_start, day_end)
 
+        if not _is_admin(current_user):
+            sessions = [session for session in sessions if session.operator_id == current_user.id]
+
         if line_id:
             sessions = [s for s in sessions if s.line_id == line_id]
 
@@ -745,6 +804,7 @@ async def get_daily_feeding_summary(
             end_date=end_date,
             line_id=str(line_id) if line_id else None,
             feeding_type=type,
+            operator_id=None if _is_admin(current_user) else current_user.id,
         )
         return DailyFeedingSummaryResponse.model_validate(dto, from_attributes=True)
     except ValueError as e:
@@ -774,6 +834,7 @@ async def get_feeding_rate_timeline(
             feeding_type=type,
             bucket_seconds=bucket_seconds,
             include_series=include_series,
+            operator_id=None if _is_admin(current_user) else current_user.id,
         )
         return FeedingRateTimelineResponse.model_validate(dto, from_attributes=True)
     except ValueError as e:
@@ -810,6 +871,9 @@ async def list_sessions_history(
         day_end = datetime.combine(target_date, time.max, tzinfo=tz).astimezone(timezone.utc)
 
         sessions = await session_repo.list_by_date_range(day_start, day_end)
+
+        if not _is_admin(current_user):
+            sessions = [session for session in sessions if session.operator_id == current_user.id]
 
         if line_id:
             sessions = [s for s in sessions if s.line_id == line_id]
@@ -865,6 +929,7 @@ async def get_session_history_detail(
     cage_repo: Annotated[CageRepository, Depends(get_cage_repo)],
     inventory_repo: Annotated[SiloInventoryRepository, Depends(get_silo_inventory_repo)],
     user_repo: Annotated[UserRepository, Depends(get_user_repo)],
+    accessible_session: AccessibleFeedingSessionDep = None,
 ) -> SessionHistoryDetail:
     try:
         session = await session_repo.find_by_id(session_id)
@@ -987,6 +1052,7 @@ async def get_cage_visit_history(
     cage_id: str,
     event_repo: Annotated[FeedingEventRepository, Depends(get_feeding_event_repo)],
     cage_repo: Annotated[CageRepository, Depends(get_cage_repo)],
+    accessible_session: AccessibleFeedingSessionDep = None,
 ) -> CageVisitHistory:
     try:
         cage = await cage_repo.find_by_id(CageId.from_string(cage_id))
@@ -1036,6 +1102,8 @@ async def list_active_sessions(
 ) -> List[ActiveSessionItem]:
     try:
         sessions = await session_repo.find_active_sessions(hours_back=24)
+        if not _is_admin(current_user):
+            sessions = [session for session in sessions if session.operator_id == current_user.id]
         return [
             ActiveSessionItem(
                 session_id=s.id,
@@ -1074,6 +1142,8 @@ async def get_batch_session_status(
             try:
                 session = await session_repo.find_by_id(session_id)
                 if not session:
+                    continue
+                if not _is_admin(current_user) and session.operator_id != current_user.id:
                     continue
 
                 if session.type.value == "MANUAL":
@@ -1117,6 +1187,7 @@ async def get_feeding_status(
     session_repo: Annotated[FeedingSessionRepository, Depends(get_feeding_session_repo)],
     cage_repo: Annotated[CageRepository, Depends(get_cage_repo)],
     machine: Annotated[SimulatedMachine, Depends(get_simulated_machine)],
+    accessible_session: AccessibleFeedingSessionDep = None,
 ) -> FeedingSessionStatusResponse:
     try:
         session = await session_repo.find_by_id(session_id)

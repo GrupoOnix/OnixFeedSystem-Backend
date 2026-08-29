@@ -2,7 +2,7 @@
 
 from typing import Dict, List
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from api.dependencies import (
     GetBlowerStatusUseCaseDep,
@@ -26,6 +26,7 @@ from api.dependencies import (
     TurnDoserOffUseCaseDep,
     TurnDoserOnUseCaseDep,
     CurrentUserDep,
+    get_current_admin_user,
 )
 from application.dtos.device_control_dtos import (
     BlowerStatusResponse,
@@ -44,7 +45,11 @@ from application.dtos.device_control_dtos import (
 )
 from domain.exceptions import DomainException
 
-router = APIRouter(prefix="/device-control", tags=["Device Control"])
+router = APIRouter(
+    prefix="/device-control",
+    tags=["Device Control"],
+    dependencies=[Depends(get_current_admin_user)],
+)
 
 
 @router.post("/blowers/{blower_id}/on", status_code=status.HTTP_200_OK)

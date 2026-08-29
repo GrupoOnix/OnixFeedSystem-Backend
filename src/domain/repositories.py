@@ -10,7 +10,7 @@ from domain.aggregates.cage_group import CageGroup
 from domain.aggregates.food import Food
 from domain.aggregates.scheduled_alert import ScheduledAlert
 from domain.aggregates.silo import Silo
-from domain.entities.cage_feeding import CageFeeding
+from domain.entities.cage_feeding import CageFeeding, CageFeedingMode
 from domain.entities.feeding_event import FeedingEvent, FeedingEventType
 from domain.entities.feeding_operation import FeedingOperation
 from domain.entities.feeding_session import FeedingSession as FeedingSessionEntity
@@ -317,6 +317,46 @@ class ICageFeedingRepository(ABC):
     async def find_current_by_session(self, session_id: str) -> Optional[CageFeeding]: ...
 
     @abstractmethod
+    async def mark_visit_started(self, id: str) -> CageFeeding:
+        """Marca una alimentación como iniciada sin sobrescribir su configuración."""
+        ...
+
+    @abstractmethod
+    async def record_visit_progress(
+        self,
+        id: str,
+        dispensed_kg: float,
+        completed_visit: bool,
+    ) -> CageFeeding:
+        """Registra progreso de una visita sin sobrescribir su configuración."""
+        ...
+
+    @abstractmethod
+    async def update_rate(self, id: str, rate_kg_per_min: float) -> CageFeeding:
+        """Actualiza únicamente la tasa configurada."""
+        ...
+
+    @abstractmethod
+    async def update_programmed_kg(self, id: str, programmed_kg: float) -> CageFeeding:
+        """Actualiza únicamente la cantidad por visita configurada."""
+        ...
+
+    @abstractmethod
+    async def update_amount_plan(
+        self,
+        id: str,
+        programmed_kg: float,
+        visit_quantities_kg: list[float],
+    ) -> CageFeeding:
+        """Actualiza atómicamente la cantidad de referencia y el plan por visita."""
+        ...
+
+    @abstractmethod
+    async def update_mode(self, id: str, mode: CageFeedingMode) -> CageFeeding:
+        """Actualiza únicamente el modo configurado."""
+        ...
+
+    @abstractmethod
     async def get_today_dispensed_by_cage(self, cage_id: str) -> float:
         """Calcula el total de alimento dispensado a una jaula en el día actual."""
         ...
@@ -348,6 +388,7 @@ class IFeedingEventRepository(ABC):
         line_id: str | None = None,
         cage_id: str | None = None,
         feeding_type: str | None = None,
+        operator_id: str | None = None,
     ) -> List[FeedingRateTimelineVisit]: ...
 
 

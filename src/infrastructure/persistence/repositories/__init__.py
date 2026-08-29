@@ -9,6 +9,7 @@ from .cage_group_repository import CageGroupRepository
 from .cage_repository import CageRepository
 from .config_change_log_repository import ConfigChangeLogRepository
 from .feeding_event_repository import FeedingEventRepository
+from .feeding_execution_job_repository import FeedingExecutionJobRepository
 from .feeding_line_repository import FeedingLineRepository
 from .feedback_repository import FeedbackRepository
 from .feeding_session_repository import FeedingSessionRepository
@@ -20,6 +21,7 @@ from .mortality_log_repository import MortalityLogRepository
 from .population_event_repository import PopulationEventRepository
 from .scheduled_alert_repository import ScheduledAlertRepository
 from .scheduled_feeding_plan_repository import ScheduledFeedingPlanRepository
+from .scheduled_feeding_run_repository import ScheduledFeedingRunRepository
 from .silo_repository import SiloRepository
 from .silo_inventory_repository import SiloInventoryRepository
 from .slot_assignment_repository import SlotAssignmentRepository
@@ -39,6 +41,7 @@ __all__ = [
     "FeedingLineRepository",
     "FeedingSessionRepository",
     "FeedingEventRepository",
+    "FeedingExecutionJobRepository",
     "FeedbackRepository",
     "FoodRepository",
     "LastValidManualFeedingConfigRepository",
@@ -47,6 +50,7 @@ __all__ = [
     "AlertRepository",
     "ScheduledAlertRepository",
     "ScheduledFeedingPlanRepository",
+    "ScheduledFeedingRunRepository",
     "BiometryLogRepository",
     "MortalityLogRepository",
     "ConfigChangeLogRepository",

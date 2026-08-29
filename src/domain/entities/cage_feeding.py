@@ -129,6 +129,17 @@ class CageFeeding:
             raise ValueError("La cantidad programada debe ser mayor a 0")
         self._programmed_kg = programmed_kg
 
+    def set_amount_plan(self, programmed_kg: float, visit_quantities_kg: list[float]) -> None:
+        """Actualiza el valor de referencia y el plan por visita de forma conjunta."""
+        if programmed_kg < 0:
+            raise ValueError("La cantidad programada no puede ser negativa")
+        if len(visit_quantities_kg) != self._programmed_visits:
+            raise ValueError("El plan por visita debe tener una entrada por visita programada")
+        if any(quantity < 0 for quantity in visit_quantities_kg):
+            raise ValueError("El plan por visita no puede contener cantidades negativas")
+        self._programmed_kg = programmed_kg
+        self._visit_quantities_kg = list(visit_quantities_kg)
+
     def start(self):
         if self._status != CageFeedingStatus.PENDING:
             raise ValueError(f"No se puede iniciar una alimentación en estado {self._status.value}")

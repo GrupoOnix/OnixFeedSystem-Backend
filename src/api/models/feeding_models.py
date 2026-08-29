@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -87,6 +88,9 @@ class UpdateAmountRequest(BaseModel):
 class UpdateAmountResponse(BaseModel):
     message: str
     new_amount_kg: float
+    current_visit_target_kg: Optional[float] = None
+    remaining_visit_quantities_kg: Optional[List[float]] = None
+    applied_immediately: Optional[bool] = None
 
 
 class UpdateCageModeRequest(BaseModel):
@@ -177,7 +181,7 @@ class CageConfigInput(BaseModel):
         ge=0,
         description=(
             "Tasa en kg/min. En modo PAUSE se usa solo para calcular "
-            "la duración de la visita simulada. "
+            "la duración de la visita simulada cuando su cantidad es mayor a cero. "
             "En modo FASTING se ignora (puede enviarse 0)."
         ),
     )
@@ -218,6 +222,8 @@ class CageConfigInput(BaseModel):
                     raise ValueError("visit_quantities_kg debe tener una entrada por visita")
                 if round(sum(self.visit_quantities_kg), 6) != round(self.quantity_kg, 6):
                     raise ValueError("visit_quantities_kg debe sumar quantity_kg")
+        if self.mode == "PAUSE" and self.quantity_kg > 0 and self.rate_kg_per_min <= 0:
+            raise ValueError("rate_kg_per_min debe ser > 0 para PAUSE con cantidad simulada")
         return self
 
 
@@ -316,6 +322,25 @@ class ScheduledFeedingPlanRequest(BaseModel):
         except ValueError as exc:
             raise ValueError(f"'{value}' no es un UUID válido") from exc
         return value
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, value: str) -> str:
+        timezone = value.strip()
+        if not timezone:
+            raise ValueError("La zona horaria es obligatoria")
+        try:
+            return ZoneInfo(timezone).key
+        except ZoneInfoNotFoundError as exc:
+            raise ValueError(f"La zona horaria '{value}' no es válida") from exc
+
+    @model_validator(mode="after")
+    def validate_same_day_window(self) -> "ScheduledFeedingPlanRequest":
+        start_minutes = int(self.start_time[:2]) * 60 + int(self.start_time[3:])
+        end_minutes = int(self.end_time[:2]) * 60 + int(self.end_time[3:])
+        if end_minutes <= start_minutes:
+            raise ValueError("La alimentación debe comenzar y terminar durante el mismo día")
+        return self
 
 
 class ScheduledPlanCageResponse(BaseModel):

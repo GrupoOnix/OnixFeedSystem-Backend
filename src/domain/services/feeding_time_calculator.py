@@ -43,6 +43,21 @@ def calculate_visit_duration(
     return selector_positioning_seconds + blow_before + dispensing_time + transport_time_seconds + blow_after
 
 
+def calculate_paused_visit_duration(
+    quantity_kg: float,
+    rate_kg_per_min: float,
+    transport_time_seconds: float,
+    selector_positioning_seconds: float = SELECTOR_POSITIONING_SECONDS,
+) -> float:
+    """Calcula una espera simulada sin accionar selector, blower ni dosificador."""
+    if quantity_kg < 0:
+        raise ValueError("La cantidad simulada no puede ser negativa")
+    if quantity_kg > 0 and rate_kg_per_min <= 0:
+        raise ValueError("La tasa debe ser mayor a 0 cuando la pausa tiene cantidad simulada")
+    dispensing_time = (quantity_kg / rate_kg_per_min) * 60 if quantity_kg > 0 else 0.0
+    return selector_positioning_seconds + dispensing_time + transport_time_seconds
+
+
 def calculate_cyclic_wait_duration(
     *,
     total_rounds: int,

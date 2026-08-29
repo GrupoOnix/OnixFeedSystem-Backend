@@ -24,6 +24,7 @@ class GetDailyFeedingSummaryUseCase:
         end_date: date,
         line_id: str | None = None,
         feeding_type: str | None = None,
+        operator_id: str | None = None,
     ) -> DailyFeedingSummaryDTO:
         if end_date < start_date:
             raise ValueError("end_date debe ser mayor o igual a start_date")
@@ -41,6 +42,8 @@ class GetDailyFeedingSummaryUseCase:
             if line_id and session.line_id != line_id:
                 continue
             if feeding_type and session.type.value != feeding_type:
+                continue
+            if operator_id and session.operator_id != operator_id:
                 continue
             if not session.actual_start:
                 continue

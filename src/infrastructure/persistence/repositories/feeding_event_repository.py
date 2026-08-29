@@ -59,6 +59,7 @@ class FeedingEventRepository(IFeedingEventRepository):
         line_id: str | None = None,
         cage_id: str | None = None,
         feeding_type: str | None = None,
+        operator_id: str | None = None,
     ) -> List[FeedingRateTimelineVisit]:
         lookback_start = start - timedelta(days=1)
         conditions: list[Any] = [
@@ -71,6 +72,8 @@ class FeedingEventRepository(IFeedingEventRepository):
             conditions.append(col(FeedingSessionModel.line_id) == UUID(line_id))
         if feeding_type:
             conditions.append(col(FeedingSessionModel.type) == feeding_type)
+        if operator_id:
+            conditions.append(col(FeedingSessionModel.operator_id) == operator_id)
 
         query = (
             select(

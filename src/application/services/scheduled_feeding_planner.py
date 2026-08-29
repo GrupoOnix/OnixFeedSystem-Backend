@@ -13,6 +13,7 @@ from api.models.feeding_models import (
     ScheduledPlanCageResponse,
 )
 from domain.value_objects import CageId, CageGroupId, LineId, SiloId
+from domain.services.scheduled_feeding_time import calculate_remaining_seconds, calculate_window_seconds
 from infrastructure.persistence.repositories.cage_group_repository import CageGroupRepository
 from infrastructure.persistence.repositories.cage_repository import CageRepository
 from infrastructure.persistence.repositories.doser_repository import DoserRepository
@@ -102,6 +103,19 @@ class ScheduledFeedingPlanner:
             cage_data.append((cage, assignment))
 
         cage_data.sort(key=lambda item: item[1].slot_number)
+        transport_by_cage: dict[str, float] = {}
+        for cage, _assignment in cage_data:
+            config = config_by_cage[str(cage.id.value)]
+            if config.mode == "FASTING":
+                continue
+            transport_time = cage.config.transport_time_seconds
+            if transport_time is None:
+                raise ValueError(f"La jaula {cage.name} no tiene tiempo de transporte configurado")
+            transport_seconds = float(transport_time)
+            if transport_seconds < 0:
+                raise ValueError(f"La jaula {cage.name} tiene un tiempo de transporte inválido")
+            transport_by_cage[str(cage.id.value)] = transport_seconds
+
         preliminary: list[tuple[object, str, int, float]] = []
         for cage, _assignment in cage_data:
             config = config_by_cage[str(cage.id.value)]
@@ -120,21 +134,19 @@ class ScheduledFeedingPlanner:
         if not active_cages:
             raise ValueError("El plan debe tener al menos una jaula que no esté en ayuno")
 
-        window_seconds = _window_seconds(request.start_time, request.end_time)
+        window_seconds = calculate_window_seconds(request.start_time, request.end_time)
         blow_seconds = (
-            float(line.blower.blow_before_feeding_time.value)
-            + float(line.blower.blow_after_feeding_time.value)
+            float(line.blower.blow_before_feeding_time.value) + float(line.blower.blow_after_feeding_time.value)
+            if any(mode == "NORMAL" for _cage, mode, _pulses, _requested in preliminary)
+            else 0.0
         )
         pulse_seconds = float(doser.pulse_on_time + doser.pulse_off_time)
         calculated_rate_kg_per_min = grams_per_pulse / pulse_seconds * 0.06
         if calculated_rate_kg_per_min > doser.max_rate_kg_per_min:
-            raise ValueError(
-                "La tasa calculada desde la calibración excede la capacidad máxima del dosificador"
-            )
+            raise ValueError("La tasa calculada desde la calibración excede la capacidad máxima del dosificador")
         fixed_pulse_seconds = sum(pulses * pulse_seconds for _cage, pulses in active_cages)
         movement_seconds_per_round = sum(
-            self._selector_positioning_seconds + float(cage.config.transport_time_seconds)
-            for cage, _pulses in active_cages
+            self._selector_positioning_seconds + transport_by_cage[str(cage.id.value)] for cage, _pulses in active_cages
         )
         active_count = len(active_cages)
         round_seconds = movement_seconds_per_round + active_count * request.wait_after_visit_seconds
@@ -168,7 +180,7 @@ class ScheduledFeedingPlanner:
                     planned_kg=planned_kg,
                     pulse_schedule=pulse_schedule,
                     quantity_schedule_kg=quantity_schedule,
-                    transport_seconds=float(cage.config.transport_time_seconds),
+                    transport_seconds=transport_by_cage.get(str(cage.id.value), 0.0),
                 )
             )
 
@@ -203,7 +215,7 @@ class ScheduledFeedingPlanner:
             rounding_excess_kg=round(total_planned_kg - total_requested_kg, 6),
             estimated_total_seconds=round(estimated_total_seconds, 3),
             window_seconds=window_seconds,
-            remaining_seconds=round(window_seconds - estimated_total_seconds, 3),
+            remaining_seconds=calculate_remaining_seconds(window_seconds, estimated_total_seconds),
             cage_plans=[
                 ScheduledPlanCageResponse(
                     cage_id=plan.cage_id,
@@ -221,14 +233,6 @@ class ScheduledFeedingPlanner:
                 for plan in plans
             ],
         )
-
-
-def _window_seconds(start_time: str, end_time: str) -> float:
-    start_hours, start_minutes = map(int, start_time.split(":"))
-    end_hours, end_minutes = map(int, end_time.split(":"))
-    start = start_hours * 3600 + start_minutes * 60
-    end = end_hours * 3600 + end_minutes * 60
-    return float(end - start if end > start else 86400 - start + end)
 
 
 def _front_loaded_schedule(pulses: int, total_rounds: int) -> list[int]:
