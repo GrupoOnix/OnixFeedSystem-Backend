@@ -1,158 +1,74 @@
-# UC-01: Sincronizar Trazado del Sistema
+# UC-01: Sincronizar el trazado del sistema
 
-## Qué logra
+## Objetivo
 
-Sincroniza el estado completo del canvas de trazado (frontend) con la base de datos, aplicando todas las creaciones, actualizaciones y eliminaciones en una sola transacción.
+Persistir el estado deseado completo del editor de trazado. El caso de uso
+calcula diferencias respecto de la base de datos, elimina recursos ausentes,
+crea recursos nuevos, actualiza los existentes y devuelve el layout reconstruido
+con identificadores reales.
 
-## Quién lo inicia
+## Entrada HTTP
 
-**Técnico de planta** (usuario con permisos de configuración)
+```http
+POST /api/system-layout
+Authorization: Bearer <token>
+Content-Type: application/json
+```
 
-## Precondiciones
+Cualquier usuario autenticado puede ejecutar actualmente esta operación.
 
-- Usuario autenticado con rol de "Técnico"
-- Canvas de trazado cargado en el frontend
+El body usa `SystemLayoutModel` y contiene:
 
-## Pasos principales
+- `silos`: `id`, `name` y `capacity`.
+- `cages`: `id` y `name`.
+- `feeding_lines`: configuración física completa de cada línea:
+  - blower obligatorio;
+  - uno o más dosificadores, cada uno con uno o más silos asignados;
+  - selector obligatorio y sus asignaciones de slots;
+  - sensores opcionales;
+  - cooler opcional;
+  - estado y datos de bloqueo de la línea.
 
-1. **Técnico modifica el canvas**
+El inventario FIFO no pertenece al layout. No se aceptan `food_id`, nivel de
+stock ni partidas dentro de la configuración de un silo.
 
-   - Crea nuevos silos, jaulas o líneas de alimentación
-   - Actualiza nombres, capacidades o configuraciones
-   - Elimina elementos arrastrándolos fuera del canvas
-   - Conecta componentes (silos→dosificadores, slots→jaulas)
+## Flujo
 
-2. **Técnico presiona "Guardar"**
+1. Se comparan los IDs recibidos con silos, jaulas y líneas persistidos.
+2. Se eliminan asignaciones y entidades que ya no aparecen en el request.
+3. Se crean primero silos y jaulas; sus IDs temporales se mapean a UUID reales.
+4. Se crean líneas y se resuelven referencias a silos y jaulas.
+5. Se actualizan las entidades existentes y sus componentes.
+6. Se vuelve a leer el layout y se entrega el estado persistido al cliente.
 
-   - El frontend recopila el estado completo del canvas
-   - Genera IDs temporales para entidades nuevas
-   - Mantiene IDs reales para entidades existentes
+## Identificadores temporales
 
-3. **Sistema calcula diferencias (Delta)**
+El frontend puede enviar IDs no UUID para elementos nuevos. El backend los usa
+solo durante la sincronización y devuelve UUID reales. Una referencia temporal
+debe apuntar a otro elemento nuevo incluido en el mismo request.
 
-   - Compara IDs del canvas con IDs en base de datos
-   - Identifica qué crear, qué actualizar y qué eliminar
+## Reglas relevantes
 
-4. **Sistema elimina entidades obsoletas**
+- Los nombres de silos, jaulas y líneas deben ser únicos.
+- Cada línea requiere blower, selector y al menos un dosificador.
+- Un dosificador no puede repetir un silo dentro de `assigned_silo_ids`.
+- Los IDs referenciados deben existir o ser creados en la misma sincronización.
+- Los tipos de sensores y componentes deben estar soportados por sus factories.
+- La eliminación puede rechazarse cuando las reglas del dominio indican que un
+  recurso está en uso.
 
-   - Elimina líneas, silos y jaulas que ya no están en el canvas
-   - Valida que no estén en uso antes de eliminar
+## Resultado
 
-5. **Sistema crea nuevas entidades**
+`200 OK` devuelve el mismo contrato `SystemLayoutModel`, ya con IDs persistidos
+y referencias resueltas.
 
-   - Crea silos y jaulas independientes primero
-   - Mapea IDs temporales → IDs reales
-   - Crea líneas de alimentación con sus componentes
-   - Resuelve referencias usando el mapa de IDs
+Los errores de validación, nombres duplicados o reglas de dominio se devuelven
+como `400 Bad Request`. Los errores no contemplados se devuelven actualmente
+como `500 Internal Server Error`.
 
-6. **Sistema actualiza entidades existentes**
+## Fuente autoritativa
 
-   - Actualiza nombres, capacidades y configuraciones
-   - Actualiza componentes de líneas
-   - Actualiza asignaciones de slots
-
-7. **Sistema confirma transacción**
-   - Persiste todos los cambios
-   - Devuelve el layout completo con IDs reales
-
-## Qué pasa si falla
-
-### FA1: Composición de línea inválida
-
-- **Qué**: Línea sin blower, sin dosificadores o sin selector
-- **Resultado**: Transacción rechazada, canvas no se guarda
-- **Mensaje**: "La línea debe tener un blower, al menos un dosificador y un selector"
-
-### FA2: Nombres duplicados
-
-- **Qué**: Dos silos, jaulas o líneas con el mismo nombre
-- **Resultado**: Transacción rechazada
-- **Mensaje**: "Ya existe un [silo/jaula/línea] con el nombre '[nombre]'"
-
-### FA3: Jaula ya asignada a otra línea
-
-- **Qué**: Intento de asignar una jaula que ya está en uso
-- **Resultado**: Transacción rechazada
-- **Mensaje**: "La jaula '[nombre]' ya está asignada a otra línea"
-
-### FA4: Slot duplicado o inválido
-
-- **Qué**: Dos jaulas en el mismo slot, o slot fuera de capacidad
-- **Resultado**: Transacción rechazada
-- **Mensaje**: "Slot [número] ya está asignado" o "Slot [número] excede la capacidad del selector"
-
-### FA5: Silo ya asignado a otro dosificador
-
-- **Qué**: Intento de asignar un silo que ya está en uso
-- **Resultado**: Transacción rechazada
-- **Mensaje**: "El silo '[nombre]' ya está asignado a otro dosificador"
-
-### FA6: Referencia rota (ID inexistente)
-
-- **Qué**: Dosificador referencia silo inexistente, o slot referencia jaula inexistente
-- **Resultado**: Transacción rechazada
-- **Mensaje**: "El [silo/jaula] con ID '[id]' no existe"
-
-### FA7: Sensores duplicados por tipo
-
-- **Qué**: Dos sensores del mismo tipo en una línea
-- **Resultado**: Transacción rechazada
-- **Mensaje**: "Ya existe un sensor de tipo '[tipo]' en la línea"
-
-### Error de validación de rangos
-
-- **Qué**: Valores fuera de rango (min > max, capacidad negativa, etc.)
-- **Resultado**: Transacción rechazada
-- **Mensaje**: Descripción específica del error de validación
-
-## Resultado final
-
-### Si tiene éxito
-
-- ✅ Base de datos refleja exactamente el estado del canvas
-- ✅ Todas las entidades tienen IDs reales (no temporales)
-- ✅ Todas las referencias están correctamente mapeadas
-- ✅ Metadatos de presentación guardados (posiciones, conexiones visuales)
-- ✅ Frontend recibe el layout actualizado con IDs reales
-
-### Datos devueltos
-
-- Lista de silos con IDs reales
-- Lista de jaulas con IDs reales
-- Lista de líneas de alimentación con:
-  - Componentes (blower, dosers, selector, sensors)
-  - Asignaciones de slots actualizadas
-  - Referencias correctas a silos y jaulas
-
-## Tipos de Componentes Soportados
-
-El sistema soporta diferentes tipos de componentes para las líneas de alimentación:
-
-### Blowers (Sopladores)
-
-- **standard**: Soplador estándar con configuración básica
-
-### Dosers (Dosificadores)
-
-- **standard**: Dosificador estándar
-- Extensible para soportar: VariDoser, PulseDoser, ScrewDoser
-
-### Selectors (Selectoras)
-
-- **standard**: Selectora estándar con capacidad configurable
-
-### Sensors (Sensores)
-
-- **TEMPERATURE**: Sensor de temperatura
-- **PRESSURE**: Sensor de presión
-- **FLOW**: Sensor de flujo
-
-El sistema usa polimorfismo para permitir agregar nuevos tipos de componentes sin modificar el caso de uso.
-
-## Notas importantes
-
-- **Operación atómica**: Todo se guarda o nada se guarda (transaccional)
-- **Sincronización declarativa**: El canvas define el estado deseado completo
-- **Mapeo automático de IDs**: El sistema resuelve IDs temporales automáticamente
-- **Validación exhaustiva**: Todas las reglas FA1-FA7 se validan antes de persistir
-- **Polimorfismo de componentes**: Los componentes se crean mediante ComponentFactory según su tipo
+- Contrato: `src/api/models/system_layout.py`.
+- Endpoint: `src/api/routers/system_layout.py`.
+- Orquestación: `src/application/use_cases/sync_system_layout.py`.
+- Contrato HTTP generado: `/docs` u `/openapi.json` con la API en ejecución.

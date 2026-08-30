@@ -21,7 +21,6 @@ from domain.value_objects import (
     SiloId,
     SiloName,
     SessionId,
-    OperationId,
     Weight,
     Volume,
     Density,
@@ -67,7 +66,6 @@ class TestIdentifierValueObjects:
         assert CageId.generate() is not None
         assert SiloId.generate() is not None
         assert SessionId.generate() is not None
-        assert OperationId.generate() is not None
 
 
 class TestNameValueObjects:

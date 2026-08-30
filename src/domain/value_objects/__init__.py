@@ -36,27 +36,22 @@ from .feeding_specs import (
     SelectorSpeedProfile,
 )
 
-# Feeding Rates
-from .feeding_rates import CambioTasa, TasaAlimentacion
 from .identifiers import (
     AlertId,
     BlowerId,
     CageGroupId,
     CageId,
-    ComidaId,
     CoolerId,
     DoserId,
     FeedingTableId,
     FoodId,
     LineId,
-    OperationId,
     ScheduledAlertId,
     SelectorId,
     SensorId,
     SessionId,
     SiloId,
     UserId,
-    VisitaId,
 )
 
 # Measurements
@@ -94,12 +89,9 @@ __all__ = [
     "SensorId",
     "FeedingTableId",
     "SessionId",
-    "OperationId",
     "FoodId",
     "AlertId",
     "ScheduledAlertId",
-    "ComidaId",
-    "VisitaId",
     "UserId",
     # Names
     "LineName",
@@ -124,9 +116,6 @@ __all__ = [
     "DosingRange",
     "SelectorCapacity",
     "SelectorSpeedProfile",
-    # Feeding Rates
-    "TasaAlimentacion",
-    "CambioTasa",
     # Aquaculture
     "FishCount",
     "FCR",

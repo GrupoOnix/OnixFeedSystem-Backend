@@ -12,7 +12,6 @@ from domain.aggregates.scheduled_alert import ScheduledAlert
 from domain.aggregates.silo import Silo
 from domain.entities.cage_feeding import CageFeeding, CageFeedingMode
 from domain.entities.feeding_event import FeedingEvent, FeedingEventType
-from domain.entities.feeding_operation import FeedingOperation
 from domain.entities.feeding_session import FeedingSession as FeedingSessionEntity
 from domain.dtos.feeding_rate_timeline import FeedingRateTimelineVisit
 from domain.entities.population_event import PopulationEvent
@@ -43,9 +42,7 @@ from .value_objects import (
     LineId,
     LineName,
     MortalityLogEntry,
-    OperationId,
     ScheduledAlertId,
-    SessionId,
     SiloId,
     SiloName,
     UserId,
@@ -390,28 +387,6 @@ class IFeedingEventRepository(ABC):
         feeding_type: str | None = None,
         operator_id: str | None = None,
     ) -> List[FeedingRateTimelineVisit]: ...
-
-
-class IFeedingOperationRepository(ABC):
-    """Repositorio para operaciones de alimentación."""
-
-    @abstractmethod
-    async def save(self, operation: FeedingOperation) -> None: ...
-
-    @abstractmethod
-    async def find_by_id(self, operation_id: OperationId) -> Optional[FeedingOperation]: ...
-
-    @abstractmethod
-    async def find_current_by_session(self, session_id: SessionId) -> Optional[FeedingOperation]: ...
-
-    @abstractmethod
-    async def find_all_by_session(self, session_id: SessionId) -> List[FeedingOperation]: ...
-
-    @abstractmethod
-    async def get_today_dispensed_by_cage(self, cage_id: CageId) -> float: ...
-
-    @abstractmethod
-    async def get_today_dispensed_by_cages(self, cage_ids: List[CageId]) -> dict[str, float]: ...
 
 
 class IBiometryLogRepository(ABC):

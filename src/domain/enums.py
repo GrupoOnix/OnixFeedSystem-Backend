@@ -42,44 +42,10 @@ class FeedingLineStatus(Enum):
     FAULT = "FAULT"
 
 
-class SessionStatus(Enum):
-    """Estado de la sesión diaria (contenedor)."""
-
-    ACTIVE = "ACTIVE"
-    CLOSED = "CLOSED"
-
-
-class OperationStatus(Enum):
-    """Estado de una operación individual."""
-
-    RUNNING = "RUNNING"
-    PAUSED = "PAUSED"
-    COMPLETED = "COMPLETED"
-    STOPPED = "STOPPED"
-    FAILED = "FAILED"
-
-
 class FeedingMode(Enum):
     MANUAL = "MANUAL"
     CYCLIC = "CYCLIC"
     PROGRAMMED = "PROGRAMMED"
-
-
-class FeedingEventType(Enum):
-    COMMAND = "COMMAND"
-    PARAM_CHANGE = "PARAM_CHANGE"
-    SYSTEM_STATUS = "SYSTEM_STATUS"
-    ALARM = "ALARM"
-
-
-class OperationEventType(Enum):
-    STARTED = "STARTED"
-    PAUSED = "PAUSED"
-    RESUMED = "RESUMED"
-    PARAM_CHANGE = "PARAM_CHANGE"
-    COMPLETED = "COMPLETED"
-    STOPPED = "STOPPED"
-    FAILED = "FAILED"
 
 
 # ============================================================================
@@ -146,11 +112,6 @@ class ScheduledAlertFrequency(Enum):
     CUSTOM_DAYS = "CUSTOM_DAYS"
 
 
-# ============================================================================
-# Enums de Comida y Visita
-# ============================================================================
-
-
 class FeedingStrategy(Enum):
     """Feeding strategy type."""
 
@@ -169,30 +130,3 @@ class FeedingSessionStatus(Enum):
     CANCELLED = "cancelada"
     INTERRUPTED = "interrumpida"
 
-
-class TipoComida(Enum):
-    """Tipo de comida según su programación."""
-
-    MANUAL = "MANUAL"
-    CICLICA = "CICLICA"
-    PROGRAMADA = "PROGRAMADA"
-
-
-class EstadoComida(Enum):
-    """Estado del ciclo de vida de una comida."""
-
-    PROGRAMADA = "PROGRAMADA"
-    EN_CURSO = "EN_CURSO"
-    PAUSADA = "PAUSADA"
-    COMPLETADA = "COMPLETADA"
-    CANCELADA = "CANCELADA"
-    INTERRUMPIDA = "INTERRUMPIDA"
-
-
-class EstadoVisita(Enum):
-    """Estado del ciclo de vida de una visita."""
-
-    PENDIENTE = "PENDIENTE"  # Creada, esperando ejecución
-    EN_CURSO = "EN_CURSO"  # Ejecutándose actualmente
-    COMPLETADA = "COMPLETADA"  # Finalizada exitosamente
-    CANCELADA = "CANCELADA"  # Cancelada o interrumpida

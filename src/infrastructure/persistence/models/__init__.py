@@ -24,7 +24,6 @@ from .last_valid_cyclic_feeding_config_model import LastValidCyclicFeedingConfig
 from .last_valid_manual_feeding_config_model import LastValidManualFeedingConfigModel
 from .mortality_log_model import MortalityLogModel
 
-# from .operation_event_model import OperationEventModel  # REMOVED - Old feeding system
 from .population_event_model import PopulationEventModel
 from .scheduled_alert_model import ScheduledAlertModel
 from .scheduled_feeding_plan_model import ScheduledFeedingPlanModel
@@ -75,7 +74,6 @@ __all__ = [
     "FeedbackModel",
     "FoodModel",
     "MortalityLogModel",
-    # "OperationEventModel",  # REMOVED - Old feeding system
     "ScheduledAlertModel",
     "ScheduledFeedingPlanModel",
     "ScheduledFeedingRunModel",

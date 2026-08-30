@@ -1,157 +1,112 @@
 # Feeding System API
 
-Sistema de gestión de alimentación para acuicultura.
+API de control y monitoreo para el sistema de alimentación acuícola Onix.
+Expone autenticación, configuración del trazado, inventario FIFO de silos,
+alimentaciones manuales, cíclicas y programadas, historial, alertas y gestión
+de usuarios.
 
-## 🚀 Inicio Rápido con Docker
+## Requisitos
 
-### Prerrequisitos
+- Docker con Docker Compose, o Python 3.11+ para desarrollo local.
+- PostgreSQL.
+- Un archivo `.env` basado en `.env.template`.
 
-- Docker y Docker Compose instalados
-- Archivo `.env` configurado (ver `.env.template`)
-
-### Levantar el sistema
-
-```bash
-docker-compose up -d
-```
-
-Esto iniciará:
-
-- **PostgreSQL** en `localhost:5432`
-- **API Backend** en `http://localhost:8000`
-
-### Verificar que está funcionando
+## Inicio con Docker
 
 ```bash
-# Ver logs
-docker-compose logs -f backend
-
-# Verificar salud de la base de datos
-docker-compose ps
+cp .env.template .env
+docker compose up -d --build
 ```
 
-### Acceder a la API
+Servicios disponibles:
 
-- **Documentación interactiva**: http://localhost:8000/docs
-- **API alternativa**: http://localhost:8000/redoc
+- API: `http://localhost:8000`
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+- PostgreSQL: `localhost:5432`
 
-## 🔐 Autenticación
-
-La API usa tokens JWT. Casi todos los endpoints requieren autenticación; los únicos abiertos son los de health (`/`, `/health`) y la documentación OpenAPI (`/docs`, `/openapi.json`).
-
-### Usuario administrador por defecto
-
-Al iniciar la aplicación se crea automáticamente un superadministrador si no existe:
-
-- **username**: `adminOnix`
-- **password**: `OnixServicios`
-- **role**: `admin`
-- **superadmin**: `true`
-
-### Obtener un token
+Comandos habituales:
 
 ```bash
-curl -X POST http://localhost:8000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username": "adminOnix", "password": "OnixServicios"}'
+docker compose logs -f backend
+docker compose exec backend alembic upgrade head
+docker compose down
 ```
 
-Respuesta:
+`docker compose down -v` elimina también el volumen y todos los datos locales.
 
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIs...",
-  "token_type": "bearer",
-  "user": {
-    "id": "...",
-    "username": "adminOnix",
-    "full_name": "Administrador Onix",
-    "role": "admin",
-    "is_superadmin": true,
-    "is_active": true
-  }
-}
-```
-
-### Usar el token
-
-Incluye el header `Authorization: Bearer <token>` en cada petición protegida:
+## Desarrollo local
 
 ```bash
-curl http://localhost:8000/api/cages \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+alembic upgrade head
+cd src
+uvicorn main:app --reload --port 8000
 ```
 
-### Roles y permisos
+La configuración disponible se describe en `.env.template`.
+`JWT_SECRET_KEY` debe cambiarse fuera de desarrollo. El Compose actual solo
+propaga las variables de base de datos; la propagación del resto está registrada
+en [deuda técnica](docs/deuda-tecnica.md).
 
-| Rol | Permisos |
-|-----|----------|
-| `user` | Operar el sistema: alimentaciones, consultar estados, configuraciones operativas. No puede gestionar usuarios. |
-| `admin` | Todo lo de `user`, más crear/listar/desactivar usuarios con rol `user`. Puede cambiar su propia contraseña. |
-| `superadmin` | Todo lo de `admin`, más crear/modificar/desactivar otros admins, cambiar roles y resetear contraseñas de cualquier usuario. |
+## Autenticación
 
-### Endpoints de autenticación y usuarios
+La API utiliza JWT Bearer. Salvo health y OpenAPI, los endpoints bajo `/api`
+requieren el header:
 
-| Método | Endpoint | Descripción | Permiso |
-|--------|----------|-------------|---------|
-| POST | `/api/auth/login` | Iniciar sesión y obtener JWT | Público |
-| GET | `/api/auth/me` | Obtener usuario actual | Autenticado |
-| PATCH | `/api/auth/me/password` | Cambiar contraseña propia | Autenticado |
-| POST | `/api/users` | Crear usuario | Admin o superadmin |
-| GET | `/api/users` | Listar usuarios | Admin o superadmin |
-| PATCH | `/api/users/{id}/status` | Activar/desactivar usuario | Admin (solo `user`) / superadmin (todos) |
-| PATCH | `/api/users/{id}/role` | Cambiar rol de usuario | Superadmin |
-| PATCH | `/api/users/{id}/password` | Resetear contraseña | Superadmin |
+```http
+Authorization: Bearer <access_token>
+```
 
-### Comandos útiles
+El token dura 24 horas por defecto y no existe refresh token. Endpoints
+principales:
+
+| Método | Endpoint | Acceso |
+| --- | --- | --- |
+| `POST` | `/api/auth/login` | Público |
+| `GET` | `/api/auth/me` | Usuario autenticado |
+| `PATCH` | `/api/auth/me/password` | Usuario autenticado |
+| `POST` | `/api/users` | Admin o superadmin |
+| `GET` | `/api/users` | Admin o superadmin |
+| `PATCH` | `/api/users/{id}/status` | Admin o superadmin |
+| `PATCH` | `/api/users/{id}/role` | Superadmin |
+| `PATCH` | `/api/users/{id}/password` | Superadmin |
+
+En una base nueva, el servicio crea el superadministrador definido actualmente
+en `src/infrastructure/services/default_admin_service.py`. Es una facilidad de
+bootstrap pendiente de migrar a configuración externa; la contraseña debe
+cambiarse antes de operar fuera de un entorno controlado.
+
+## Calidad y pruebas
+
+Desde la raíz del backend:
 
 ```bash
-# Detener servicios
-docker-compose down
-
-# Detener y eliminar volúmenes (⚠️ borra la base de datos)
-docker-compose down -v
-
-# Reconstruir imágenes
-docker-compose up -d --build
-
-# Ver logs en tiempo real
-docker-compose logs -f
-
-# Ejecutar migraciones manualmente
-docker-compose exec backend alembic upgrade head
+ruff check src
+pytest -q --ignore=src/test/api/integration
+pytest -q src/test/api/integration
 ```
 
-## 📝 Configuración
+Las pruebas de integración requieren una API y una base de datos disponibles.
 
-Crea un archivo `.env` basado en `.env.template`:
-
-```env
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=tu_password_seguro
-DB_NAME=feeding_system
-DB_ECHO=false
-
-JWT_SECRET_KEY=cambia-esto-en-produccion
-JWT_ALGORITHM=HS256
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=1440
-```
-
-## 🗄️ Base de Datos
-
-La base de datos PostgreSQL persiste en un volumen Docker. Los datos se mantienen entre reinicios.
-
-Para resetear completamente:
+## Migraciones
 
 ```bash
-docker-compose down -v
-docker-compose up -d
+alembic upgrade head
+alembic history
+alembic revision --autogenerate -m "descripcion"
+alembic downgrade -1
 ```
 
-## 📚 Documentación Adicional
+No se deben eliminar migraciones históricas aunque una tabla o modelo haya
+dejado de existir: son necesarias para reconstruir bases desde cero.
 
-- [API de Jaulas](docs/API_CAGES.md)
-- [Comandos Alembic](docs/comandos-alembic.md)
-- [Análisis de Requerimientos](docs/Analisis-de-Requerimientos.md)
+## Documentación mantenida
+
+- [UC-01: sincronizar el trazado](docs/03-casos-de-uso/UC-01-sincronizar-trazado-sistema.md)
+- [UC-02: obtener el trazado](docs/03-casos-de-uso/UC-02-obtener-trazado-sistema.md)
+- [Deuda técnica vigente](docs/deuda-tecnica.md)
+
+Para contratos HTTP exactos, Swagger/OpenAPI es la fuente autoritativa.
