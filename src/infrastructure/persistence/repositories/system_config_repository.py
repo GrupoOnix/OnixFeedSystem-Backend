@@ -25,6 +25,9 @@ class SystemConfigRepository(ISystemConfigRepository):
             existing.feeding_end_time = config.feeding_end_time
             existing.timezone_id = config.timezone_id
             existing.selector_positioning_time_seconds = config.selector_positioning_time_seconds
+            existing.doser_calibration_tolerance_percentage = config.doser_calibration_tolerance_percentage
+            existing.doser_calibration_max_pulses = config.doser_calibration_max_pulses
+            existing.doser_calibration_max_attempt_seconds = config.doser_calibration_max_attempt_seconds
         else:
             self.session.add(SystemConfigModel.from_domain(config))
         await self.session.flush()

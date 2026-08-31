@@ -18,6 +18,9 @@ class SystemConfigModel(SQLModel, table=True):
     feeding_end_time: time = Field(nullable=False)
     timezone_id: str = Field(max_length=64, nullable=False)
     selector_positioning_time_seconds: int = Field(default=10, nullable=False)
+    doser_calibration_tolerance_percentage: float = Field(default=5.0, nullable=False)
+    doser_calibration_max_pulses: int = Field(default=10, nullable=False)
+    doser_calibration_max_attempt_seconds: int = Field(default=20, nullable=False)
 
     @staticmethod
     def from_domain(config: SystemConfig) -> "SystemConfigModel":
@@ -27,6 +30,9 @@ class SystemConfigModel(SQLModel, table=True):
             feeding_end_time=config.feeding_end_time,
             timezone_id=config.timezone_id,
             selector_positioning_time_seconds=config.selector_positioning_time_seconds,
+            doser_calibration_tolerance_percentage=config.doser_calibration_tolerance_percentage,
+            doser_calibration_max_pulses=config.doser_calibration_max_pulses,
+            doser_calibration_max_attempt_seconds=config.doser_calibration_max_attempt_seconds,
         )
 
     def to_domain(self) -> SystemConfig:
@@ -35,4 +41,7 @@ class SystemConfigModel(SQLModel, table=True):
             feeding_end_time=self.feeding_end_time,
             timezone_id=self.timezone_id,
             selector_positioning_time_seconds=self.selector_positioning_time_seconds,
+            doser_calibration_tolerance_percentage=self.doser_calibration_tolerance_percentage,
+            doser_calibration_max_pulses=self.doser_calibration_max_pulses,
+            doser_calibration_max_attempt_seconds=self.doser_calibration_max_attempt_seconds,
         )

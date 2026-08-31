@@ -29,6 +29,7 @@ class _LineState:
     blow_after_seconds: float = 0.0
     selector_positioning_seconds: float = 5.0
     visit_start_time: Optional[datetime] = None
+    pause_started_at: Optional[datetime] = None
     dispensing_completed_time: Optional[datetime] = None
     slot_rates: Dict[int, float] = field(default_factory=dict)
     cage_id: Optional[str] = None
@@ -114,6 +115,7 @@ class SimulatedMachine(IMachine):
         state.visit_number = command.visit_number
         state.is_empty_visit = command.is_empty_visit
         state.visit_start_time = now
+        state.pause_started_at = None
         state.dispensing_completed_time = None
 
         self._simulation_tasks[key] = asyncio.create_task(self._simulation_loop(key, state))
@@ -154,7 +156,8 @@ class SimulatedMachine(IMachine):
         if state.visit_start_time is None:
             return VisitStage.IDLE
 
-        elapsed = (now - state.visit_start_time).total_seconds()
+        effective_now = state.pause_started_at if state.is_paused and state.pause_started_at else now
+        elapsed = (effective_now - state.visit_start_time).total_seconds()
 
         if elapsed < state.selector_positioning_seconds:
             return VisitStage.POSITIONING_SELECTOR
@@ -213,6 +216,7 @@ class SimulatedMachine(IMachine):
         state.pre_pause_doser_rate = state.doser_rate_kg_per_min
         state.pre_pause_blower_power = state.blower_power_percentage
         state.doser_rate_kg_per_min = 0.0
+        state.pause_started_at = datetime.now(timezone.utc)
         state.is_paused = True
         logger.info(f"[SimMachine] Line {line_id}: PAUSED at {state.dispensed_kg:.3f}kg")
 
@@ -221,8 +225,12 @@ class SimulatedMachine(IMachine):
         state = self._get_or_create(line_id)
         if not state.is_running or not state.is_paused:
             return
+        now = datetime.now(timezone.utc)
+        if state.pause_started_at is not None and state.visit_start_time is not None:
+            state.visit_start_time += now - state.pause_started_at
         state.doser_rate_kg_per_min = state.pre_pause_doser_rate
         state.blower_power_percentage = state.pre_pause_blower_power
+        state.pause_started_at = None
         state.is_paused = False
         logger.info(f"[SimMachine] Line {line_id}: RESUMED at {state.dispensed_kg:.3f}kg")
 
@@ -234,6 +242,7 @@ class SimulatedMachine(IMachine):
         final_kg = state.dispensed_kg
         state.is_running = False
         state.is_paused = False
+        state.pause_started_at = None
         state.doser_rate_kg_per_min = 0.0
         state.blower_power_percentage = 0.0
         state.visit_start_time = None

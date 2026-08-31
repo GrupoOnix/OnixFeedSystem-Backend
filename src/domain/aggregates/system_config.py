@@ -6,6 +6,9 @@ class SystemConfig:
     _SINGLETON_ID: int = 1
 
     _DEFAULT_SELECTOR_POSITIONING_TIME: int = 10
+    _DEFAULT_CALIBRATION_TOLERANCE: float = 5.0
+    _DEFAULT_CALIBRATION_MAX_PULSES: int = 10
+    _DEFAULT_CALIBRATION_MAX_SECONDS: int = 20
 
     def __init__(
         self,
@@ -13,6 +16,9 @@ class SystemConfig:
         feeding_end_time: time,
         timezone_id: str,
         selector_positioning_time_seconds: int | None = None,
+        doser_calibration_tolerance_percentage: float | None = None,
+        doser_calibration_max_pulses: int | None = None,
+        doser_calibration_max_attempt_seconds: int | None = None,
     ) -> None:
         self._id = self._SINGLETON_ID
         self._feeding_start_time = feeding_start_time
@@ -23,6 +29,9 @@ class SystemConfig:
             if selector_positioning_time_seconds is not None
             else self._DEFAULT_SELECTOR_POSITIONING_TIME
         )
+        self._doser_calibration_tolerance_percentage = doser_calibration_tolerance_percentage or self._DEFAULT_CALIBRATION_TOLERANCE
+        self._doser_calibration_max_pulses = doser_calibration_max_pulses or self._DEFAULT_CALIBRATION_MAX_PULSES
+        self._doser_calibration_max_attempt_seconds = doser_calibration_max_attempt_seconds or self._DEFAULT_CALIBRATION_MAX_SECONDS
 
     @property
     def id(self) -> int:
@@ -43,6 +52,18 @@ class SystemConfig:
     @property
     def selector_positioning_time_seconds(self) -> int:
         return self._selector_positioning_time_seconds
+
+    @property
+    def doser_calibration_tolerance_percentage(self) -> float:
+        return self._doser_calibration_tolerance_percentage
+
+    @property
+    def doser_calibration_max_pulses(self) -> int:
+        return self._doser_calibration_max_pulses
+
+    @property
+    def doser_calibration_max_attempt_seconds(self) -> int:
+        return self._doser_calibration_max_attempt_seconds
 
     def seconds_remaining_in_window(self, now_utc: datetime) -> float:
         """
@@ -80,6 +101,9 @@ class SystemConfig:
         feeding_end_time: time,
         timezone_id: str,
         selector_positioning_time_seconds: int | None = None,
+        doser_calibration_tolerance_percentage: float | None = None,
+        doser_calibration_max_pulses: int | None = None,
+        doser_calibration_max_attempt_seconds: int | None = None,
     ) -> None:
         if feeding_end_time <= feeding_start_time:
             raise ValueError("feeding_end_time debe ser posterior a feeding_start_time")
@@ -90,6 +114,12 @@ class SystemConfig:
         self._feeding_start_time = feeding_start_time
         self._feeding_end_time = feeding_end_time
         self._timezone_id = timezone_id
+        if doser_calibration_tolerance_percentage is not None:
+            self._doser_calibration_tolerance_percentage = doser_calibration_tolerance_percentage
+        if doser_calibration_max_pulses is not None:
+            self._doser_calibration_max_pulses = doser_calibration_max_pulses
+        if doser_calibration_max_attempt_seconds is not None:
+            self._doser_calibration_max_attempt_seconds = doser_calibration_max_attempt_seconds
 
     @classmethod
     def create_default(cls) -> "SystemConfig":

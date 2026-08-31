@@ -23,7 +23,9 @@ class Blower(IBlower):
         self._id = BlowerId.from_string(_existing_id) if _existing_id else BlowerId.generate()
         self._name = name
         self._non_feeding_power = non_feeding_power
-        self._current_power = current_power or non_feeding_power
+        # La potencia nominal es una configuración, no una orden de encendido.
+        # Un blower nuevo debe permanecer apagado hasta que un flujo operativo lo active.
+        self._current_power = current_power if current_power is not None else BlowerPowerPercentage(0.0)
         self._blow_before_feeding_time = blow_before_time
         self._blow_after_feeding_time = blow_after_time
         self._created_at = datetime.now(timezone.utc)

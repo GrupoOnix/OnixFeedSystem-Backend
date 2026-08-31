@@ -21,6 +21,9 @@ class UpdateSystemConfigUseCase:
             feeding_end_time=time(end_h, end_m),
             timezone_id=request.timezone_id,
             selector_positioning_time_seconds=request.selector_positioning_time_seconds,
+            doser_calibration_tolerance_percentage=request.doser_calibration_tolerance_percentage,
+            doser_calibration_max_pulses=request.doser_calibration_max_pulses,
+            doser_calibration_max_attempt_seconds=request.doser_calibration_max_attempt_seconds,
         )
 
         await self._repo.save(config)
@@ -30,4 +33,7 @@ class UpdateSystemConfigUseCase:
             feeding_end_time=config.feeding_end_time.strftime("%H:%M"),
             timezone_id=config.timezone_id,
             selector_positioning_time_seconds=config.selector_positioning_time_seconds,
+            doser_calibration_tolerance_percentage=config.doser_calibration_tolerance_percentage,
+            doser_calibration_max_pulses=config.doser_calibration_max_pulses,
+            doser_calibration_max_attempt_seconds=config.doser_calibration_max_attempt_seconds,
         )

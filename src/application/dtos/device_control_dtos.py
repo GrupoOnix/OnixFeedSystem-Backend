@@ -62,6 +62,48 @@ class RunDoserDurationRequest(BaseModel):
     duration_seconds: float = Field(..., gt=0.0, le=300.0)
 
 
+class StartCalibrationSessionRequest(BaseModel):
+    """Inicia una sesión iterativa para un Pulse Doser."""
+
+    target_grams: float = Field(..., gt=0.0, le=100000.0)
+    tolerance_percentage: Optional[float] = Field(default=None, gt=0.0, le=100.0)
+
+
+class StartCalibrationAttemptRequest(BaseModel):
+    pulse_count: int = Field(..., ge=1, le=100)
+
+
+class RecordCalibrationMeasurementRequest(BaseModel):
+    measured_grams: float = Field(..., gt=0.0, le=100000.0)
+    included: bool = True
+
+
+class CalibrationAttemptResponse(BaseModel):
+    id: str
+    sequence: int
+    status: str
+    pulse_count: int
+    active_time_seconds: float
+    expected_grams: Optional[float] = None
+    measured_grams: Optional[float] = None
+    error_percentage: Optional[float] = None
+    included: bool
+
+
+class CalibrationSessionResponse(BaseModel):
+    id: str
+    doser_id: str
+    line_id: str
+    status: str
+    target_grams: float
+    pulse_on_time: float
+    pulse_off_time: float
+    speed_percentage: int
+    tolerance_percentage: float
+    final_grams_per_second: Optional[float] = None
+    attempts: list[CalibrationAttemptResponse] = []
+
+
 class SetCoolerPowerRequest(BaseModel):
     """Request para establecer la potencia del cooler."""
 

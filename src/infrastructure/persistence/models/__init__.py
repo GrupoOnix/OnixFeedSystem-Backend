@@ -12,6 +12,7 @@ from .config_change_log_model import ConfigChangeLogModel
 from .cooler_model import CoolerModel
 from .doser_model import DoserModel
 from .doser_calibration_model import DoserCalibrationModel
+from .doser_calibration_session_model import DoserCalibrationAttemptModel, DoserCalibrationSessionModel
 from .doser_silo_model import DoserSiloModel
 from .feedback_model import FeedbackModel
 from .feeding_event_model import FeedingEventModel
@@ -62,6 +63,8 @@ __all__ = [
     "CoolerModel",
     "DoserModel",
     "DoserCalibrationModel",
+    "DoserCalibrationSessionModel",
+    "DoserCalibrationAttemptModel",
     "DoserSiloModel",
     "SelectorModel",
     "SensorModel",

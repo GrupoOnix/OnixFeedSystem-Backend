@@ -8,6 +8,9 @@ class SystemConfigResponse(BaseModel):
     selector_positioning_time_seconds: int = Field(
         description="Tiempo estimado (segundos) que tarda el selector en posicionarse hacia una jaula"
     )
+    doser_calibration_tolerance_percentage: float = Field(description="Tolerancia de calibración (%)")
+    doser_calibration_max_pulses: int = Field(description="Máximo de pulsos por intento")
+    doser_calibration_max_attempt_seconds: int = Field(description="Máxima duración de un intento")
 
 
 class UpdateSystemConfigRequest(BaseModel):
@@ -20,6 +23,9 @@ class UpdateSystemConfigRequest(BaseModel):
         le=60,
         description="Tiempo estimado (segundos) que tarda el selector en posicionarse (1-60)",
     )
+    doser_calibration_tolerance_percentage: float | None = Field(default=None, gt=0, le=100)
+    doser_calibration_max_pulses: int | None = Field(default=None, ge=1, le=100)
+    doser_calibration_max_attempt_seconds: int | None = Field(default=None, ge=1, le=300)
 
     @field_validator("feeding_start_time", "feeding_end_time")
     @classmethod
