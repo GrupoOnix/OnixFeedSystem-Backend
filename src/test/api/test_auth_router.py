@@ -6,10 +6,12 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from fastapi import HTTPException
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from api.dependencies import (
+    _get_current_user_base,
     get_authenticate_user_use_case,
     get_change_password_use_case,
     get_current_user_for_password_change,
@@ -137,6 +139,23 @@ class TestGetCurrentUser:
         response = client.get("/api/auth/me")
 
         assert response.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_inactive_user_returns_401(self):
+        """Un usuario desactivado invalida su sesión en lugar de causar un 500."""
+        from domain.exceptions import UserInactiveError
+
+        mock_use_case = MagicMock()
+        mock_use_case.execute = AsyncMock(
+            side_effect=UserInactiveError("El usuario está desactivado")
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await _get_current_user_base("fake-jwt-token", mock_use_case)
+
+        assert exc_info.value.status_code == 401
+        assert exc_info.value.detail == "El usuario está desactivado"
+        assert exc_info.value.headers == {"WWW-Authenticate": "Bearer"}
 
     def test_get_current_user_with_must_change_password_allowed(self, client):
         """Test: /me permite lectura aunque must_change_password sea true."""

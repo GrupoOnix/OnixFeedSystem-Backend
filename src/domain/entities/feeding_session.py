@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Any, List, Optional
 from enum import Enum
 
 
@@ -32,6 +32,7 @@ class FeedingSession:
         total_programmed_kg: float,
         allow_overtime: bool = False,
         scheduled_start: Optional[datetime] = None,
+        execution_context: Optional[dict[str, Any]] = None,
     ):
         self._id = str(uuid.uuid4())
         self._line_id = line_id
@@ -48,6 +49,7 @@ class FeedingSession:
         self._total_programmed_kg = total_programmed_kg
 
         self._scheduled_start = scheduled_start
+        self._execution_context = execution_context
         self._actual_start: Optional[datetime] = None
         self._actual_end: Optional[datetime] = None
 
@@ -82,6 +84,10 @@ class FeedingSession:
     @property
     def scheduled_start(self):
         return self._scheduled_start
+
+    @property
+    def execution_context(self):
+        return self._execution_context
 
     @property
     def actual_start(self):

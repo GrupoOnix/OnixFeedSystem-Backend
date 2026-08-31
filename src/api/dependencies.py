@@ -39,6 +39,7 @@ from application.use_cases.users import (
     UpdateUserRoleUseCase,
     UpdateUserStatusUseCase,
 )
+from domain.exceptions import UserInactiveError, UserNotFoundException
 from application.use_cases.cage import (
     AdjustPopulationUseCase,
     CreateCageUseCase,
@@ -2154,7 +2155,7 @@ async def _get_current_user_base(
     """Base que devuelve el usuario autenticado sin verificar must_change_password."""
     try:
         return await use_case.execute(token)
-    except TokenError as exc:
+    except (TokenError, UserInactiveError, UserNotFoundException) as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(exc),

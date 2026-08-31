@@ -129,12 +129,13 @@ class _UserRepo:
         return SimpleNamespace(full_name="Test User")
 
 
-def _cyclic_session_with_cages():
+def _cyclic_session_with_cages(execution_context=None):
     session = FeedingSession(
         feeding_type=FeedingType.CYCLIC,
         line_id=str(uuid4()),
         operator_id=str(uuid4()),
         total_programmed_kg=220.0,
+        execution_context=execution_context,
     )
     session.start()
     first = CageFeeding(
@@ -248,7 +249,12 @@ async def test_patch_cyclic_cage_amount_maps_value_error_to_400():
 
 @pytest.mark.asyncio
 async def test_cyclic_status_exposes_per_cage_visits_and_total_rounds():
-    session, first, second = _cyclic_session_with_cages()
+    execution_context = {
+        "source": "SCHEDULED_PLAN",
+        "scheduled_plan_id": str(uuid4()),
+        "hard_deadline_at": "2026-08-31T18:00:00-04:00",
+    }
+    session, first, second = _cyclic_session_with_cages(execution_context)
 
     response = await get_cyclic_feeding_status(
         current_user=FakeCurrentUser(),
@@ -266,6 +272,8 @@ async def test_cyclic_status_exposes_per_cage_visits_and_total_rounds():
     assert response.active_cage is not None
     assert response.active_cage.cage_id == first.cage_id
     assert response.active_cage.total_visits == 15
+    assert response.execution_context == execution_context
+    assert response.cages_summary[0].rate_kg_per_min == 2.0
     assert {
         cage.cage_id: (cage.mode, cage.programmed_visits, cage.completed_visits) for cage in response.cages_summary
     } == {

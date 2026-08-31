@@ -28,7 +28,6 @@ from .mortality_log_model import MortalityLogModel
 from .population_event_model import PopulationEventModel
 from .scheduled_alert_model import ScheduledAlertModel
 from .scheduled_feeding_plan_model import ScheduledFeedingPlanModel
-from .scheduled_feeding_run_model import ScheduledFeedingRunModel
 from .selector_model import SelectorModel
 from .sensor_model import SensorModel
 from .silo_model import SiloModel
@@ -79,7 +78,6 @@ __all__ = [
     "MortalityLogModel",
     "ScheduledAlertModel",
     "ScheduledFeedingPlanModel",
-    "ScheduledFeedingRunModel",
     "SystemConfigModel",
     "UserModel",
 ]

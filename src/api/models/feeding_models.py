@@ -319,7 +319,6 @@ class ScheduledFeedingPlanRequest(BaseModel):
     timezone: str = Field(default="America/Santiago", max_length=64)
     blower_power_percentage: float = Field(default=70, ge=30, le=100)
     wait_after_visit_seconds: float = Field(default=0, ge=0)
-    is_active: bool = True
     cage_configs: List[ScheduledPlanCageInput] = Field(min_length=1)
 
     @field_validator("line_id", "group_id", "doser_id", "silo_id")
@@ -377,7 +376,6 @@ class ScheduledFeedingPlanResponse(BaseModel):
     timezone: str
     blower_power_percentage: float
     wait_after_visit_seconds: float
-    is_active: bool
     total_rounds: int
     total_requested_kg: float
     total_planned_kg: float
@@ -389,11 +387,6 @@ class ScheduledFeedingPlanResponse(BaseModel):
     cage_plans: List[ScheduledPlanCageResponse]
     last_run_on: Optional[str] = None
     last_session_id: Optional[str] = None
-    last_error: Optional[str] = None
-
-
-class ToggleScheduledFeedingPlanRequest(BaseModel):
-    is_active: bool
 
 
 class CyclicFeedingResponse(BaseModel):
@@ -419,6 +412,7 @@ class CageSummaryItem(BaseModel):
     programmed_visits: int
     completed_visits: int
     overall_completion_percentage: float
+    rate_kg_per_min: float
     grams_per_pulse: Optional[float] = None
     pulses_per_visit: Optional[int] = None
     estimated_pulses_total: Optional[int] = None
@@ -472,6 +466,7 @@ class CyclicSessionStatusResponse(BaseModel):
     current_round: int
     active_cage: Optional[ActiveCageInfo]
     cages_summary: List[CageSummaryItem]
+    execution_context: Optional[dict[str, Any]] = None
     server_timestamp: datetime
 
 
@@ -481,6 +476,7 @@ class ActiveSessionItem(BaseModel):
     type: str
     status: str
     started_at: datetime
+    execution_context: Optional[dict[str, Any]] = None
 
 
 class BatchStatusSessionManual(BaseModel):
@@ -515,6 +511,7 @@ class BatchStatusSessionCyclic(BaseModel):
     total_rounds: int
     active_cage: Optional[ActiveCageInfo]
     cages_summary: List[CageSummaryItem]
+    execution_context: Optional[dict[str, Any]] = None
     server_timestamp: datetime
 
 

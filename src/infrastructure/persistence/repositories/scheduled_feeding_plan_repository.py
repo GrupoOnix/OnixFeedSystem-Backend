@@ -45,20 +45,6 @@ class ScheduledFeedingPlanRepository:
         )
         return result.scalars().first()
 
-    async def list_active_by_line(
-        self,
-        line_id: UUID,
-        exclude_plan_id: UUID | None = None,
-    ) -> list[ScheduledFeedingPlanModel]:
-        query = select(ScheduledFeedingPlanModel).where(
-            ScheduledFeedingPlanModel.line_id == line_id,
-            ScheduledFeedingPlanModel.is_active.is_(True),
-        )
-        if exclude_plan_id:
-            query = query.where(ScheduledFeedingPlanModel.id != exclude_plan_id)
-        result = await self.session.execute(query.order_by(ScheduledFeedingPlanModel.start_time))
-        return list(result.scalars().all())
-
     async def lock_line_schedule(self, line_id: UUID) -> None:
         result = await self.session.execute(
             select(FeedingLineModel.id).where(FeedingLineModel.id == line_id).with_for_update()

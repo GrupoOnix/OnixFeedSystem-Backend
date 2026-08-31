@@ -248,6 +248,7 @@ async def build_cyclic_status(
                 "programmed_visits": cf.programmed_visits,
                 "completed_visits": cf.completed_visits,
                 "overall_completion_percentage": round(overall_completion_percentage_cage, 2),
+                "rate_kg_per_min": cf.rate_kg_per_min,
                 **pulse_metrics,
             }
         )
@@ -265,5 +266,6 @@ async def build_cyclic_status(
         "current_round": current_round,
         "active_cage": active_cage_info,
         "cages_summary": cages_summary,
+        "execution_context": session.execution_context,
         "server_timestamp": datetime.now(timezone.utc),
     }

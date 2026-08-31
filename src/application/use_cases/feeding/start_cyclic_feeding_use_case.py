@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from api.models.feeding_models import CyclicFeedingRequest, CyclicFeedingResponse
 from application.services.feeding_orchestrator import FeedingOrchestrator
@@ -95,6 +95,7 @@ class StartCyclicFeedingUseCase:
         operator_id: str,
         operator_name: str,
         actor: str,
+        execution_context: dict[str, Any] | None = None,
     ) -> CyclicFeedingResponse:
         # Paso 1: Validar y cargar todas las entidades necesarias
         line, group, _doser, cage_data = await self._validate_request(request)
@@ -186,6 +187,14 @@ class StartCyclicFeedingUseCase:
             operator_id=operator_id,
             total_programmed_kg=total_programmed_kg,
             allow_overtime=request.allow_overtime,
+            execution_context={
+                "source": "CYCLIC_DASHBOARD",
+                "group_id": request.group_id,
+                "silo_id": request.silo_id,
+                "blower_power_percentage": request.blower_power_percentage,
+                "hard_deadline_at": request.hard_deadline_at.isoformat() if request.hard_deadline_at else None,
+                **(execution_context or {}),
+            },
         )
         session.start()
 

@@ -1,11 +1,11 @@
 """Modelo de base de datos para sesiones de alimentación."""
 
 from datetime import datetime
-from typing import List, Optional, TYPE_CHECKING
+from typing import Any, List, Optional, TYPE_CHECKING
 from uuid import UUID
 
 from datetime import timezone
-from sqlalchemy import Column, DateTime
+from sqlalchemy import JSON, Column, DateTime
 from sqlmodel import Field, SQLModel, Relationship
 
 from domain.entities.feeding_session import FeedingSession, FeedingType, SessionStatus
@@ -39,6 +39,10 @@ class FeedingSessionModel(SQLModel, table=True):
 
     # Configuración
     allow_overtime: bool = Field(default=False)
+    execution_context: Optional[dict[str, Any]] = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True),
+    )
 
     # Cantidades
     total_programmed_kg: float = Field(nullable=False)
@@ -74,6 +78,7 @@ class FeedingSessionModel(SQLModel, table=True):
             type=session.type.value,
             status=session.status.value,
             allow_overtime=session.allow_overtime,
+            execution_context=session.execution_context,
             total_programmed_kg=session.total_programmed_kg,
             scheduled_start=session.scheduled_start,
             actual_start=session.actual_start,
@@ -91,6 +96,7 @@ class FeedingSessionModel(SQLModel, table=True):
         session._type = FeedingType(self.type)
         session._status = SessionStatus(self.status)
         session._allow_overtime = self.allow_overtime
+        session._execution_context = self.execution_context
         session._total_programmed_kg = self.total_programmed_kg
         session._scheduled_start = self.scheduled_start
         session._actual_start = self.actual_start

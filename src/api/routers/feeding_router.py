@@ -71,7 +71,6 @@ from api.models.feeding_models import (
     ManualFeedingResponse,
     ScheduledFeedingPlanRequest,
     ScheduledFeedingPlanResponse,
-    ToggleScheduledFeedingPlanRequest,
     PauseFeedingRequest,
     RateChartPoint,
     ResumeFeedingRequest,
@@ -146,10 +145,6 @@ from infrastructure.persistence.models.scheduled_feeding_plan_model import (
 )
 from infrastructure.services.simulated_machine import SimulatedMachine
 from domain.services.scheduled_feeding_time import calculate_remaining_seconds, calculate_window_seconds
-from application.services.scheduled_plan_conflict_service import (
-    ScheduledPlanConflictError,
-    assert_no_scheduled_plan_conflict,
-)
 
 
 router = APIRouter(prefix="/feeding", tags=["Feeding"])
@@ -170,7 +165,6 @@ def _scheduled_plan_response(plan: ScheduledFeedingPlanModel) -> ScheduledFeedin
         timezone=plan.timezone,
         blower_power_percentage=plan.blower_power_percentage,
         wait_after_visit_seconds=plan.wait_after_visit_seconds,
-        is_active=plan.is_active,
         total_rounds=plan.total_rounds,
         total_requested_kg=plan.total_requested_kg,
         total_planned_kg=plan.total_planned_kg,
@@ -181,7 +175,6 @@ def _scheduled_plan_response(plan: ScheduledFeedingPlanModel) -> ScheduledFeedin
         cage_plans=cage_plans,
         last_run_on=plan.last_run_on,
         last_session_id=plan.last_session_id,
-        last_error=plan.last_error,
     )
 
 
@@ -229,13 +222,9 @@ async def create_scheduled_feeding_plan(
         line_id = UUID(calculated.line_id)
         await repository.lock_line_schedule(line_id)
         if await repository.find_by_line(line_id):
-            raise ScheduledPlanConflictError("La línea ya tiene un plan diario; modifícalo en lugar de crear otro")
-        if calculated.is_active:
-            assert_no_scheduled_plan_conflict(
-                start_time=calculated.start_time,
-                end_time=calculated.end_time,
-                timezone=calculated.timezone,
-                existing_plans=await repository.list_active_by_line(line_id),
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="La línea ya tiene un plan diario; modifícalo en lugar de crear otro",
             )
         plan = ScheduledFeedingPlanModel(
             line_id=UUID(calculated.line_id),
@@ -248,7 +237,6 @@ async def create_scheduled_feeding_plan(
             timezone=calculated.timezone,
             blower_power_percentage=calculated.blower_power_percentage,
             wait_after_visit_seconds=calculated.wait_after_visit_seconds,
-            is_active=calculated.is_active,
             total_rounds=calculated.total_rounds,
             total_requested_kg=calculated.total_requested_kg,
             total_planned_kg=calculated.total_planned_kg,
@@ -259,8 +247,6 @@ async def create_scheduled_feeding_plan(
         )
         await repository.save(plan)
         return _scheduled_plan_response(plan)
-    except ScheduledPlanConflictError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
@@ -283,7 +269,7 @@ async def update_scheduled_feeding_plan(
         calculated = await planner.calculate(request)
         for field in (
             "group_id", "doser_id", "silo_id", "name", "start_time", "end_time", "timezone",
-            "blower_power_percentage", "wait_after_visit_seconds", "is_active", "total_rounds",
+            "blower_power_percentage", "wait_after_visit_seconds", "total_rounds",
             "total_requested_kg", "total_planned_kg", "estimated_total_seconds",
         ):
             value = getattr(calculated, field)
@@ -291,7 +277,6 @@ async def update_scheduled_feeding_plan(
                 value = UUID(value)
             setattr(plan, field, value)
         plan.cage_plans = [item.model_dump() for item in calculated.cage_plans]
-        plan.last_error = None
         await repository.save(plan)
         return _scheduled_plan_response(plan)
     except ValueError as exc:
@@ -360,10 +345,15 @@ async def start_scheduled_feeding_plan(
             operator_id=str(current_user.id),
             operator_name=current_user.full_name,
             actor=current_user.username,
+            execution_context={
+                "source": "SCHEDULED_PLAN",
+                "scheduled_plan_id": str(plan.id),
+                "scheduled_plan_name": plan.name,
+                "timezone": plan.timezone,
+            },
         )
         plan.last_session_id = result.session_id
         plan.last_run_on = local_now.date().isoformat()
-        plan.last_error = None
         await repository.save(plan)
         return result
     except FeedingLineUnavailableException as exc:
@@ -414,33 +404,6 @@ async def restore_scheduled_execution_from_base_plan(
         return {"message": "Configuración original restaurada y tiempo restante recalculado", "cage_ids": restored}
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-
-
-@router.patch("/scheduled/{plan_id}/active", response_model=ScheduledFeedingPlanResponse)
-async def toggle_scheduled_feeding_plan(
-    current_user: CurrentUserDep,
-    plan_id: UUID,
-    request: ToggleScheduledFeedingPlanRequest,
-    repository: Annotated[ScheduledFeedingPlanRepository, Depends(get_scheduled_feeding_plan_repo)],
-) -> ScheduledFeedingPlanResponse:
-    try:
-        plan = await repository.find_by_id(plan_id)
-        if not plan:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan programado no encontrado")
-        _assert_plan_access(plan, current_user)
-        if request.is_active:
-            await repository.lock_line_schedule(plan.line_id)
-            assert_no_scheduled_plan_conflict(
-                start_time=plan.start_time,
-                end_time=plan.end_time,
-                timezone=plan.timezone,
-                existing_plans=await repository.list_active_by_line(plan.line_id, exclude_plan_id=plan.id),
-            )
-        plan.is_active = request.is_active
-        await repository.save(plan)
-        return _scheduled_plan_response(plan)
-    except ScheduledPlanConflictError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
 
 @router.delete("/scheduled/{plan_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -890,6 +853,7 @@ async def get_cyclic_feeding_status(
             current_round=status_data["current_round"],
             active_cage=active_cage,
             cages_summary=cages_summary,
+            execution_context=status_data["execution_context"],
             server_timestamp=status_data["server_timestamp"],
         )
     except HTTPException:
@@ -1264,6 +1228,7 @@ async def list_active_sessions(
                 type=s.type.value,
                 status=s.status.value,
                 started_at=s.actual_start,
+                execution_context=s.execution_context,
             )
             for s in sessions
         ]
@@ -1320,6 +1285,7 @@ async def get_batch_session_status(
                             total_rounds=status_data["total_rounds"],
                             active_cage=active_cage,
                             cages_summary=cages_summary,
+                            execution_context=status_data["execution_context"],
                             server_timestamp=status_data["server_timestamp"],
                         )
                     )

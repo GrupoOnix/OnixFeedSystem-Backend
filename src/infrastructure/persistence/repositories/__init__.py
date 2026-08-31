@@ -21,7 +21,6 @@ from .mortality_log_repository import MortalityLogRepository
 from .population_event_repository import PopulationEventRepository
 from .scheduled_alert_repository import ScheduledAlertRepository
 from .scheduled_feeding_plan_repository import ScheduledFeedingPlanRepository
-from .scheduled_feeding_run_repository import ScheduledFeedingRunRepository
 from .silo_repository import SiloRepository
 from .silo_inventory_repository import SiloInventoryRepository
 from .slot_assignment_repository import SlotAssignmentRepository
@@ -50,7 +49,6 @@ __all__ = [
     "AlertRepository",
     "ScheduledAlertRepository",
     "ScheduledFeedingPlanRepository",
-    "ScheduledFeedingRunRepository",
     "BiometryLogRepository",
     "MortalityLogRepository",
     "ConfigChangeLogRepository",

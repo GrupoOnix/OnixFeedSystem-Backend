@@ -95,12 +95,16 @@ class FeedingLineRepository(IFeedingLineRepository):
         return line_model.to_domain() if line_model else None
 
     async def get_all(self) -> List[FeedingLine]:
-        stmt = select(FeedingLineModel).options(
-            selectinload(_blower_rel),
-            selectinload(_cooler_rel),
-            selectinload(_dosers_rel).selectinload(_silos_rel),
-            selectinload(_selector_rel),
-            selectinload(_sensors_rel),
+        stmt = (
+            select(FeedingLineModel)
+            .order_by(col(FeedingLineModel.name))
+            .options(
+                selectinload(_blower_rel),
+                selectinload(_cooler_rel),
+                selectinload(_dosers_rel).selectinload(_silos_rel),
+                selectinload(_selector_rel),
+                selectinload(_sensors_rel),
+            )
         )
 
         result = await self.session.execute(stmt)

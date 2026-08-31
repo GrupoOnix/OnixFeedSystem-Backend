@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, Column, DateTime, Index
+from sqlalchemy import JSON, Column, DateTime, Index, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 
@@ -13,6 +13,7 @@ class ScheduledFeedingPlanModel(SQLModel, table=True):
 
     __tablename__ = "scheduled_feeding_plans"
     __table_args__ = (
+        UniqueConstraint("line_id", name="uq_scheduled_feeding_plans_line_id"),
         Index("ix_scheduled_feeding_plans_line_start", "line_id", "start_time"),
     )
 
@@ -27,7 +28,6 @@ class ScheduledFeedingPlanModel(SQLModel, table=True):
     timezone: str = Field(default="America/Santiago", max_length=64, nullable=False)
     blower_power_percentage: float = Field(default=70.0, nullable=False)
     wait_after_visit_seconds: float = Field(default=0.0, nullable=False)
-    is_active: bool = Field(default=True, nullable=False)
     total_rounds: int = Field(nullable=False)
     total_requested_kg: float = Field(nullable=False)
     total_planned_kg: float = Field(nullable=False)
@@ -37,7 +37,6 @@ class ScheduledFeedingPlanModel(SQLModel, table=True):
     created_by_name: Optional[str] = Field(default=None, max_length=100)
     last_run_on: Optional[str] = Field(default=None, max_length=10)
     last_session_id: Optional[str] = Field(default=None, max_length=36)
-    last_error: Optional[str] = Field(default=None, max_length=500)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), nullable=False),

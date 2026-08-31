@@ -261,7 +261,6 @@ class ScheduledFeedingPlanner:
             timezone=ZoneInfo(request.timezone).key,
             blower_power_percentage=request.blower_power_percentage,
             wait_after_visit_seconds=round(effective_wait_after_visit, 3),
-            is_active=request.is_active,
             total_rounds=total_rounds,
             total_requested_kg=total_requested_kg,
             total_planned_kg=total_planned_kg,
@@ -312,7 +311,6 @@ class ScheduledFeedingPlanner:
             timezone=plan.timezone,
             blower_power_percentage=plan.blower_power_percentage,
             wait_after_visit_seconds=0,
-            is_active=True,
             cage_configs=[
                 {
                     "cage_id": item["cage_id"],
