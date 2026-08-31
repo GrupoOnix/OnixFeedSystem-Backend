@@ -24,6 +24,8 @@ class Sensor(ISensor):
         is_enabled: bool = True,
         warning_threshold: Optional[float] = None,
         critical_threshold: Optional[float] = None,
+        measurement_unit: Optional[str] = None,
+        calibration_value: Optional[float] = None,
         *,
         _existing_id: Optional[str] = None,
     ):
@@ -43,6 +45,8 @@ class Sensor(ISensor):
         self._is_enabled = is_enabled
         self._warning_threshold = warning_threshold
         self._critical_threshold = critical_threshold
+        self._measurement_unit = measurement_unit
+        self._calibration_value = calibration_value
         self._created_at = datetime.now(timezone.utc)
 
     @property
@@ -80,6 +84,14 @@ class Sensor(ISensor):
     @critical_threshold.setter
     def critical_threshold(self, value: Optional[float]) -> None:
         self._critical_threshold = value
+
+    @property
+    def measurement_unit(self) -> Optional[str]:
+        return self._measurement_unit
+
+    @property
+    def calibration_value(self) -> Optional[float]:
+        return self._calibration_value
 
     @property
     def created_at(self) -> datetime:

@@ -29,9 +29,13 @@ class SystemConfig:
             if selector_positioning_time_seconds is not None
             else self._DEFAULT_SELECTOR_POSITIONING_TIME
         )
-        self._doser_calibration_tolerance_percentage = doser_calibration_tolerance_percentage or self._DEFAULT_CALIBRATION_TOLERANCE
+        self._doser_calibration_tolerance_percentage = (
+            doser_calibration_tolerance_percentage or self._DEFAULT_CALIBRATION_TOLERANCE
+        )
         self._doser_calibration_max_pulses = doser_calibration_max_pulses or self._DEFAULT_CALIBRATION_MAX_PULSES
-        self._doser_calibration_max_attempt_seconds = doser_calibration_max_attempt_seconds or self._DEFAULT_CALIBRATION_MAX_SECONDS
+        self._doser_calibration_max_attempt_seconds = (
+            doser_calibration_max_attempt_seconds or self._DEFAULT_CALIBRATION_MAX_SECONDS
+        )
 
     @property
     def id(self) -> int:

@@ -128,6 +128,8 @@ class SyncSystemLayoutUseCase:
             sensor = self.component_factory.create_sensor(
                 sensor_type=sensor_type,
                 name=name,
+                measurement_unit=model.measurement_unit,
+                calibration_value=model.calibration_value,
                 existing_id=model.id if self._is_uuid(model.id) else None,
             )
 

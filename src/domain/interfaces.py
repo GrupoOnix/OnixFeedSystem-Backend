@@ -312,6 +312,14 @@ class ISensor(ABC):
 
     @property
     @abstractmethod
+    def measurement_unit(self) -> Optional[str]: ...
+
+    @property
+    @abstractmethod
+    def calibration_value(self) -> Optional[float]: ...
+
+    @property
+    @abstractmethod
     def is_enabled(self) -> bool: ...
 
     @property

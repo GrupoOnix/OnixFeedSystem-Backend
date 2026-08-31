@@ -25,14 +25,19 @@ class DoserCalibrationSessionModel(SQLModel, table=True):
     heartbeat_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
     completed_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
     final_calibration_id: Optional[UUID] = Field(default=None, foreign_key="doser_calibrations.id", ondelete="SET NULL")
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True), nullable=False, index=True))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True), nullable=False, index=True),
+    )
 
 
 class DoserCalibrationAttemptModel(SQLModel, table=True):
     __tablename__ = "doser_calibration_attempts"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    session_id: UUID = Field(foreign_key="doser_calibration_sessions.id", nullable=False, index=True, ondelete="CASCADE")
+    session_id: UUID = Field(
+        foreign_key="doser_calibration_sessions.id", nullable=False, index=True, ondelete="CASCADE"
+    )
     sequence: int = Field(ge=1, nullable=False)
     status: str = Field(default="PENDING", max_length=32, nullable=False, index=True)
     pulse_count: int = Field(ge=1, nullable=False)
@@ -43,4 +48,6 @@ class DoserCalibrationAttemptModel(SQLModel, table=True):
     included: bool = Field(default=True, nullable=False)
     started_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
     completed_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True), nullable=False))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True), nullable=False)
+    )

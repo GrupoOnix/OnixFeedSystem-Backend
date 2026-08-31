@@ -1,11 +1,15 @@
 """Seed completed fake feeding sessions for the last 30 days.
 
-Run from the repository root:
+Run a dry-run from the repository root:
     python src/scripts/seed_weekly_feeding_history.py
+
+Persist the simulated history:
+    python src/scripts/seed_weekly_feeding_history.py --apply
 """
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import random
 import sys
@@ -28,10 +32,10 @@ from infrastructure.persistence.database import async_session_maker, close_db_co
 from infrastructure.persistence.models.cage_feeding_model import CageFeedingModel  # noqa: E402
 from infrastructure.persistence.models.cage_model import CageModel  # noqa: E402
 from infrastructure.persistence.models.doser_model import DoserModel  # noqa: E402
+from infrastructure.persistence.models.doser_silo_model import DoserSiloModel  # noqa: E402
 from infrastructure.persistence.models.feeding_event_model import FeedingEventModel  # noqa: E402
 from infrastructure.persistence.models.feeding_line_model import FeedingLineModel  # noqa: E402
 from infrastructure.persistence.models.feeding_session_model import FeedingSessionModel  # noqa: E402
-from infrastructure.persistence.models.silo_model import SiloModel  # noqa: E402
 from infrastructure.persistence.models.slot_assignment_model import SlotAssignmentModel  # noqa: E402
 from infrastructure.persistence.models.system_config_model import SystemConfigModel  # noqa: E402
 
@@ -59,6 +63,7 @@ class FeedingWindow:
 
 
 async def main() -> None:
+    args = _parse_args()
     random.seed(RANDOM_SEED)
 
     async with async_session_maker() as session:
@@ -96,9 +101,9 @@ async def main() -> None:
                 .scalars()
                 .first()
             )
-            silo_id = doser.silo_id if doser and doser.silo_id else await _get_first_silo_id(session)
+            silo_id = await _get_doser_silo_id(session, doser)
 
-            for day in _last_30_dates(now_local):
+            for day in _last_dates(now_local, args.days):
                 for feeding_window in _feeding_windows():
                     start_local = datetime.combine(day, feeding_window.start_time, tzinfo=tz)
                     if start_local >= now_local - timedelta(minutes=10):
@@ -114,6 +119,7 @@ async def main() -> None:
                         start_local=start_local,
                         min_duration_seconds=feeding_window.min_duration_seconds,
                         max_duration_seconds=feeding_window.max_duration_seconds,
+                        operator_id=args.operator_id,
                     )
 
                     actual_start = session_model.actual_start
@@ -141,11 +147,14 @@ async def main() -> None:
                     cage_feedings_created += len(cage_feeding_models)
                     events_created += len(event_models)
 
-        await session.commit()
+        if args.apply:
+            await session.commit()
+        else:
+            await session.rollback()
 
     await close_db_connection()
     print(
-        "Seed completado: "
+        f"{'Seed aplicado' if args.apply else 'DRY-RUN'}: "
         f"{lines_processed} lineas procesadas, "
         f"{lines_skipped_without_targets} lineas sin jaulas, "
         f"{sessions_created} sesiones, "
@@ -153,8 +162,32 @@ async def main() -> None:
         f"{sessions_skipped_overlap} sesiones omitidas por solape, "
         f"{cage_feedings_created} alimentaciones de jaula, "
         f"{events_created} eventos. "
-        f"operator_id={SEED_OPERATOR_ID}"
+        f"operator_id={args.operator_id}"
     )
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Persiste las sesiones simuladas. Sin este flag, se hace un dry-run.",
+    )
+    parser.add_argument(
+        "--days",
+        type=int,
+        default=30,
+        help="Cantidad de días a simular, contando hoy (por defecto: 30).",
+    )
+    parser.add_argument(
+        "--operator-id",
+        default=SEED_OPERATOR_ID,
+        help="Identificador que marca las sesiones creadas por este seed.",
+    )
+    args = parser.parse_args()
+    if args.days < 1:
+        parser.error("--days debe ser mayor que cero.")
+    return args
 
 
 async def _get_timezone_id(session) -> str:
@@ -185,13 +218,28 @@ async def _build_targets(session, line_id: UUID) -> list[FeedingTarget]:
             if assignment.cage_id in cages_by_id
         ]
 
-    cages = (await session.execute(select(CageModel).order_by(col(CageModel.name)).limit(6))).scalars().all()
-    return [_target_from_cage(cage, index) for index, cage in enumerate(cages, start=1)]
+    return []
 
 
-async def _get_first_silo_id(session) -> UUID | None:
-    silo = (await session.execute(select(SiloModel).order_by(col(SiloModel.name)))).scalars().first()
-    return silo.id if silo else None
+async def _get_doser_silo_id(session, doser: DoserModel | None) -> UUID | None:
+    if doser is None:
+        return None
+
+    silo_id = (
+        (
+            await session.execute(
+                select(col(DoserSiloModel.silo_id))
+                .where(col(DoserSiloModel.doser_id) == doser.id)
+                .order_by(col(DoserSiloModel.silo_id))
+                .limit(1)
+            )
+        )
+        .scalars()
+        .first()
+    )
+    # Keep compatibility with installations that have not yet migrated to the
+    # doser_silos relation.
+    return silo_id or doser.silo_id
 
 
 async def _has_overlapping_session(
@@ -235,9 +283,9 @@ def _target_from_cage(cage: CageModel, slot_number: int) -> FeedingTarget:
     )
 
 
-def _last_30_dates(now_local: datetime) -> list[date]:
-    start_date = now_local.date() - timedelta(days=29)
-    return [start_date + timedelta(days=offset) for offset in range(30)]
+def _last_dates(now_local: datetime, days: int) -> list[date]:
+    start_date = now_local.date() - timedelta(days=days - 1)
+    return [start_date + timedelta(days=offset) for offset in range(days)]
 
 
 def _feeding_windows() -> list[FeedingWindow]:
@@ -287,6 +335,7 @@ def _make_completed_session(
     start_local: datetime,
     min_duration_seconds: int,
     max_duration_seconds: int,
+    operator_id: str,
 ) -> tuple[FeedingSessionModel, list[CageFeedingModel], list[FeedingEventModel]]:
     session_id = str(uuid4())
     start_utc = start_local.astimezone(timezone.utc)
@@ -295,7 +344,7 @@ def _make_completed_session(
 
     cage_feedings: list[CageFeedingModel] = []
     events: list[FeedingEventModel] = [
-        _event(session_id, "session_started", start_utc, {"operator_id": SEED_OPERATOR_ID, "seed": True})
+        _event(session_id, "session_started", start_utc, {"operator_id": operator_id, "seed": True})
     ]
 
     total_programmed = 0.0
@@ -410,7 +459,7 @@ def _make_completed_session(
     feeding_session = FeedingSessionModel(
         id=session_id,
         line_id=line_id,
-        operator_id=SEED_OPERATOR_ID,
+        operator_id=operator_id,
         type="CYCLIC" if len(targets) > 1 else "MANUAL",
         status="COMPLETED",
         allow_overtime=False,

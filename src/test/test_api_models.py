@@ -20,8 +20,23 @@ from api.models.system_layout import (
     BlowerConfigModel,
     DoserConfigModel,
     SelectorConfigModel,
+    SensorConfigModel,
     SlotAssignmentModel,
 )
+
+
+def test_sensor_config_persists_measurement_metadata():
+    """La API acepta la metadata que se configura desde el modal de sensores."""
+    sensor = SensorConfigModel(
+        id="sensor-1",
+        name="Presión principal",
+        sensor_type="PRESSURE",
+        measurement_unit="bar",
+        calibration_value=1.25,
+    )
+
+    assert sensor.measurement_unit == "bar"
+    assert sensor.calibration_value == 1.25
 
 
 def test_silo_config_model_valid():

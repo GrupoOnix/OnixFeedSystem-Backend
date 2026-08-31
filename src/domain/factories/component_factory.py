@@ -111,11 +111,15 @@ class ComponentFactory:
     def create_sensor(
         sensor_type: SensorType,
         name: SensorName,
+        measurement_unit: Optional[str] = None,
+        calibration_value: Optional[float] = None,
         existing_id: Optional[str] = None,
     ) -> ISensor:
         return Sensor(
             name=name,
             sensor_type=sensor_type,
+            measurement_unit=measurement_unit,
+            calibration_value=calibration_value,
             _existing_id=existing_id,
         )
 

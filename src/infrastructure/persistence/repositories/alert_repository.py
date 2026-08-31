@@ -105,6 +105,7 @@ class AlertRepository(IAlertRepository):
         type: Optional[List[AlertType]] = None,
         category: Optional[List[AlertCategory]] = None,
         search: Optional[str] = None,
+        since: Optional[datetime] = None,
     ) -> int:
         """Cuenta alertas con filtros opcionales (sin paginación). Excluye silenciadas."""
         query = select(func.count(col(AlertModel.id)))
@@ -135,6 +136,9 @@ class AlertRepository(IAlertRepository):
                     col(AlertModel.source).ilike(search_pattern),
                 )
             )
+
+        if since:
+            query = query.where(col(AlertModel.timestamp) >= since)
 
         result = await self.session.execute(query)
         return result.scalar() or 0

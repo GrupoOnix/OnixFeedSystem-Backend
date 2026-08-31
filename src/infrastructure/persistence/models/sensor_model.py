@@ -23,6 +23,8 @@ class SensorModel(SQLModel, table=True):
     is_enabled: bool = Field(default=True)
     warning_threshold: Optional[float] = Field(default=None)
     critical_threshold: Optional[float] = Field(default=None)
+    measurement_unit: Optional[str] = Field(default=None, max_length=30)
+    calibration_value: Optional[float] = Field(default=None)
 
     feeding_line: "FeedingLineModel" = Relationship(back_populates="sensors")
 
@@ -37,6 +39,8 @@ class SensorModel(SQLModel, table=True):
             is_enabled=sensor.is_enabled,
             warning_threshold=sensor.warning_threshold,
             critical_threshold=sensor.critical_threshold,
+            measurement_unit=sensor.measurement_unit,
+            calibration_value=sensor.calibration_value,
         )
 
     def to_domain(self) -> "Sensor":
@@ -50,6 +54,8 @@ class SensorModel(SQLModel, table=True):
             is_enabled=self.is_enabled,
             warning_threshold=self.warning_threshold,
             critical_threshold=self.critical_threshold,
+            measurement_unit=self.measurement_unit,
+            calibration_value=self.calibration_value,
         )
         sensor._id = SensorId(self.id)
         return sensor

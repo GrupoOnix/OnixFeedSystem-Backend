@@ -600,6 +600,7 @@ class IAlertRepository(ABC):
         type: Optional[List[AlertType]] = None,
         category: Optional[List[AlertCategory]] = None,
         search: Optional[str] = None,
+        since: Optional[datetime] = None,
     ) -> int:
         """Cuenta alertas con filtros opcionales (sin paginación). Excluye silenciadas."""
         ...

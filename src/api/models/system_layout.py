@@ -85,6 +85,8 @@ class SensorConfigModel(BaseModel):
     id: str
     name: str = Field(min_length=1, max_length=100)
     sensor_type: str
+    measurement_unit: Optional[str] = Field(default=None, max_length=30)
+    calibration_value: Optional[float] = None
 
 
 class CoolerConfigModel(BaseModel):

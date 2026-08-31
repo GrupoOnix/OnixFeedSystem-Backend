@@ -1,5 +1,7 @@
 """Caso de uso para listar alertas."""
 
+from datetime import datetime, timedelta, timezone
+
 from application.dtos.alert_dtos import AlertDTO, ListAlertsRequest, ListAlertsResponse
 from domain.aggregates.alert import Alert
 from domain.enums import AlertCategory, AlertStatus, AlertType
@@ -53,10 +55,20 @@ class ListAlertsUseCase:
             search=request.search,
         )
 
+        # El contador de la página es independiente de los filtros del listado
+        # y se acota al último mes para mantenerlo útil y legible.
+        total_last_month = await self._alert_repo.count(
+            since=datetime.now(timezone.utc) - timedelta(days=30),
+        )
+
         # Convertir a DTOs
         alert_dtos = [self._to_dto(alert) for alert in alerts]
 
-        return ListAlertsResponse(alerts=alert_dtos, total=total)
+        return ListAlertsResponse(
+            alerts=alert_dtos,
+            total=total,
+            total_last_month=total_last_month,
+        )
 
     @staticmethod
     def _to_dto(alert: Alert) -> AlertDTO:

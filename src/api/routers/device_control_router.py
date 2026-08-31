@@ -33,7 +33,10 @@ from api.dependencies import (
     get_current_admin_user,
 )
 from infrastructure.persistence.database import async_session_maker, get_session
-from infrastructure.persistence.models.doser_calibration_session_model import DoserCalibrationAttemptModel, DoserCalibrationSessionModel
+from infrastructure.persistence.models.doser_calibration_session_model import (
+    DoserCalibrationAttemptModel,
+    DoserCalibrationSessionModel,
+)
 from infrastructure.persistence.models.doser_model import DoserModel
 from infrastructure.persistence.models.feeding_line_model import FeedingLineModel
 from infrastructure.persistence.models.system_config_model import SystemConfigModel
@@ -44,6 +47,7 @@ from application.dtos.device_control_dtos import (
     DoserCalibrationRequest,
     DoserCalibrationResponse,
     CalibrationAttemptResponse,
+    RecordCalibrationMeasurementsRequest,
     CalibrationSessionResponse,
     DoserStatusResponse,
     MoveSelectorRequest,
@@ -78,29 +82,50 @@ def _get_calibration_runner() -> DoserCalibrationRunner:
 
 def _attempt_response(attempt: DoserCalibrationAttemptModel) -> CalibrationAttemptResponse:
     return CalibrationAttemptResponse(
-        id=str(attempt.id), sequence=attempt.sequence, status=attempt.status,
-        pulse_count=attempt.pulse_count, active_time_seconds=attempt.active_time_seconds,
-        expected_grams=attempt.expected_grams, measured_grams=attempt.measured_grams,
-        error_percentage=attempt.error_percentage, included=attempt.included,
+        id=str(attempt.id),
+        sequence=attempt.sequence,
+        status=attempt.status,
+        pulse_count=attempt.pulse_count,
+        active_time_seconds=attempt.active_time_seconds,
+        expected_grams=attempt.expected_grams,
+        measured_grams=attempt.measured_grams,
+        error_percentage=attempt.error_percentage,
+        included=attempt.included,
     )
 
 
-async def _session_response(session: AsyncSession, calibration: DoserCalibrationSessionModel) -> CalibrationSessionResponse:
-    attempts = list((await session.execute(
-        select(DoserCalibrationAttemptModel).where(DoserCalibrationAttemptModel.session_id == calibration.id)
-        .order_by(DoserCalibrationAttemptModel.sequence)
-    )).scalars().all())
+async def _session_response(
+    session: AsyncSession, calibration: DoserCalibrationSessionModel
+) -> CalibrationSessionResponse:
+    attempts = list(
+        (
+            await session.execute(
+                select(DoserCalibrationAttemptModel)
+                .where(DoserCalibrationAttemptModel.session_id == calibration.id)
+                .order_by(DoserCalibrationAttemptModel.sequence)
+            )
+        )
+        .scalars()
+        .all()
+    )
     final_rate = None
     if calibration.final_calibration_id:
         from infrastructure.persistence.models.doser_calibration_model import DoserCalibrationModel
+
         final = await session.get(DoserCalibrationModel, calibration.final_calibration_id)
         final_rate = final.grams_per_second if final else None
     return CalibrationSessionResponse(
-        id=str(calibration.id), doser_id=str(calibration.doser_id), line_id=str(calibration.line_id),
-        status=calibration.status, target_grams=calibration.target_grams,
-        pulse_on_time=calibration.pulse_on_time, pulse_off_time=calibration.pulse_off_time,
-        speed_percentage=calibration.speed_percentage, tolerance_percentage=calibration.tolerance_percentage,
-        final_grams_per_second=final_rate, attempts=[_attempt_response(item) for item in attempts],
+        id=str(calibration.id),
+        doser_id=str(calibration.doser_id),
+        line_id=str(calibration.line_id),
+        status=calibration.status,
+        target_grams=calibration.target_grams,
+        pulse_on_time=calibration.pulse_on_time,
+        pulse_off_time=calibration.pulse_off_time,
+        speed_percentage=calibration.speed_percentage,
+        tolerance_percentage=calibration.tolerance_percentage,
+        final_grams_per_second=final_rate,
+        attempts=[_attempt_response(item) for item in attempts],
     )
 
 
@@ -410,7 +435,11 @@ async def get_doser_calibration_history(
         )
 
 
-@router.post("/dosers/{doser_id}/calibration/sessions", response_model=CalibrationSessionResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/dosers/{doser_id}/calibration/sessions",
+    response_model=CalibrationSessionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def start_calibration_session(
     current_user: CurrentUserDep,
     doser_id: str,
@@ -430,21 +459,27 @@ async def start_calibration_session(
         raise HTTPException(status_code=409, detail="La línea está bloqueada por otro usuario")
     if not doser.pulse_on_time or doser.pulse_off_time is None:
         raise HTTPException(status_code=400, detail="Configura los tiempos ON y OFF del doser antes de calibrar")
-    existing = (await session.execute(
-        select(DoserCalibrationSessionModel).where(
-            DoserCalibrationSessionModel.line_id == line.id,
-            DoserCalibrationSessionModel.status.in_(["PENDING", "RUNNING", "AWAITING_MEASUREMENT"]),
+    existing = (
+        await session.execute(
+            select(DoserCalibrationSessionModel).where(
+                DoserCalibrationSessionModel.line_id == line.id,
+                DoserCalibrationSessionModel.status.in_(["PENDING", "RUNNING", "AWAITING_MEASUREMENT"]),
+            )
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
     if existing:
         raise HTTPException(status_code=409, detail="Ya existe una calibración activa en esta línea")
     config = await session.get(SystemConfigModel, 1)
     tolerance = request.tolerance_percentage or (config.doser_calibration_tolerance_percentage if config else 5.0)
     calibration = DoserCalibrationSessionModel(
-        doser_id=doser.id, line_id=line.id, target_grams=request.target_grams,
-        pulse_on_time=doser.pulse_on_time, pulse_off_time=doser.pulse_off_time,
+        doser_id=doser.id,
+        line_id=line.id,
+        target_grams=request.target_grams,
+        pulse_on_time=doser.pulse_on_time,
+        pulse_off_time=doser.pulse_off_time,
         speed_percentage=doser.pulse_speed or doser.speed_percentage,
-        tolerance_percentage=tolerance, started_by=current_user.id,
+        tolerance_percentage=tolerance,
+        started_by=current_user.id,
     )
     session.add(calibration)
     await session.flush()
@@ -456,18 +491,24 @@ async def start_calibration_session(
 async def get_active_calibration_session(
     current_user: CurrentUserDep, doser_id: str, session: AsyncSession = Depends(get_session)
 ) -> CalibrationSessionResponse | None:
-    calibration = (await session.execute(
-        select(DoserCalibrationSessionModel).where(
-            DoserCalibrationSessionModel.doser_id == UUID(doser_id),
-            DoserCalibrationSessionModel.status.in_(["PENDING", "RUNNING", "AWAITING_MEASUREMENT"]),
-        ).order_by(desc(DoserCalibrationSessionModel.created_at))
-    )).scalar_one_or_none()
+    calibration = (
+        await session.execute(
+            select(DoserCalibrationSessionModel)
+            .where(
+                DoserCalibrationSessionModel.doser_id == UUID(doser_id),
+                DoserCalibrationSessionModel.status.in_(["PENDING", "RUNNING", "AWAITING_MEASUREMENT"]),
+            )
+            .order_by(desc(DoserCalibrationSessionModel.created_at))
+        )
+    ).scalar_one_or_none()
     return await _session_response(session, calibration) if calibration else None
 
 
 @router.post("/calibration-sessions/{session_id}/attempts", response_model=CalibrationSessionResponse)
 async def start_calibration_attempt(
-    current_user: CurrentUserDep, session_id: str, request: StartCalibrationAttemptRequest,
+    current_user: CurrentUserDep,
+    session_id: str,
+    request: StartCalibrationAttemptRequest,
     session: AsyncSession = Depends(get_session),
 ) -> CalibrationSessionResponse:
     calibration = await session.get(DoserCalibrationSessionModel, UUID(session_id))
@@ -475,34 +516,64 @@ async def start_calibration_attempt(
         raise HTTPException(status_code=409, detail="La sesión no está disponible para un nuevo intento")
     doser = await session.get(DoserModel, calibration.doser_id)
     line = await session.get(FeedingLineModel, calibration.line_id)
-    if not doser or not line or line.status != "MANUAL_CONTROL" or (line.locked_by and line.locked_by != current_user.id):
+    if (
+        not doser
+        or not line
+        or line.status != "MANUAL_CONTROL"
+        or (line.locked_by and line.locked_by != current_user.id)
+    ):
         raise HTTPException(status_code=409, detail="La línea debe permanecer bloqueada por el operador")
-    total_seconds = request.pulse_count * calibration.pulse_on_time + max(0, request.pulse_count - 1) * calibration.pulse_off_time
+    total_seconds = (
+        request.pulse_count * calibration.pulse_on_time + max(0, request.pulse_count - 1) * calibration.pulse_off_time
+    )
     config = await session.get(SystemConfigModel, 1)
     max_pulses = config.doser_calibration_max_pulses if config else 10
     max_seconds = config.doser_calibration_max_attempt_seconds if config else 20
     if request.pulse_count > max_pulses or total_seconds > max_seconds:
-        raise HTTPException(status_code=400, detail=f"El intento excede el límite seguro de {max_pulses} pulsos o {max_seconds} segundos")
-    previous = list((await session.execute(select(DoserCalibrationAttemptModel).where(DoserCalibrationAttemptModel.session_id == calibration.id))).scalars())
-    if previous and previous[-1].status == "AWAITING_MEASUREMENT":
-        raise HTTPException(status_code=409, detail="Registra o descarta primero la medición anterior")
-    expected = doser.calibrated_grams_per_second * request.pulse_count * calibration.pulse_on_time if doser.calibrated_grams_per_second else None
+        raise HTTPException(
+            status_code=400,
+            detail=f"El intento excede el límite seguro de {max_pulses} pulsos o {max_seconds} segundos",
+        )
+    previous = list(
+        (
+            await session.execute(
+                select(DoserCalibrationAttemptModel).where(DoserCalibrationAttemptModel.session_id == calibration.id)
+            )
+        ).scalars()
+    )
+    expected = (
+        doser.calibrated_grams_per_second * request.pulse_count * calibration.pulse_on_time
+        if doser.calibrated_grams_per_second
+        else None
+    )
     attempt = DoserCalibrationAttemptModel(
-        session_id=calibration.id, sequence=len(previous) + 1, pulse_count=request.pulse_count,
-        active_time_seconds=request.pulse_count * calibration.pulse_on_time, expected_grams=expected,
+        session_id=calibration.id,
+        sequence=len(previous) + 1,
+        pulse_count=request.pulse_count,
+        active_time_seconds=request.pulse_count * calibration.pulse_on_time,
+        expected_grams=expected,
     )
     session.add(attempt)
     await session.flush()
     # El ejecutor abre su propia transacción: el intento debe ser visible antes
     # de crear la tarea para evitar una carrera al devolver la respuesta.
     await session.commit()
-    _get_calibration_runner().start(attempt.id, doser_id=doser.id, doser_name=doser.name, line_id=line.id, line_name=line.name, speed=calibration.speed_percentage)
+    _get_calibration_runner().start(
+        attempt.id,
+        doser_id=doser.id,
+        doser_name=doser.name,
+        line_id=line.id,
+        line_name=line.name,
+        speed=calibration.speed_percentage,
+    )
     return await _session_response(session, calibration)
 
 
 @router.post("/calibration-attempts/{attempt_id}/measurement", response_model=CalibrationSessionResponse)
 async def record_calibration_measurement(
-    current_user: CurrentUserDep, attempt_id: str, request: RecordCalibrationMeasurementRequest,
+    current_user: CurrentUserDep,
+    attempt_id: str,
+    request: RecordCalibrationMeasurementRequest,
     session: AsyncSession = Depends(get_session),
 ) -> CalibrationSessionResponse:
     attempt = await session.get(DoserCalibrationAttemptModel, UUID(attempt_id))
@@ -520,6 +591,52 @@ async def record_calibration_measurement(
     return await _session_response(session, calibration)
 
 
+@router.post(
+    "/calibration-sessions/{session_id}/measurements",
+    response_model=CalibrationSessionResponse,
+)
+async def record_calibration_measurements(
+    current_user: CurrentUserDep,
+    session_id: str,
+    request: RecordCalibrationMeasurementsRequest,
+    session: AsyncSession = Depends(get_session),
+) -> CalibrationSessionResponse:
+    """Registra todos los pesajes pendientes de una sesión en una sola acción."""
+    calibration = await session.get(DoserCalibrationSessionModel, UUID(session_id))
+    if not calibration or calibration.status not in {"PENDING", "AWAITING_MEASUREMENT"}:
+        raise HTTPException(status_code=409, detail="La sesión no está disponible para registrar mediciones")
+
+    awaiting_attempts = list(
+        (
+            await session.execute(
+                select(DoserCalibrationAttemptModel).where(
+                    DoserCalibrationAttemptModel.session_id == calibration.id,
+                    DoserCalibrationAttemptModel.status == "AWAITING_MEASUREMENT",
+                )
+            )
+        ).scalars()
+    )
+    measurements_by_attempt = {item.attempt_id: item for item in request.measurements}
+    awaiting_ids = {str(attempt.id) for attempt in awaiting_attempts}
+    if set(measurements_by_attempt) != awaiting_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="Debes registrar una medición para cada intento pendiente",
+        )
+
+    for attempt in awaiting_attempts:
+        measurement = measurements_by_attempt[str(attempt.id)]
+        attempt.measured_grams = measurement.measured_grams
+        attempt.included = measurement.included
+        attempt.error_percentage = (
+            (measurement.measured_grams - calibration.target_grams) / calibration.target_grams
+        ) * 100
+        attempt.status = "MEASURED"
+    calibration.status = "PENDING"
+    await session.flush()
+    return await _session_response(session, calibration)
+
+
 @router.post("/calibration-sessions/{session_id}/finalize", response_model=CalibrationSessionResponse)
 async def finalize_calibration_session(
     current_user: CurrentUserDep, session_id: str, session: AsyncSession = Depends(get_session)
@@ -531,13 +648,17 @@ async def finalize_calibration_session(
     calibration = await session.get(DoserCalibrationSessionModel, UUID(session_id))
     if not calibration or calibration.status not in {"PENDING", "AWAITING_MEASUREMENT"}:
         raise HTTPException(status_code=409, detail="La sesión no se puede finalizar")
-    attempts = list((await session.execute(
-        select(DoserCalibrationAttemptModel).where(
-            DoserCalibrationAttemptModel.session_id == calibration.id,
-            DoserCalibrationAttemptModel.status == "MEASURED",
-            DoserCalibrationAttemptModel.included.is_(True),
-        )
-    )).scalars())
+    attempts = list(
+        (
+            await session.execute(
+                select(DoserCalibrationAttemptModel).where(
+                    DoserCalibrationAttemptModel.session_id == calibration.id,
+                    DoserCalibrationAttemptModel.status == "MEASURED",
+                    DoserCalibrationAttemptModel.included.is_(True),
+                )
+            )
+        ).scalars()
+    )
     if not attempts:
         raise HTTPException(status_code=400, detail="Registra al menos una muestra incluida antes de finalizar")
     total_grams = sum(item.measured_grams or 0 for item in attempts)
@@ -549,14 +670,21 @@ async def finalize_calibration_session(
     if not doser:
         raise HTTPException(status_code=404, detail="Doser no encontrado")
     saved = DoserCalibrationModel(
-        doser_id=doser.id, grams_per_second=grams_per_second, method="PULSE_ITERATIVE",
-        status=result_status, speed_percentage=calibration.speed_percentage,
-        pulse_on_time=calibration.pulse_on_time, pulse_off_time=calibration.pulse_off_time,
-        tolerance_percentage=calibration.tolerance_percentage, included_attempts=len(attempts),
+        doser_id=doser.id,
+        grams_per_second=grams_per_second,
+        method="PULSE_ITERATIVE",
+        status=result_status,
+        speed_percentage=calibration.speed_percentage,
+        pulse_on_time=calibration.pulse_on_time,
+        pulse_off_time=calibration.pulse_off_time,
+        tolerance_percentage=calibration.tolerance_percentage,
+        included_attempts=len(attempts),
         sample_average_grams=total_grams / len(attempts),
         pulse_count=sum(item.pulse_count for item in attempts),
-        active_time_seconds=total_active_seconds, target_grams=calibration.target_grams,
-        runtime_seconds=sum(item.active_time_seconds for item in attempts), created_by=current_user.id,
+        active_time_seconds=total_active_seconds,
+        target_grams=calibration.target_grams,
+        runtime_seconds=sum(item.active_time_seconds for item in attempts),
+        created_by=current_user.id,
     )
     session.add(saved)
     doser.calibrated_grams_per_second = grams_per_second

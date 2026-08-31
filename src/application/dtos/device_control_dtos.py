@@ -78,6 +78,14 @@ class RecordCalibrationMeasurementRequest(BaseModel):
     included: bool = True
 
 
+class CalibrationMeasurementInput(RecordCalibrationMeasurementRequest):
+    attempt_id: str
+
+
+class RecordCalibrationMeasurementsRequest(BaseModel):
+    measurements: list[CalibrationMeasurementInput] = Field(..., min_length=1)
+
+
 class CalibrationAttemptResponse(BaseModel):
     id: str
     sequence: int

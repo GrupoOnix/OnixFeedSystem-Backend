@@ -25,7 +25,9 @@ class DoserCalibrationRunner:
         self._session_factory = session_factory
         self._tasks: dict[UUID, asyncio.Task[None]] = {}
 
-    def start(self, attempt_id: UUID, *, doser_id: UUID, doser_name: str, line_id: UUID, line_name: str, speed: int) -> None:
+    def start(
+        self, attempt_id: UUID, *, doser_id: UUID, doser_name: str, line_id: UUID, line_name: str, speed: int
+    ) -> None:
         if attempt_id in self._tasks and not self._tasks[attempt_id].done():
             raise ValueError("El intento ya se está ejecutando")
         self._tasks[attempt_id] = asyncio.create_task(
@@ -37,7 +39,9 @@ class DoserCalibrationRunner:
         if task and not task.done():
             task.cancel()
 
-    async def _run(self, attempt_id: UUID, doser_id: UUID, doser_name: str, line_id: UUID, line_name: str, speed: int) -> None:
+    async def _run(
+        self, attempt_id: UUID, doser_id: UUID, doser_name: str, line_id: UUID, line_name: str, speed: int
+    ) -> None:
         command_on = DoserCommand(str(doser_id), doser_name, str(line_id), line_name, float(speed))
         command_off = DoserCommand(str(doser_id), doser_name, str(line_id), line_name, 0.0)
         try:

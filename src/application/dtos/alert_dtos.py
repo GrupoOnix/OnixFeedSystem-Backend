@@ -46,6 +46,7 @@ class ListAlertsResponse:
 
     alerts: List[AlertDTO]
     total: int
+    total_last_month: int = 0
 
 
 @dataclass

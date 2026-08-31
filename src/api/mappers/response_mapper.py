@@ -103,6 +103,8 @@ class ResponseMapper:
             id=str(sensor.id),
             name=str(sensor.name),
             sensor_type=sensor.sensor_type.name,
+            measurement_unit=sensor.measurement_unit,
+            calibration_value=sensor.calibration_value,
         )
 
     @staticmethod
