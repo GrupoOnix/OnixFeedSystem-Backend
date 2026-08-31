@@ -252,6 +252,14 @@ class CyclicFeedingRequest(BaseModel):
         default=False,
         description="Permitir que la alimentación se extienda más allá del horario operativo",
     )
+    hard_deadline_at: Optional[datetime] = Field(
+        default=None,
+        description="Límite absoluto opcional usado solo por ejecuciones de planes programados.",
+    )
+    execute_pause_physically: bool = Field(
+        default=False,
+        description="Ejecuta selector y transporte en PAUSE, omitiendo únicamente la dosificación.",
+    )
     cage_configs: List[CageConfigInput] = Field(
         min_length=1,
         description="Configuración por jaula. Debe incluir todas las jaulas del grupo.",
@@ -377,6 +385,7 @@ class ScheduledFeedingPlanResponse(BaseModel):
     estimated_total_seconds: float
     window_seconds: float
     remaining_seconds: float
+    shortfall_kg: float = 0.0
     cage_plans: List[ScheduledPlanCageResponse]
     last_run_on: Optional[str] = None
     last_session_id: Optional[str] = None

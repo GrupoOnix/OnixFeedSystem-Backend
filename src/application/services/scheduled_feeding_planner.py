@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from datetime import datetime, time
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -20,6 +21,7 @@ from infrastructure.persistence.repositories.doser_repository import DoserReposi
 from infrastructure.persistence.repositories.feeding_line_repository import FeedingLineRepository
 from infrastructure.persistence.repositories.silo_repository import SiloRepository
 from infrastructure.persistence.repositories.slot_assignment_repository import SlotAssignmentRepository
+from infrastructure.persistence.models.scheduled_feeding_plan_model import ScheduledFeedingPlanModel
 
 
 @dataclass(frozen=True)
@@ -58,7 +60,14 @@ class ScheduledFeedingPlanner:
         self._slots = slot_assignment_repository
         self._selector_positioning_seconds = selector_positioning_seconds
 
-    async def calculate(self, request: ScheduledFeedingPlanRequest) -> ScheduledFeedingPlanResponse:
+    async def calculate(
+        self,
+        request: ScheduledFeedingPlanRequest,
+        *,
+        window_seconds_override: float | None = None,
+        preferred_rounds: int | None = None,
+        allow_partial: bool = False,
+    ) -> ScheduledFeedingPlanResponse:
         line_id = LineId.from_string(request.line_id)
         line = await self._lines.find_by_id(line_id)
         if not line:
@@ -134,7 +143,11 @@ class ScheduledFeedingPlanner:
         if not active_cages:
             raise ValueError("El plan debe tener al menos una jaula que no esté en ayuno")
 
-        window_seconds = calculate_window_seconds(request.start_time, request.end_time)
+        window_seconds = (
+            window_seconds_override
+            if window_seconds_override is not None
+            else calculate_window_seconds(request.start_time, request.end_time)
+        )
         blow_seconds = (
             float(line.blower.blow_before_feeding_time.value) + float(line.blower.blow_after_feeding_time.value)
             if any(mode == "NORMAL" for _cage, mode, _pulses, _requested in preliminary)
@@ -144,22 +157,58 @@ class ScheduledFeedingPlanner:
         calculated_rate_kg_per_min = grams_per_pulse / pulse_seconds * 0.06
         if calculated_rate_kg_per_min > doser.max_rate_kg_per_min:
             raise ValueError("La tasa calculada desde la calibración excede la capacidad máxima del dosificador")
-        fixed_pulse_seconds = sum(pulses * pulse_seconds for _cage, pulses in active_cages)
         movement_seconds_per_round = sum(
             self._selector_positioning_seconds + transport_by_cage[str(cage.id.value)] for cage, _pulses in active_cages
         )
         active_count = len(active_cages)
-        round_seconds = movement_seconds_per_round + active_count * request.wait_after_visit_seconds
-        available_for_rounds = window_seconds - blow_seconds - fixed_pulse_seconds + request.wait_after_visit_seconds
-        max_rounds = math.floor(available_for_rounds / round_seconds) if round_seconds > 0 else 0
-        total_rounds = min(max_rounds, 200)
+        allocated_by_cage: dict[str, int] | None = None
+        if allow_partial:
+            total_rounds = max(1, min(preferred_rounds or 1, 200))
+            while total_rounds > 0:
+                waits = max(total_rounds * active_count - 1, 0) * request.wait_after_visit_seconds
+                overhead = blow_seconds + total_rounds * movement_seconds_per_round + waits
+                if overhead < window_seconds:
+                    break
+                total_rounds -= 1
+            if total_rounds < 1:
+                raise ValueError("No queda tiempo suficiente para realizar una ronda segura antes de la hora límite")
+            waits = max(total_rounds * active_count - 1, 0) * request.wait_after_visit_seconds
+            pulse_capacity = max(
+                0,
+                math.floor(
+                    (window_seconds - blow_seconds - total_rounds * movement_seconds_per_round - waits)
+                    / pulse_seconds
+                ),
+            )
+            requested_by_cage = {
+                str(cage.id.value): pulses
+                for cage, mode, pulses, _requested in preliminary
+                if mode == "NORMAL"
+            }
+            allocated_by_cage = _allocate_proportional_pulses(requested_by_cage, pulse_capacity)
+            if sum(allocated_by_cage.values()) < 1:
+                raise ValueError("No queda capacidad segura para dispensar alimento antes de la hora límite")
+        else:
+            fixed_pulse_seconds = sum(pulses * pulse_seconds for _cage, pulses in active_cages)
+            round_seconds = movement_seconds_per_round + active_count * request.wait_after_visit_seconds
+            available_for_rounds = (
+                window_seconds - blow_seconds - fixed_pulse_seconds + request.wait_after_visit_seconds
+            )
+            max_rounds = math.floor(available_for_rounds / round_seconds) if round_seconds > 0 else 0
+            desired_rounds = max(
+                (pulses for _cage, mode, pulses, _requested in preliminary if mode == "NORMAL"),
+                default=0,
+            )
+            total_rounds = min(max_rounds, desired_rounds, 200)
         if total_rounds < 1:
             raise ValueError("La ventana horaria no alcanza para completar las metas con la calibración actual")
 
         plans: list[_CagePlan] = []
         for cage, mode, pulses, requested_kg in preliminary:
             if mode == "NORMAL":
-                pulse_schedule = _front_loaded_schedule(pulses, total_rounds)
+                if allocated_by_cage is not None:
+                    pulses = allocated_by_cage[str(cage.id.value)]
+                pulse_schedule = _uniform_schedule(pulses, total_rounds)
                 quantity_schedule = [round(value * grams_per_pulse / 1000, 6) for value in pulse_schedule]
                 planned_kg = round(pulses * grams_per_pulse / 1000, 6)
                 per_pulse = grams_per_pulse
@@ -191,12 +240,16 @@ class ScheduledFeedingPlanner:
                 f"Stock insuficiente: disponible {silo.available_stock.as_kg:.2f} kg, "
                 f"planificado {total_planned_kg:.2f} kg"
             )
-        estimated_total_seconds = (
-            blow_seconds
-            + fixed_pulse_seconds
-            + total_rounds * movement_seconds_per_round
-            + max(total_rounds * active_count - 1, 0) * request.wait_after_visit_seconds
-        )
+        fixed_pulse_seconds = sum(plan.planned_pulses * pulse_seconds for plan in plans)
+        gap_count = max(total_rounds * active_count - 1, 0)
+        fixed_execution_seconds = blow_seconds + fixed_pulse_seconds + total_rounds * movement_seconds_per_round
+        effective_wait_after_visit = request.wait_after_visit_seconds
+        if gap_count > 0 and fixed_execution_seconds < window_seconds:
+            effective_wait_after_visit = max(
+                effective_wait_after_visit,
+                (window_seconds - fixed_execution_seconds) / gap_count,
+            )
+        estimated_total_seconds = fixed_execution_seconds + gap_count * effective_wait_after_visit
         return ScheduledFeedingPlanResponse(
             name=request.name,
             line_id=request.line_id,
@@ -207,15 +260,16 @@ class ScheduledFeedingPlanner:
             end_time=request.end_time,
             timezone=ZoneInfo(request.timezone).key,
             blower_power_percentage=request.blower_power_percentage,
-            wait_after_visit_seconds=request.wait_after_visit_seconds,
+            wait_after_visit_seconds=round(effective_wait_after_visit, 3),
             is_active=request.is_active,
             total_rounds=total_rounds,
             total_requested_kg=total_requested_kg,
             total_planned_kg=total_planned_kg,
-            rounding_excess_kg=round(total_planned_kg - total_requested_kg, 6),
+            rounding_excess_kg=round(max(total_planned_kg - total_requested_kg, 0.0), 6),
             estimated_total_seconds=round(estimated_total_seconds, 3),
             window_seconds=window_seconds,
             remaining_seconds=calculate_remaining_seconds(window_seconds, estimated_total_seconds),
+            shortfall_kg=round(max(total_requested_kg - total_planned_kg, 0.0), 6),
             cage_plans=[
                 ScheduledPlanCageResponse(
                     cage_id=plan.cage_id,
@@ -226,7 +280,7 @@ class ScheduledFeedingPlanner:
                     grams_per_pulse=plan.grams_per_pulse,
                     planned_pulses=plan.planned_pulses,
                     planned_kg=plan.planned_kg,
-                    rounding_excess_kg=round(plan.planned_kg - plan.requested_kg, 6),
+                    rounding_excess_kg=round(max(plan.planned_kg - plan.requested_kg, 0.0), 6),
                     pulse_schedule=plan.pulse_schedule,
                     quantity_schedule_kg=plan.quantity_schedule_kg,
                 )
@@ -234,8 +288,73 @@ class ScheduledFeedingPlanner:
             ],
         )
 
+    async def calculate_execution(
+        self,
+        plan: ScheduledFeedingPlanModel,
+        now: datetime | None = None,
+    ) -> ScheduledFeedingPlanResponse:
+        zone = ZoneInfo(plan.timezone)
+        local_now = now.astimezone(zone) if now else datetime.now(zone)
+        deadline = datetime.combine(local_now.date(), time.fromisoformat(plan.end_time), tzinfo=zone)
+        remaining_seconds = (deadline - local_now).total_seconds()
+        if remaining_seconds <= 0:
+            raise ValueError("La hora límite de alimentación ya fue alcanzada")
+        base_window = calculate_window_seconds(plan.start_time, plan.end_time)
+        preferred_rounds = max(1, math.floor(plan.total_rounds * min(remaining_seconds / base_window, 1.0)))
+        request = ScheduledFeedingPlanRequest(
+            name=plan.name,
+            line_id=str(plan.line_id),
+            group_id=str(plan.group_id),
+            doser_id=str(plan.doser_id),
+            silo_id=str(plan.silo_id),
+            start_time=plan.start_time,
+            end_time=plan.end_time,
+            timezone=plan.timezone,
+            blower_power_percentage=plan.blower_power_percentage,
+            wait_after_visit_seconds=0,
+            is_active=True,
+            cage_configs=[
+                {
+                    "cage_id": item["cage_id"],
+                    "daily_target_kg": item["requested_kg"],
+                    "mode": item["mode"],
+                }
+                for item in plan.cage_plans
+            ],
+        )
+        return await self.calculate(
+            request,
+            window_seconds_override=remaining_seconds,
+            preferred_rounds=preferred_rounds,
+            allow_partial=True,
+        )
 
-def _front_loaded_schedule(pulses: int, total_rounds: int) -> list[int]:
-    """Distribuye pulsos desde la primera ronda y deja ceros al final."""
+
+def _uniform_schedule(pulses: int, total_rounds: int) -> list[int]:
+    """Distribuye pulsos y sobrantes uniformemente durante toda la jornada."""
     base, remainder = divmod(pulses, total_rounds)
-    return [base + (1 if index < remainder else 0) for index in range(total_rounds)]
+    result = [base] * total_rounds
+    if remainder:
+        for extra in range(remainder):
+            index = min(total_rounds - 1, math.floor((extra + 0.5) * total_rounds / remainder))
+            result[index] += 1
+    return result
+
+
+def _allocate_proportional_pulses(requested: dict[str, int], capacity: int) -> dict[str, int]:
+    total = sum(requested.values())
+    if total <= capacity:
+        return dict(requested)
+    if capacity <= 0 or total <= 0:
+        return {key: 0 for key in requested}
+    exact = {key: value * capacity / total for key, value in requested.items()}
+    allocated = {key: min(requested[key], math.floor(value)) for key, value in exact.items()}
+    remaining = capacity - sum(allocated.values())
+    order = sorted(requested, key=lambda key: exact[key] - allocated[key], reverse=True)
+    for key in order:
+        if remaining <= 0:
+            break
+        if allocated[key] < requested[key]:
+            allocated[key] += 1
+            remaining -= 1
+    return allocated

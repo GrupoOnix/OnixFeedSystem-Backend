@@ -7,9 +7,7 @@ periódicamente durante el ciclo de vida de la aplicación.
 
 import asyncio
 import logging
-import os
 from contextlib import asynccontextmanager
-from datetime import timedelta
 from typing import Optional
 
 from fastapi import FastAPI
@@ -24,7 +22,6 @@ from infrastructure.services.alert_scheduler_service import AlertSchedulerServic
 from infrastructure.services.default_admin_service import seed_default_admin_if_needed
 from infrastructure.services.silo_monitor_service import SiloMonitorService
 from infrastructure.services.feeding_execution_worker import FeedingExecutionWorker
-from infrastructure.services.scheduled_feeding_dispatcher import ScheduledFeedingDispatcher
 from infrastructure.persistence.database import async_session_maker
 
 logger = logging.getLogger(__name__)
@@ -32,19 +29,7 @@ logger = logging.getLogger(__name__)
 # Variables globales para controlar los tasks
 _scheduler_task: Optional[asyncio.Task] = None
 _silo_monitor_task: Optional[asyncio.Task] = None
-_scheduled_feeding_task: Optional[asyncio.Task] = None
 _feeding_execution_worker_task: Optional[asyncio.Task] = None
-
-
-def _positive_int_from_env(name: str, default: int) -> int:
-    try:
-        value = int(os.getenv(name, str(default)))
-        if value > 0:
-            return value
-    except ValueError:
-        pass
-    logger.warning("%s debe ser un entero positivo; se usará %s", name, default)
-    return default
 
 
 async def scheduled_alerts_job():
@@ -124,20 +109,6 @@ async def silo_monitor_job():
         await asyncio.sleep(300)
 
 
-async def scheduled_feeding_job(dispatcher: ScheduledFeedingDispatcher, poll_interval_seconds: int = 15):
-    """Dispara una vez al día los planes calculados y persistidos."""
-    logger.info("Iniciando job de alimentación programada")
-    while True:
-        try:
-            await dispatcher.dispatch_due_plans()
-        except asyncio.CancelledError:
-            logger.info("Job de alimentación programada cancelado")
-            raise
-        except Exception as exc:
-            logger.error("Error en scheduled_feeding_job: %s", exc, exc_info=True)
-        await asyncio.sleep(poll_interval_seconds)
-
-
 @asynccontextmanager
 async def lifespan_with_scheduler(app: FastAPI):
     """
@@ -152,7 +123,7 @@ async def lifespan_with_scheduler(app: FastAPI):
 
         app = FastAPI(lifespan=lifespan_with_scheduler)
     """
-    global _scheduler_task, _silo_monitor_task, _scheduled_feeding_task, _feeding_execution_worker_task
+    global _scheduler_task, _silo_monitor_task, _feeding_execution_worker_task
 
     # Startup
     logger.info("Iniciando background tasks...")
@@ -171,14 +142,6 @@ async def lifespan_with_scheduler(app: FastAPI):
     from api.dependencies import get_simulated_machine
 
     machine = get_simulated_machine()
-    grace_minutes = _positive_int_from_env("SCHEDULED_FEEDING_GRACE_MINUTES", 15)
-    poll_seconds = _positive_int_from_env("SCHEDULED_FEEDING_POLL_SECONDS", 15)
-    scheduled_dispatcher = ScheduledFeedingDispatcher(
-        machine,
-        async_session_maker,
-        grace_period=timedelta(minutes=grace_minutes),
-    )
-    _scheduled_feeding_task = asyncio.create_task(scheduled_feeding_job(scheduled_dispatcher, poll_seconds))
     feeding_worker = FeedingExecutionWorker(machine, async_session_maker)
     _feeding_execution_worker_task = asyncio.create_task(feeding_worker.run())
 
@@ -198,13 +161,6 @@ async def lifespan_with_scheduler(app: FastAPI):
         _silo_monitor_task.cancel()
         try:
             await _silo_monitor_task
-        except asyncio.CancelledError:
-            pass
-
-    if _scheduled_feeding_task:
-        _scheduled_feeding_task.cancel()
-        try:
-            await _scheduled_feeding_task
         except asyncio.CancelledError:
             pass
 

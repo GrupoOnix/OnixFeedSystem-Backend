@@ -39,6 +39,12 @@ class ScheduledFeedingPlanRepository:
     async def find_by_id(self, plan_id: UUID) -> Optional[ScheduledFeedingPlanModel]:
         return await self.session.get(ScheduledFeedingPlanModel, plan_id)
 
+    async def find_by_line(self, line_id: UUID) -> Optional[ScheduledFeedingPlanModel]:
+        result = await self.session.execute(
+            select(ScheduledFeedingPlanModel).where(ScheduledFeedingPlanModel.line_id == line_id)
+        )
+        return result.scalars().first()
+
     async def list_active_by_line(
         self,
         line_id: UUID,

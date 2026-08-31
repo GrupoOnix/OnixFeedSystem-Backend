@@ -58,6 +58,8 @@ class FeedingOrchestrator:
         blow_after_seconds: float = 0.0,
         selector_positioning_seconds: float = 5.0,
         wait_after_visit_seconds: float = 0.0,
+        hard_deadline_at: datetime | None = None,
+        execute_pause_physically: bool = False,
     ) -> None:
         """
         Ejecuta una sesión de alimentación (manual o cíclica).
@@ -92,6 +94,9 @@ class FeedingOrchestrator:
             visit_number_in_round = round_number + 1
 
             for cage_feeding_index, cage_feeding in enumerate(cage_feedings):
+                if hard_deadline_at and datetime.now(timezone.utc) >= hard_deadline_at.astimezone(timezone.utc):
+                    await self._interrupt_for_deadline(session, line_id, cage_feedings)
+                    return
                 async with self._session_factory() as db:
                     refreshed_feeding = await CageFeedingRepository(db).find_by_id(cage_feeding.id)
                     if refreshed_feeding:
@@ -116,7 +121,37 @@ class FeedingOrchestrator:
                 )
                 is_empty_visit = round_number >= cage_feeding.programmed_visits or planned_quantity == 0
 
-                if cage_feeding.mode == CageFeedingMode.PAUSE:
+                if hard_deadline_at and cage_feeding.mode == CageFeedingMode.NORMAL and not is_empty_visit:
+                    minimum_visit_seconds = (
+                        selector_positioning_seconds
+                        + actual_blow_before
+                        + transport_time
+                        + actual_blow_after
+                        + (planned_quantity or 0.0) / cage_feeding.rate_kg_per_min * 60.0
+                    )
+                    seconds_until_deadline = (
+                        hard_deadline_at.astimezone(timezone.utc) - datetime.now(timezone.utc)
+                    ).total_seconds()
+                    if minimum_visit_seconds > seconds_until_deadline:
+                        await self._interrupt_for_deadline(session, line_id, cage_feedings)
+                        return
+
+                if cage_feeding.mode == CageFeedingMode.PAUSE and execute_pause_physically:
+                    slot_number = slot_map[cage_feeding.cage_id]
+                    await self._execute_empty_visit(
+                        session=session,
+                        cage_feeding=cage_feeding,
+                        line_id=line_id,
+                        slot_number=slot_number,
+                        blower_power_percentage=blower_power_percentage,
+                        visit_number=visit_number_in_round,
+                        transport_time_seconds=transport_time,
+                        blow_before_seconds=actual_blow_before,
+                        blow_after_seconds=actual_blow_after,
+                        selector_positioning_seconds=selector_positioning_seconds,
+                        count_completed_visit=round_number < cage_feeding.programmed_visits,
+                    )
+                elif cage_feeding.mode == CageFeedingMode.PAUSE:
                     await self._execute_pause(
                         session=session,
                         cage_feeding=cage_feeding,
@@ -156,6 +191,7 @@ class FeedingOrchestrator:
                         blow_after_seconds=actual_blow_after,
                         selector_positioning_seconds=selector_positioning_seconds,
                         target_kg=planned_quantity,
+                        hard_deadline_at=hard_deadline_at,
                     )
 
                 completed_visit_executions += 1
@@ -175,11 +211,24 @@ class FeedingOrchestrator:
                     return
 
                 if wait_after_visit_seconds > 0 and completed_visit_executions < total_visit_executions:
+                    effective_wait = wait_after_visit_seconds
+                    if hard_deadline_at:
+                        effective_wait = await self._calculate_adaptive_wait(
+                            session_id=session.id,
+                            round_number=round_number,
+                            cage_index=cage_feeding_index,
+                            total_rounds=total_rounds,
+                            transport_time_map=transport_time_map,
+                            selector_positioning_seconds=selector_positioning_seconds,
+                            blow_after_seconds=blow_after_seconds,
+                            hard_deadline_at=hard_deadline_at,
+                        )
                     logger.info(
                         f"[Orchestrator] Session {session.id}: waiting "
-                        f"{wait_after_visit_seconds:.1f}s before next cyclic visit"
+                        f"{effective_wait:.1f}s before next cyclic visit"
                     )
-                    await asyncio.sleep(wait_after_visit_seconds)
+                    if effective_wait > 0:
+                        await asyncio.sleep(effective_wait)
 
         # Verificar una última vez antes de marcar como completada
         async with self._session_factory() as db:
@@ -329,6 +378,7 @@ class FeedingOrchestrator:
         doser_rate_kg_per_min: float | None = None,
         count_completed_visit: bool = True,
         is_empty_visit: bool = False,
+        hard_deadline_at: datetime | None = None,
     ) -> None:
         visit_start = datetime.now(timezone.utc)
 
@@ -382,6 +432,24 @@ class FeedingOrchestrator:
         while True:
             await asyncio.sleep(self._poll_interval)
             status = await self._machine.get_status(line_id)
+
+            if hard_deadline_at and datetime.now(timezone.utc) >= hard_deadline_at.astimezone(timezone.utc):
+                if status.dispensed_kg > 0:
+                    async def _persist_deadline_partial(db: AsyncSession):
+                        await CageFeedingRepository(db).record_visit_progress(
+                            cage_feeding.id,
+                            dispensed_kg=status.dispensed_kg,
+                            completed_visit=False,
+                        )
+                        await SiloInventoryRepository(db).consume(
+                            session.id,
+                            cage_feeding.id,
+                            status.dispensed_kg,
+                            getattr(session, "operator_id", "system:feeding"),
+                        )
+                    await self._save(_persist_deadline_partial)
+                await self._interrupt_for_deadline(session, line_id, [cage_feeding])
+                return
 
             # Verificar si la sesión fue cancelada o interrumpida externamente
             async with self._session_factory() as db:
@@ -532,6 +600,64 @@ class FeedingOrchestrator:
                     f"dispensed={status.dispensed_kg}kg in {duration_seconds:.1f}s"
                 )
                 return
+
+    async def _interrupt_for_deadline(
+        self,
+        session: FeedingSession,
+        line_id: LineId,
+        cage_feedings: List[CageFeeding],
+    ) -> None:
+        session.interrupt()
+        pending_visits = sum(max(0, item.programmed_visits - item.completed_visits) for item in cage_feedings)
+        event = FeedingEvent.session_interrupted(
+            feeding_session_id=session.id,
+            reason="Hora límite ambiental alcanzada",
+            pending_visits=pending_visits,
+        )
+
+        async def _persist(db: AsyncSession):
+            await FeedingSessionRepository(db).save(session)
+            await FeedingEventRepository(db).save(event)
+            await SiloInventoryRepository(db).release(session.id)
+
+        await self._machine.stop(line_id)
+        await self._save(_persist)
+        await self._turn_off_persisted_blower(line_id)
+        await self._release_feeding_line(line_id)
+
+    async def _calculate_adaptive_wait(
+        self,
+        *,
+        session_id: str,
+        round_number: int,
+        cage_index: int,
+        total_rounds: int,
+        transport_time_map: Dict[str, float],
+        selector_positioning_seconds: float,
+        blow_after_seconds: float,
+        hard_deadline_at: datetime,
+    ) -> float:
+        async with self._session_factory() as db:
+            feedings = await CageFeedingRepository(db).find_by_session(session_id)
+        feedings.sort(key=lambda item: item.execution_order)
+        minimum_remaining = 0.0
+        remaining_visits = 0
+        for future_round in range(round_number, total_rounds):
+            start_index = cage_index + 1 if future_round == round_number else 0
+            for feeding in feedings[start_index:]:
+                if feeding.mode == CageFeedingMode.FASTING:
+                    continue
+                remaining_visits += 1
+                minimum_remaining += selector_positioning_seconds + transport_time_map.get(feeding.cage_id, 0.0)
+                quantities = feeding.visit_quantities_kg or []
+                quantity = quantities[future_round] if future_round < len(quantities) else 0.0
+                if feeding.mode == CageFeedingMode.NORMAL and quantity > 0 and feeding.rate_kg_per_min > 0:
+                    minimum_remaining += quantity / feeding.rate_kg_per_min * 60.0
+        if remaining_visits == 0:
+            return 0.0
+        minimum_remaining += blow_after_seconds
+        seconds_left = (hard_deadline_at.astimezone(timezone.utc) - datetime.now(timezone.utc)).total_seconds()
+        return max(0.0, (seconds_left - minimum_remaining) / remaining_visits)
 
     async def _turn_off_persisted_blower(self, line_id: LineId) -> None:
         async def _persist_blower_off(db: AsyncSession):

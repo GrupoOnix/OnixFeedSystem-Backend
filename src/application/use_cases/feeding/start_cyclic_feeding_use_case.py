@@ -244,6 +244,8 @@ class StartCyclicFeedingUseCase:
                 "blow_after_seconds": blow_after,
                 "selector_positioning_seconds": selector_positioning_seconds,
                 "wait_after_visit_seconds": request.wait_after_visit_seconds,
+                "hard_deadline_at": request.hard_deadline_at.isoformat() if request.hard_deadline_at else None,
+                "execute_pause_physically": request.execute_pause_physically,
             },
         )
 

@@ -226,9 +226,11 @@ async def create_scheduled_feeding_plan(
 ) -> ScheduledFeedingPlanResponse:
     try:
         calculated = await planner.calculate(request)
+        line_id = UUID(calculated.line_id)
+        await repository.lock_line_schedule(line_id)
+        if await repository.find_by_line(line_id):
+            raise ScheduledPlanConflictError("La línea ya tiene un plan diario; modifícalo en lugar de crear otro")
         if calculated.is_active:
-            line_id = UUID(calculated.line_id)
-            await repository.lock_line_schedule(line_id)
             assert_no_scheduled_plan_conflict(
                 start_time=calculated.start_time,
                 end_time=calculated.end_time,
@@ -259,6 +261,157 @@ async def create_scheduled_feeding_plan(
         return _scheduled_plan_response(plan)
     except ScheduledPlanConflictError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.put("/scheduled/{plan_id}", response_model=ScheduledFeedingPlanResponse)
+async def update_scheduled_feeding_plan(
+    current_user: CurrentUserDep,
+    plan_id: UUID,
+    request: ScheduledFeedingPlanRequest,
+    planner: Annotated[ScheduledFeedingPlanner, Depends(get_scheduled_feeding_planner)],
+    repository: Annotated[ScheduledFeedingPlanRepository, Depends(get_scheduled_feeding_plan_repo)],
+) -> ScheduledFeedingPlanResponse:
+    plan = await repository.find_by_id(plan_id)
+    if not plan:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan programado no encontrado")
+    _assert_plan_access(plan, current_user)
+    if request.line_id != str(plan.line_id):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El plan no puede cambiar de línea")
+    try:
+        calculated = await planner.calculate(request)
+        for field in (
+            "group_id", "doser_id", "silo_id", "name", "start_time", "end_time", "timezone",
+            "blower_power_percentage", "wait_after_visit_seconds", "is_active", "total_rounds",
+            "total_requested_kg", "total_planned_kg", "estimated_total_seconds",
+        ):
+            value = getattr(calculated, field)
+            if field in {"group_id", "doser_id", "silo_id"}:
+                value = UUID(value)
+            setattr(plan, field, value)
+        plan.cage_plans = [item.model_dump() for item in calculated.cage_plans]
+        plan.last_error = None
+        await repository.save(plan)
+        return _scheduled_plan_response(plan)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post("/scheduled/{plan_id}/start-preview", response_model=ScheduledFeedingPlanResponse)
+async def preview_scheduled_feeding_start(
+    current_user: CurrentUserDep,
+    plan_id: UUID,
+    planner: Annotated[ScheduledFeedingPlanner, Depends(get_scheduled_feeding_planner)],
+    repository: Annotated[ScheduledFeedingPlanRepository, Depends(get_scheduled_feeding_plan_repo)],
+) -> ScheduledFeedingPlanResponse:
+    plan = await repository.find_by_id(plan_id)
+    if not plan:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan programado no encontrado")
+    _assert_plan_access(plan, current_user)
+    try:
+        preview = await planner.calculate_execution(plan)
+        preview.id = str(plan.id)
+        return preview
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post("/scheduled/{plan_id}/start", response_model=CyclicFeedingResponse, status_code=status.HTTP_201_CREATED)
+async def start_scheduled_feeding_plan(
+    current_user: CurrentUserDep,
+    plan_id: UUID,
+    planner: Annotated[ScheduledFeedingPlanner, Depends(get_scheduled_feeding_planner)],
+    repository: Annotated[ScheduledFeedingPlanRepository, Depends(get_scheduled_feeding_plan_repo)],
+    use_case: Annotated[StartCyclicFeedingUseCase, Depends(get_start_cyclic_feeding_use_case)],
+) -> CyclicFeedingResponse:
+    plan = await repository.find_by_id(plan_id)
+    if not plan:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan programado no encontrado")
+    _assert_plan_access(plan, current_user)
+    try:
+        execution = await planner.calculate_execution(plan)
+        zone = ZoneInfo(plan.timezone)
+        local_now = datetime.now(zone)
+        deadline = datetime.combine(local_now.date(), time.fromisoformat(plan.end_time), tzinfo=zone)
+        result = await use_case.execute(
+            CyclicFeedingRequest(
+                line_id=str(plan.line_id),
+                group_id=str(plan.group_id),
+                doser_id=str(plan.doser_id),
+                silo_id=str(plan.silo_id),
+                blower_power_percentage=plan.blower_power_percentage,
+                wait_after_visit_seconds=execution.wait_after_visit_seconds,
+                allow_overtime=True,
+                hard_deadline_at=deadline,
+                execute_pause_physically=True,
+                cage_configs=[
+                    {
+                        "cage_id": item.cage_id,
+                        "quantity_kg": item.planned_kg,
+                        "visits": execution.total_rounds,
+                        "visit_quantities_kg": item.quantity_schedule_kg,
+                        "rate_kg_per_min": item.rate_kg_per_min,
+                        "mode": item.mode,
+                    }
+                    for item in execution.cage_plans
+                ],
+            ),
+            operator_id=str(current_user.id),
+            operator_name=current_user.full_name,
+            actor=current_user.username,
+        )
+        plan.last_session_id = result.session_id
+        plan.last_run_on = local_now.date().isoformat()
+        plan.last_error = None
+        await repository.save(plan)
+        return result
+    except FeedingLineUnavailableException as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post("/scheduled/{plan_id}/sessions/{session_id}/restore")
+async def restore_scheduled_execution_from_base_plan(
+    current_user: CurrentUserDep,
+    plan_id: UUID,
+    session_id: str,
+    repository: Annotated[ScheduledFeedingPlanRepository, Depends(get_scheduled_feeding_plan_repo)],
+    cage_feeding_repo: Annotated[CageFeedingRepository, Depends(get_cage_feeding_repo)],
+    machine: Annotated[SimulatedMachine, Depends(get_simulated_machine)],
+    amount_use_case: Annotated[UpdateCyclicCageAmountUseCase, Depends(get_update_cyclic_cage_amount_use_case)],
+    rate_use_case: Annotated[UpdateCyclicCageRateUseCase, Depends(get_update_cyclic_cage_rate_use_case)],
+    mode_use_case: Annotated[UpdateCageModeUseCase, Depends(get_update_cage_mode_use_case)],
+) -> dict[str, Any]:
+    plan = await repository.find_by_id(plan_id)
+    if not plan:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan programado no encontrado")
+    _assert_plan_access(plan, current_user)
+    if plan.last_session_id != session_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="La sesión no pertenece a este plan")
+    try:
+        feedings = await cage_feeding_repo.find_by_session(session_id)
+        by_cage = {item.cage_id: item for item in feedings}
+        machine_status = await machine.get_status(LineId.from_string(str(plan.line_id)))
+        restored: list[str] = []
+        for base in plan.cage_plans:
+            current = by_cage.get(base["cage_id"])
+            if not current or base["mode"] == "FASTING" or current.completed_visits >= current.programmed_visits:
+                continue
+            live = machine_status.dispensed_kg if machine_status.cage_feeding_id == current.id else 0.0
+            if base["mode"] == "NORMAL":
+                safe_total = max(float(base["planned_kg"]), current.dispensed_kg + live)
+                await amount_use_case.execute(session_id, current.cage_id, safe_total)
+                await rate_use_case.execute(session_id, current.cage_id, float(base["rate_kg_per_min"]))
+            await mode_use_case.execute(
+                session_id=session_id,
+                cage_id=current.cage_id,
+                new_mode=base["mode"],
+                operator_id=str(current_user.id),
+            )
+            restored.append(current.cage_id)
+        return {"message": "Configuración original restaurada y tiempo restante recalculado", "cage_ids": restored}
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 

@@ -6,6 +6,7 @@ import os
 import socket
 import uuid
 from collections.abc import Callable
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -104,6 +105,12 @@ class FeedingExecutionWorker:
                 blow_after_seconds=float(payload.get("blow_after_seconds", 0.0)),
                 selector_positioning_seconds=float(payload.get("selector_positioning_seconds", 5.0)),
                 wait_after_visit_seconds=float(payload.get("wait_after_visit_seconds", 0.0)),
+                hard_deadline_at=(
+                    datetime.fromisoformat(payload["hard_deadline_at"])
+                    if payload.get("hard_deadline_at")
+                    else None
+                ),
+                execute_pause_physically=bool(payload.get("execute_pause_physically", False)),
             )
             await self._finish_job(job.id, job.feeding_session_id)
         except asyncio.CancelledError:

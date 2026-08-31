@@ -1,4 +1,3 @@
-import asyncio
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -85,22 +84,6 @@ async def test_dispatcher_routes_due_and_expired_plans_once(monkeypatch):
     assert expires_at == datetime(2026, 8, 27, 9, 45, tzinfo=TZ)
 
 
-@pytest.mark.asyncio
-async def test_scheduled_feeding_job_retries_after_error_and_propagates_cancellation(monkeypatch):
-    dispatcher = SimpleNamespace(
-        dispatch_due_plans=AsyncMock(
-            side_effect=[RuntimeError("fallo transitorio"), asyncio.CancelledError()],
-        )
-    )
-    sleep_intervals = []
-
-    async def _sleep(seconds):
-        sleep_intervals.append(seconds)
-
-    monkeypatch.setattr(background_tasks_module.asyncio, "sleep", _sleep)
-
-    with pytest.raises(asyncio.CancelledError):
-        await background_tasks_module.scheduled_feeding_job(dispatcher, poll_interval_seconds=7)
-
-    assert dispatcher.dispatch_due_plans.await_count == 2
-    assert sleep_intervals == [7]
+def test_background_lifespan_does_not_register_automatic_scheduled_feeding_job():
+    assert not hasattr(background_tasks_module, "_scheduled_feeding_task")
+    assert not hasattr(background_tasks_module, "scheduled_feeding_job")

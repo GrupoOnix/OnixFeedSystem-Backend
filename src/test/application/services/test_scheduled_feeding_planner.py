@@ -4,7 +4,11 @@ from uuid import UUID, uuid4
 import pytest
 
 from api.models.feeding_models import ScheduledFeedingPlanRequest
-from application.services.scheduled_feeding_planner import ScheduledFeedingPlanner
+from application.services.scheduled_feeding_planner import (
+    ScheduledFeedingPlanner,
+    _allocate_proportional_pulses,
+    _uniform_schedule,
+)
 
 
 class _Repository:
@@ -98,9 +102,10 @@ async def test_planner_calculates_a_complete_normal_cage_plan():
     assert result.timezone == "America/Santiago"
     assert result.total_requested_kg == 1.0
     assert result.total_planned_kg == 1.0
-    assert result.total_rounds == 200
+    assert result.total_rounds == 10
     assert result.window_seconds == 3600
-    assert result.remaining_seconds == 2380
+    assert result.remaining_seconds == 0
+    assert result.wait_after_visit_seconds > 0
     assert result.cage_plans[0].planned_pulses == 10
     assert sum(result.cage_plans[0].pulse_schedule) == 10
     assert sum(result.cage_plans[0].quantity_schedule_kg) == 1.0
@@ -112,3 +117,31 @@ async def test_planner_rejects_a_cage_without_transport_time():
 
     with pytest.raises(ValueError, match="tiempo de transporte"):
         await planner.calculate(request)
+
+
+def test_uniform_schedule_spreads_remainders_across_the_whole_window():
+    assert _uniform_schedule(3, 10) == [0, 1, 0, 0, 0, 1, 0, 0, 1, 0]
+
+
+def test_proportional_allocation_never_exceeds_capacity_or_requested_pulses():
+    allocated = _allocate_proportional_pulses({"a": 10, "b": 20}, 12)
+
+    assert allocated == {"a": 4, "b": 8}
+    assert sum(allocated.values()) == 12
+
+
+@pytest.mark.asyncio
+async def test_execution_plan_reduces_quantity_instead_of_crossing_the_deadline():
+    planner, request = _planner()
+
+    result = await planner.calculate(
+        request,
+        window_seconds_override=40,
+        preferred_rounds=5,
+        allow_partial=True,
+    )
+
+    assert result.total_rounds == 5
+    assert result.total_planned_kg == 0.5
+    assert result.shortfall_kg == 0.5
+    assert result.estimated_total_seconds == 40
