@@ -638,7 +638,8 @@ class IAlertRepository(ABC):
     @abstractmethod
     async def find_any_by_silo(self, silo_id: str) -> Optional[Alert]:
         """
-        Busca cualquier alerta para un silo (incluyendo silenciadas).
+        Busca cualquier alerta no archivada para un silo (incluyendo
+        silenciadas y resueltas).
 
         Útil para verificar si ya existe una alerta antes de crear una nueva.
 

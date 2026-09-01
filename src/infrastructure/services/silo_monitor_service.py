@@ -34,10 +34,11 @@ class SiloMonitorService:
 
     async def check_all_silos(self) -> int:
         """
-        Verifica todos los silos y genera alertas para niveles bajos.
+        Verifica todos los silos y crea o actualiza alertas solo cuando cambia
+        su contenido o severidad.
 
         Returns:
-            Cantidad de alertas generadas en esta ejecución.
+            Cantidad de alertas creadas o actualizadas en esta ejecución.
         """
         all_silos = await self._silo_repo.get_all()
         alerts_generated = 0
@@ -53,7 +54,7 @@ class SiloMonitorService:
                 )
 
         if alerts_generated > 0:
-            logger.info(f"Alertas de nivel bajo generadas: {alerts_generated}")
+            logger.info("Alertas de nivel bajo creadas o actualizadas: %s", alerts_generated)
 
         return alerts_generated
 
@@ -66,7 +67,7 @@ class SiloMonitorService:
             silo: El silo a verificar
 
         Returns:
-            True si se generó o actualizó una alerta, False en caso contrario
+            True si se creó o actualizó una alerta, False en caso contrario.
         """
         # Calcular porcentaje de llenado
         capacity_kg = silo.capacity.as_kg
@@ -81,7 +82,7 @@ class SiloMonitorService:
 
         # Si el nivel está bajo el umbral WARNING del silo, generar o actualizar alerta
         if percentage < silo.warning_threshold_percentage:
-            await self._alert_trigger_service.silo_low_level(
+            result = await self._alert_trigger_service.silo_low_level(
                 silo_id=silo_id,
                 silo_name=str(silo.name),
                 current_level=current_level_kg,
@@ -89,8 +90,12 @@ class SiloMonitorService:
                 percentage=percentage,
                 critical_threshold=silo.critical_threshold_percentage,
             )
-            logger.info(f"Alerta de nivel bajo procesada: {silo.name} ({percentage:.1f}%)")
-            return True
+            if result.created:
+                logger.info("Alerta de nivel bajo creada: %s (%.1f%%)", silo.name, percentage)
+            elif result.updated:
+                logger.info("Alerta de nivel bajo actualizada: %s (%.1f%%)", silo.name, percentage)
+
+            return result.created or result.updated
 
         return False
 

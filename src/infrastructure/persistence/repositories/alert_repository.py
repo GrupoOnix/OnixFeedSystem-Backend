@@ -204,13 +204,15 @@ class AlertRepository(IAlertRepository):
 
     async def find_any_by_silo(self, silo_id: str) -> Optional[Alert]:
         """
-        Busca cualquier alerta para un silo (incluyendo silenciadas).
+        Busca cualquier alerta no archivada para un silo, incluyendo las
+        resueltas y silenciadas. Así, una alerta resuelta no se recrea en cada
+        ciclo mientras el nivel del silo siga bajo.
         Busca en los metadatos de las alertas de categoría INVENTORY.
         """
         query = (
             select(AlertModel)
             .where(col(AlertModel.category) == AlertCategory.INVENTORY.value)
-            .where(col(AlertModel.status).in_([AlertStatus.UNREAD.value, AlertStatus.READ.value]))
+            .where(col(AlertModel.status) != AlertStatus.ARCHIVED.value)
             .order_by(col(AlertModel.timestamp).desc())
         )
 

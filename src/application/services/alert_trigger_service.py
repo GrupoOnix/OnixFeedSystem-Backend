@@ -5,12 +5,22 @@ Este servicio proporciona métodos para crear alertas desde diferentes
 partes del sistema (triggers automáticos, validaciones, etc.).
 """
 
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 from domain.aggregates.alert import Alert
 from domain.enums import AlertCategory, AlertType
 from domain.repositories import IAlertRepository
 from domain.value_objects import AlertId
+
+
+@dataclass(frozen=True)
+class SiloAlertResult:
+    """Resultado de evaluar una alerta de nivel bajo de silo."""
+
+    alert_id: Optional[AlertId]
+    created: bool = False
+    updated: bool = False
 
 
 class AlertTriggerService:
@@ -38,13 +48,13 @@ class AlertTriggerService:
         max_capacity: float,
         percentage: float,
         critical_threshold: float = 10.0,
-    ) -> Optional[AlertId]:
+    ) -> SiloAlertResult:
         """
         Nivel bajo de silo.
 
-        Si ya existe una alerta activa para este silo, la actualiza.
-        Si existe una alerta silenciada, NO hace nada (evita duplicados).
-        Si no existe ninguna alerta, crea una nueva.
+        Si ya existe una alerta para este silo, solo la actualiza cuando su
+        contenido o severidad cambió. Esto evita reabrir alertas leídas y
+        escribir el mismo registro en cada ciclo de monitoreo.
 
         Args:
             silo_id: ID del silo.
@@ -55,7 +65,7 @@ class AlertTriggerService:
             critical_threshold: Umbral crítico del silo (default 10.0%).
 
         Returns:
-            ID de la alerta (existente o nueva), o None si está silenciada.
+            Resultado que indica si la alerta fue creada o actualizada.
         """
         # Determinar tipo de alerta usando el umbral crítico del silo
         alert_type = AlertType.CRITICAL if percentage < critical_threshold else AlertType.WARNING
@@ -75,26 +85,31 @@ class AlertTriggerService:
         if any_alert:
             # Si la alerta está silenciada, NO hacer nada (evitar duplicados)
             if any_alert.is_snoozed:
-                return None  # No crear ni actualizar
+                return SiloAlertResult(alert_id=None)
 
-            # Si la alerta está activa (no silenciada), actualizarla
-            any_alert.update_content(
-                message=message,
-                metadata=metadata,
-                type=alert_type,
+            metadata_changed = any(any_alert.metadata.get(key) != value for key, value in metadata.items())
+            content_changed = (
+                any_alert.message != message
+                or any_alert.type != alert_type
+                or metadata_changed
             )
+            if not content_changed:
+                return SiloAlertResult(alert_id=any_alert.id)
+
+            any_alert.update_content(message=message, metadata=metadata, type=alert_type)
             await self._alert_repo.save(any_alert)
-            return any_alert.id
-        else:
-            # No existe ninguna alerta, crear una nueva
-            return await self._create_alert(
-                type=alert_type,
-                category=AlertCategory.INVENTORY,
-                title=f"Nivel bajo en {silo_name}",
-                message=message,
-                source=silo_name,
-                metadata=metadata,
-            )
+            return SiloAlertResult(alert_id=any_alert.id, updated=True)
+
+        # No existe ninguna alerta, crear una nueva
+        alert_id = await self._create_alert(
+            type=alert_type,
+            category=AlertCategory.INVENTORY,
+            title=f"Nivel bajo en {silo_name}",
+            message=message,
+            source=silo_name,
+            metadata=metadata,
+        )
+        return SiloAlertResult(alert_id=alert_id, created=True)
 
     async def sensor_out_of_range(
         self,
