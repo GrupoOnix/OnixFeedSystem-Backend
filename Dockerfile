@@ -13,4 +13,6 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+# Mantiene el esquema de la base actualizado antes de aceptar tráfico.
+# Render usa una instancia de una CPU para este servicio, por lo que un worker basta.
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn src.main:app --host 0.0.0.0 --port 8000 --workers 1"]
