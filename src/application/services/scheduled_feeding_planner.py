@@ -5,22 +5,24 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from datetime import datetime, time
+from typing import Protocol
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from api.models.feeding_models import (
     ScheduledFeedingPlanRequest,
     ScheduledFeedingPlanResponse,
+    ScheduledPlanCageInput,
     ScheduledPlanCageResponse,
 )
+from domain.aggregates.cage import Cage
+from domain.aggregates.cage_group import CageGroup
+from domain.aggregates.feeding_line.doser import Doser
+from domain.aggregates.feeding_line.feeding_line import FeedingLine
+from domain.aggregates.silo import Silo
+from domain.entities.slot_assignment import SlotAssignment
 from domain.value_objects import CageId, CageGroupId, LineId, SiloId
 from domain.services.scheduled_feeding_time import calculate_remaining_seconds, calculate_window_seconds
-from infrastructure.persistence.repositories.cage_group_repository import CageGroupRepository
-from infrastructure.persistence.repositories.cage_repository import CageRepository
-from infrastructure.persistence.repositories.doser_repository import DoserRepository
-from infrastructure.persistence.repositories.feeding_line_repository import FeedingLineRepository
-from infrastructure.persistence.repositories.silo_repository import SiloRepository
-from infrastructure.persistence.repositories.slot_assignment_repository import SlotAssignmentRepository
 from infrastructure.persistence.models.scheduled_feeding_plan_model import ScheduledFeedingPlanModel
 
 
@@ -39,17 +41,46 @@ class _CagePlan:
     transport_seconds: float
 
 
+class _FeedingLineRepository(Protocol):
+    async def find_by_id(self, line_id: LineId) -> FeedingLine | None: ...
+
+
+class _CageRepository(Protocol):
+    async def find_by_id(self, cage_id: CageId) -> Cage | None: ...
+
+
+class _CageGroupRepository(Protocol):
+    async def find_by_id(self, group_id: CageGroupId) -> CageGroup | None: ...
+
+
+class _DoserContext(Protocol):
+    doser: Doser
+    line_id: UUID
+
+
+class _DoserRepository(Protocol):
+    async def find_by_id_with_context(self, doser_id: UUID) -> _DoserContext | None: ...
+
+
+class _SiloRepository(Protocol):
+    async def find_by_id(self, silo_id: SiloId) -> Silo | None: ...
+
+
+class _SlotAssignmentRepository(Protocol):
+    async def find_by_cage(self, cage_id: CageId) -> SlotAssignment | None: ...
+
+
 class ScheduledFeedingPlanner:
     """Calcula rondas máximas y reparte pulsos al inicio de la jornada."""
 
     def __init__(
         self,
-        line_repository: FeedingLineRepository,
-        cage_repository: CageRepository,
-        cage_group_repository: CageGroupRepository,
-        doser_repository: DoserRepository,
-        silo_repository: SiloRepository,
-        slot_assignment_repository: SlotAssignmentRepository,
+        line_repository: _FeedingLineRepository,
+        cage_repository: _CageRepository,
+        cage_group_repository: _CageGroupRepository,
+        doser_repository: _DoserRepository,
+        silo_repository: _SiloRepository,
+        slot_assignment_repository: _SlotAssignmentRepository,
         selector_positioning_seconds: float,
     ):
         self._lines = line_repository
@@ -103,7 +134,7 @@ class ScheduledFeedingPlanner:
             raise ValueError("El silo seleccionado no existe")
 
         config_by_cage = {config.cage_id: config for config in request.cage_configs}
-        cage_data: list[tuple[object, object]] = []
+        cage_data: list[tuple[Cage, SlotAssignment]] = []
         for cage_id in group.cage_ids:
             cage = await self._cages.find_by_id(CageId.from_string(str(cage_id.value)))
             assignment = await self._slots.find_by_cage(CageId.from_string(str(cage_id.value)))
@@ -125,7 +156,7 @@ class ScheduledFeedingPlanner:
                 raise ValueError(f"La jaula {cage.name} tiene un tiempo de transporte inválido")
             transport_by_cage[str(cage.id.value)] = transport_seconds
 
-        preliminary: list[tuple[object, str, int, float]] = []
+        preliminary: list[tuple[Cage, str, int, float]] = []
         for cage, _assignment in cage_data:
             config = config_by_cage[str(cage.id.value)]
             if config.mode == "FASTING":
@@ -163,7 +194,7 @@ class ScheduledFeedingPlanner:
         active_count = len(active_cages)
         allocated_by_cage: dict[str, int] | None = None
         if allow_partial:
-            total_rounds = max(1, min(preferred_rounds or 1, 200))
+            total_rounds = max(1, preferred_rounds or 1)
             while total_rounds > 0:
                 waits = max(total_rounds * active_count - 1, 0) * request.wait_after_visit_seconds
                 overhead = blow_seconds + total_rounds * movement_seconds_per_round + waits
@@ -199,7 +230,7 @@ class ScheduledFeedingPlanner:
                 (pulses for _cage, mode, pulses, _requested in preliminary if mode == "NORMAL"),
                 default=0,
             )
-            total_rounds = min(max_rounds, desired_rounds, 200)
+            total_rounds = min(max_rounds, desired_rounds)
         if total_rounds < 1:
             raise ValueError("La ventana horaria no alcanza para completar las metas con la calibración actual")
 
@@ -243,6 +274,9 @@ class ScheduledFeedingPlanner:
         fixed_pulse_seconds = sum(plan.planned_pulses * pulse_seconds for plan in plans)
         gap_count = max(total_rounds * active_count - 1, 0)
         fixed_execution_seconds = blow_seconds + fixed_pulse_seconds + total_rounds * movement_seconds_per_round
+        # Distribuir las visitas durante toda la ventana programada. El tiempo
+        # disponible entre visitas es parte del plan de ejecución, no tiempo
+        # ocioso; así la última visita llega cerca de la hora límite.
         effective_wait_after_visit = request.wait_after_visit_seconds
         if gap_count > 0 and fixed_execution_seconds < window_seconds:
             effective_wait_after_visit = max(
@@ -311,12 +345,16 @@ class ScheduledFeedingPlanner:
             timezone=plan.timezone,
             blower_power_percentage=plan.blower_power_percentage,
             wait_after_visit_seconds=0,
+            # ``cage_plans`` guarda el resultado calculado del plan, donde la meta
+            # original se llama ``requested_kg``. Reconstruirlo directamente con
+            # ``ScheduledPlanCageInput.model_validate`` fallaba porque ese modelo
+            # espera ``daily_target_kg``.
             cage_configs=[
-                {
-                    "cage_id": item["cage_id"],
-                    "daily_target_kg": item["requested_kg"],
-                    "mode": item["mode"],
-                }
+                ScheduledPlanCageInput(
+                    cage_id=item["cage_id"],
+                    daily_target_kg=item["requested_kg"],
+                    mode=item["mode"],
+                )
                 for item in plan.cage_plans
             ],
         )

@@ -145,7 +145,8 @@ async def update_alert(
     Actualiza una alerta.
 
     - **alert_id**: ID de la alerta
-    - **status**: Nuevo estado (READ, RESOLVED, ARCHIVED)
+    - **status**: Nuevo estado (UNREAD, READ, RESOLVED, ARCHIVED). Solo una alerta
+      leída puede volver a UNREAD.
     """
     try:
         return await use_case.execute(alert_id, request, current_user.username)

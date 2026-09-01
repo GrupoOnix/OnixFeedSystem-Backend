@@ -203,14 +203,19 @@ class Alert:
         Actualiza el estado de la alerta.
 
         Validaciones:
-        - No se puede volver a UNREAD una vez leída
+        - Solo una alerta READ puede volver a UNREAD
+        - Una alerta RESOLVED puede reabrirse como READ
         - ARCHIVED es un estado final (no se puede cambiar)
         """
         if self._status == AlertStatus.ARCHIVED:
             raise ValueError("No se puede cambiar el estado de una alerta archivada")
 
-        if new_status == AlertStatus.UNREAD and self._status != AlertStatus.UNREAD:
-            raise ValueError("No se puede marcar como no leída una alerta ya procesada")
+        if new_status == AlertStatus.UNREAD:
+            if self._status != AlertStatus.READ:
+                raise ValueError("Solo se puede marcar como no leída una alerta leída")
+            self._status = AlertStatus.UNREAD
+            self._read_at = None
+            return
 
         old_status = self._status
         self._status = new_status
@@ -218,6 +223,9 @@ class Alert:
         # Actualizar timestamps según el nuevo estado
         if new_status == AlertStatus.READ and old_status == AlertStatus.UNREAD:
             self._read_at = datetime.now(timezone.utc)
+        elif new_status == AlertStatus.READ and old_status == AlertStatus.RESOLVED:
+            self._resolved_at = None
+            self._resolved_by = None
         elif new_status == AlertStatus.RESOLVED:
             self._resolved_at = datetime.now(timezone.utc)
             if self._read_at is None:

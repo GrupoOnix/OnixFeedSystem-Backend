@@ -11,6 +11,13 @@ class SystemConfigResponse(BaseModel):
     doser_calibration_tolerance_percentage: float = Field(description="Tolerancia de calibración (%)")
     doser_calibration_max_pulses: int = Field(description="Máximo de pulsos por intento")
     doser_calibration_max_attempt_seconds: int = Field(description="Máxima duración de un intento")
+    temperature_warning_threshold: float = Field(description="Umbral de advertencia de temperatura (°C)")
+    temperature_critical_threshold: float = Field(description="Umbral crítico de temperatura (°C)")
+    pressure_warning_threshold: float = Field(description="Umbral de advertencia de presión (bar)")
+    pressure_critical_threshold: float = Field(description="Umbral crítico de presión (bar)")
+    flow_warning_threshold: float = Field(description="Umbral de advertencia de flujo (m³/min)")
+    flow_critical_threshold: float = Field(description="Umbral crítico de flujo (m³/min)")
+    dosing_rate_unit: str = Field(description="Unidad global de visualización para tasas de dosificación")
 
 
 class UpdateSystemConfigRequest(BaseModel):
@@ -26,6 +33,13 @@ class UpdateSystemConfigRequest(BaseModel):
     doser_calibration_tolerance_percentage: float | None = Field(default=None, gt=0, le=100)
     doser_calibration_max_pulses: int | None = Field(default=None, ge=1, le=100)
     doser_calibration_max_attempt_seconds: int | None = Field(default=None, ge=1, le=300)
+    temperature_warning_threshold: float | None = Field(default=None, ge=0)
+    temperature_critical_threshold: float | None = Field(default=None, ge=0)
+    pressure_warning_threshold: float | None = Field(default=None, ge=0)
+    pressure_critical_threshold: float | None = Field(default=None, ge=0)
+    flow_warning_threshold: float | None = Field(default=None, ge=0)
+    flow_critical_threshold: float | None = Field(default=None, ge=0)
+    dosing_rate_unit: str | None = Field(default=None, pattern="^(kg/min|g/s)$")
 
     @field_validator("feeding_start_time", "feeding_end_time")
     @classmethod

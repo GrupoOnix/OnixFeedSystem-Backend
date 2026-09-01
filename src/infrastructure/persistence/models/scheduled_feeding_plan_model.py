@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, Column, DateTime, Index, UniqueConstraint
+from sqlalchemy import JSON, Column, DateTime, Index
 from sqlmodel import Field, SQLModel
 
 
@@ -13,7 +13,6 @@ class ScheduledFeedingPlanModel(SQLModel, table=True):
 
     __tablename__ = "scheduled_feeding_plans"
     __table_args__ = (
-        UniqueConstraint("line_id", name="uq_scheduled_feeding_plans_line_id"),
         Index("ix_scheduled_feeding_plans_line_start", "line_id", "start_time"),
     )
 

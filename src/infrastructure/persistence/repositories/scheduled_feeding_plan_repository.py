@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from infrastructure.persistence.models.scheduled_feeding_plan_model import (
     ScheduledFeedingPlanModel,
@@ -19,20 +20,20 @@ class ScheduledFeedingPlanRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def list(self) -> list[ScheduledFeedingPlanModel]:
+    async def list(self) -> List[ScheduledFeedingPlanModel]:
         result = await self.session.execute(
             select(ScheduledFeedingPlanModel).order_by(
-                ScheduledFeedingPlanModel.start_time,
-                ScheduledFeedingPlanModel.name,
+                col(ScheduledFeedingPlanModel.start_time),
+                col(ScheduledFeedingPlanModel.name),
             )
         )
         return list(result.scalars().all())
 
-    async def list_for_owner(self, owner_id: UUID) -> list[ScheduledFeedingPlanModel]:
+    async def list_for_owner(self, owner_id: UUID) -> List[ScheduledFeedingPlanModel]:
         result = await self.session.execute(
             select(ScheduledFeedingPlanModel)
-            .where(ScheduledFeedingPlanModel.created_by_id == owner_id)
-            .order_by(ScheduledFeedingPlanModel.start_time, ScheduledFeedingPlanModel.name)
+            .where(col(ScheduledFeedingPlanModel.created_by_id) == owner_id)
+            .order_by(col(ScheduledFeedingPlanModel.start_time), col(ScheduledFeedingPlanModel.name))
         )
         return list(result.scalars().all())
 
@@ -41,13 +42,13 @@ class ScheduledFeedingPlanRepository:
 
     async def find_by_line(self, line_id: UUID) -> Optional[ScheduledFeedingPlanModel]:
         result = await self.session.execute(
-            select(ScheduledFeedingPlanModel).where(ScheduledFeedingPlanModel.line_id == line_id)
+            select(ScheduledFeedingPlanModel).where(col(ScheduledFeedingPlanModel.line_id) == line_id)
         )
         return result.scalars().first()
 
     async def lock_line_schedule(self, line_id: UUID) -> None:
         result = await self.session.execute(
-            select(FeedingLineModel.id).where(FeedingLineModel.id == line_id).with_for_update()
+            select(col(FeedingLineModel.id)).where(col(FeedingLineModel.id) == line_id).with_for_update()
         )
         if result.scalar_one_or_none() is None:
             raise ValueError("La línea seleccionada no existe")

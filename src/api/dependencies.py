@@ -544,11 +544,13 @@ async def get_update_doser_use_case(
 async def get_sensor_readings_use_case(
     line_repo: FeedingLineRepository = Depends(get_line_repo),
     machine_service: IFeedingMachine = Depends(get_machine_service),
+    system_config_repo: SystemConfigRepository = Depends(get_system_config_repo),
 ) -> GetSensorReadingsUseCase:
     """Crea instancia del caso de uso de obtención de lecturas de sensores."""
     return GetSensorReadingsUseCase(
         feeding_line_repo=line_repo,
         feeding_machine=machine_service,
+        system_config_repo=system_config_repo,
     )
 
 

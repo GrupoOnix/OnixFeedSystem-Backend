@@ -28,6 +28,13 @@ class SystemConfigRepository(ISystemConfigRepository):
             existing.doser_calibration_tolerance_percentage = config.doser_calibration_tolerance_percentage
             existing.doser_calibration_max_pulses = config.doser_calibration_max_pulses
             existing.doser_calibration_max_attempt_seconds = config.doser_calibration_max_attempt_seconds
+            existing.temperature_warning_threshold = config.temperature_warning_threshold
+            existing.temperature_critical_threshold = config.temperature_critical_threshold
+            existing.pressure_warning_threshold = config.pressure_warning_threshold
+            existing.pressure_critical_threshold = config.pressure_critical_threshold
+            existing.flow_warning_threshold = config.flow_warning_threshold
+            existing.flow_critical_threshold = config.flow_critical_threshold
+            existing.dosing_rate_unit = config.dosing_rate_unit
         else:
             self.session.add(SystemConfigModel.from_domain(config))
         await self.session.flush()

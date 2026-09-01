@@ -56,6 +56,7 @@ from api.models.feeding_models import (
     BatchConsumptionItem,
     BatchStatusSessionCyclic,
     BatchStatusSessionManual,
+    CageConfigInput,
     CageHistorySummary,
     CageVisitHistory,
     CancelFeedingRequest,
@@ -71,6 +72,7 @@ from api.models.feeding_models import (
     ManualFeedingResponse,
     ScheduledFeedingPlanRequest,
     ScheduledFeedingPlanResponse,
+    ScheduledPlanCageResponse,
     PauseFeedingRequest,
     RateChartPoint,
     ResumeFeedingRequest,
@@ -172,7 +174,7 @@ def _scheduled_plan_response(plan: ScheduledFeedingPlanModel) -> ScheduledFeedin
         estimated_total_seconds=plan.estimated_total_seconds,
         window_seconds=window_seconds,
         remaining_seconds=calculate_remaining_seconds(window_seconds, plan.estimated_total_seconds),
-        cage_plans=cage_plans,
+        cage_plans=[ScheduledPlanCageResponse.model_validate(cage_plan) for cage_plan in cage_plans],
         last_run_on=plan.last_run_on,
         last_session_id=plan.last_session_id,
     )
@@ -219,13 +221,6 @@ async def create_scheduled_feeding_plan(
 ) -> ScheduledFeedingPlanResponse:
     try:
         calculated = await planner.calculate(request)
-        line_id = UUID(calculated.line_id)
-        await repository.lock_line_schedule(line_id)
-        if await repository.find_by_line(line_id):
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="La línea ya tiene un plan diario; modifícalo en lugar de crear otro",
-            )
         plan = ScheduledFeedingPlanModel(
             line_id=UUID(calculated.line_id),
             group_id=UUID(calculated.group_id),
@@ -331,14 +326,14 @@ async def start_scheduled_feeding_plan(
                 hard_deadline_at=deadline,
                 execute_pause_physically=True,
                 cage_configs=[
-                    {
-                        "cage_id": item.cage_id,
-                        "quantity_kg": item.planned_kg,
-                        "visits": execution.total_rounds,
-                        "visit_quantities_kg": item.quantity_schedule_kg,
-                        "rate_kg_per_min": item.rate_kg_per_min,
-                        "mode": item.mode,
-                    }
+                    CageConfigInput(
+                        cage_id=item.cage_id,
+                        quantity_kg=item.planned_kg,
+                        visits=execution.total_rounds,
+                        visit_quantities_kg=item.quantity_schedule_kg,
+                        rate_kg_per_min=item.rate_kg_per_min,
+                        mode=item.mode,
+                    )
                     for item in execution.cage_plans
                 ],
             ),
@@ -350,6 +345,7 @@ async def start_scheduled_feeding_plan(
                 "scheduled_plan_id": str(plan.id),
                 "scheduled_plan_name": plan.name,
                 "timezone": plan.timezone,
+                "wait_after_visit_seconds": execution.wait_after_visit_seconds,
             },
         )
         plan.last_session_id = result.session_id

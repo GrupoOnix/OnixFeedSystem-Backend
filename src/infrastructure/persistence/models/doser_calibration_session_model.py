@@ -15,7 +15,7 @@ class DoserCalibrationSessionModel(SQLModel, table=True):
     doser_id: UUID = Field(foreign_key="dosers.id", nullable=False, index=True, ondelete="CASCADE")
     line_id: UUID = Field(foreign_key="feeding_lines.id", nullable=False, index=True, ondelete="CASCADE")
     status: str = Field(default="PENDING", max_length=32, nullable=False, index=True)
-    target_grams: float = Field(gt=0, nullable=False)
+    target_grams: Optional[float] = Field(default=None, gt=0, nullable=True)
     pulse_on_time: float = Field(gt=0, nullable=False)
     pulse_off_time: float = Field(ge=0, nullable=False)
     speed_percentage: int = Field(ge=1, le=100, nullable=False)

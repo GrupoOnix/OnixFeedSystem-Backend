@@ -176,6 +176,43 @@ class TestAlertStatusTransitions:
         alert.update_status(AlertStatus.RESOLVED)
         assert alert.status == AlertStatus.RESOLVED
 
+    def test_mark_read_alert_as_unread(self):
+        """Una alerta leída puede volver a marcarse como no leída."""
+        alert = Alert(
+            type=AlertType.INFO,
+            category=AlertCategory.INVENTORY,
+            title="Test",
+            message="Test",
+        )
+
+        alert.update_status(AlertStatus.READ)
+        assert alert.read_at is not None
+
+        alert.update_status(AlertStatus.UNREAD)
+
+        assert alert.status == AlertStatus.UNREAD
+        assert alert.read_at is None
+
+    def test_mark_resolved_alert_as_unresolved(self):
+        """Una alerta resuelta puede reabrirse como leída."""
+        alert = Alert(
+            type=AlertType.INFO,
+            category=AlertCategory.INVENTORY,
+            title="Test",
+            message="Test",
+        )
+
+        alert.resolve(resolved_by="operador")
+        assert alert.status == AlertStatus.RESOLVED
+        assert alert.resolved_at is not None
+
+        alert.update_status(AlertStatus.READ)
+
+        assert alert.status == AlertStatus.READ
+        assert alert.read_at is not None
+        assert alert.resolved_at is None
+        assert alert.resolved_by is None
+
     def test_cannot_modify_archived_alert(self):
         """Test que no se puede modificar una alerta archivada."""
         alert = Alert(

@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from api.dependencies import (
     GetBlowerStatusUseCaseDep,
@@ -101,8 +102,8 @@ async def _session_response(
         (
             await session.execute(
                 select(DoserCalibrationAttemptModel)
-                .where(DoserCalibrationAttemptModel.session_id == calibration.id)
-                .order_by(DoserCalibrationAttemptModel.sequence)
+                .where(col(DoserCalibrationAttemptModel.session_id) == calibration.id)
+                .order_by(col(DoserCalibrationAttemptModel.sequence))
             )
         )
         .scalars()
@@ -462,8 +463,8 @@ async def start_calibration_session(
     existing = (
         await session.execute(
             select(DoserCalibrationSessionModel).where(
-                DoserCalibrationSessionModel.line_id == line.id,
-                DoserCalibrationSessionModel.status.in_(["PENDING", "RUNNING", "AWAITING_MEASUREMENT"]),
+                col(DoserCalibrationSessionModel.line_id) == line.id,
+                col(DoserCalibrationSessionModel.status).in_(["PENDING", "RUNNING", "AWAITING_MEASUREMENT"]),
             )
         )
     ).scalar_one_or_none()
@@ -495,10 +496,10 @@ async def get_active_calibration_session(
         await session.execute(
             select(DoserCalibrationSessionModel)
             .where(
-                DoserCalibrationSessionModel.doser_id == UUID(doser_id),
-                DoserCalibrationSessionModel.status.in_(["PENDING", "RUNNING", "AWAITING_MEASUREMENT"]),
+                col(DoserCalibrationSessionModel.doser_id) == UUID(doser_id),
+                col(DoserCalibrationSessionModel.status).in_(["PENDING", "RUNNING", "AWAITING_MEASUREMENT"]),
             )
-            .order_by(desc(DoserCalibrationSessionModel.created_at))
+            .order_by(desc(col(DoserCalibrationSessionModel.created_at)))
         )
     ).scalar_one_or_none()
     return await _session_response(session, calibration) if calibration else None
@@ -537,7 +538,9 @@ async def start_calibration_attempt(
     previous = list(
         (
             await session.execute(
-                select(DoserCalibrationAttemptModel).where(DoserCalibrationAttemptModel.session_id == calibration.id)
+                select(DoserCalibrationAttemptModel).where(
+                    col(DoserCalibrationAttemptModel.session_id) == calibration.id
+                )
             )
         ).scalars()
     )
@@ -584,7 +587,11 @@ async def record_calibration_measurement(
         raise HTTPException(status_code=404, detail="Sesión de calibración no encontrada")
     attempt.measured_grams = request.measured_grams
     attempt.included = request.included
-    attempt.error_percentage = ((request.measured_grams - calibration.target_grams) / calibration.target_grams) * 100
+    attempt.error_percentage = (
+        ((request.measured_grams - calibration.target_grams) / calibration.target_grams) * 100
+        if calibration.target_grams is not None
+        else None
+    )
     attempt.status = "MEASURED"
     calibration.status = "PENDING"
     await session.flush()
@@ -610,8 +617,8 @@ async def record_calibration_measurements(
         (
             await session.execute(
                 select(DoserCalibrationAttemptModel).where(
-                    DoserCalibrationAttemptModel.session_id == calibration.id,
-                    DoserCalibrationAttemptModel.status == "AWAITING_MEASUREMENT",
+                    col(DoserCalibrationAttemptModel.session_id) == calibration.id,
+                    col(DoserCalibrationAttemptModel.status) == "AWAITING_MEASUREMENT",
                 )
             )
         ).scalars()
@@ -630,7 +637,9 @@ async def record_calibration_measurements(
         attempt.included = measurement.included
         attempt.error_percentage = (
             (measurement.measured_grams - calibration.target_grams) / calibration.target_grams
-        ) * 100
+            if calibration.target_grams is not None
+            else None
+        )
         attempt.status = "MEASURED"
     calibration.status = "PENDING"
     await session.flush()
@@ -652,9 +661,9 @@ async def finalize_calibration_session(
         (
             await session.execute(
                 select(DoserCalibrationAttemptModel).where(
-                    DoserCalibrationAttemptModel.session_id == calibration.id,
-                    DoserCalibrationAttemptModel.status == "MEASURED",
-                    DoserCalibrationAttemptModel.included.is_(True),
+                    col(DoserCalibrationAttemptModel.session_id) == calibration.id,
+                    col(DoserCalibrationAttemptModel.status) == "MEASURED",
+                    col(DoserCalibrationAttemptModel.included).is_(True),
                 )
             )
         ).scalars()
@@ -664,7 +673,16 @@ async def finalize_calibration_session(
     total_grams = sum(item.measured_grams or 0 for item in attempts)
     total_active_seconds = sum(item.active_time_seconds for item in attempts)
     grams_per_second = total_grams / total_active_seconds
-    within_tolerance = all(abs(item.error_percentage or 0) <= calibration.tolerance_percentage for item in attempts)
+    sample_average = total_grams / len(attempts)
+    within_tolerance = (
+        all(abs(item.error_percentage or 0) <= calibration.tolerance_percentage for item in attempts)
+        if calibration.target_grams is not None
+        else all(
+            abs((item.measured_grams or 0) - sample_average) / sample_average * 100
+            <= calibration.tolerance_percentage
+            for item in attempts
+        )
+    )
     result_status = "VERIFIED" if len(attempts) >= 3 and within_tolerance else "PROVISIONAL"
     doser = await session.get(DoserModel, calibration.doser_id)
     if not doser:
@@ -672,14 +690,14 @@ async def finalize_calibration_session(
     saved = DoserCalibrationModel(
         doser_id=doser.id,
         grams_per_second=grams_per_second,
-        method="PULSE_ITERATIVE",
+        method="pulses",
         status=result_status,
         speed_percentage=calibration.speed_percentage,
         pulse_on_time=calibration.pulse_on_time,
         pulse_off_time=calibration.pulse_off_time,
         tolerance_percentage=calibration.tolerance_percentage,
         included_attempts=len(attempts),
-        sample_average_grams=total_grams / len(attempts),
+        sample_average_grams=sample_average,
         pulse_count=sum(item.pulse_count for item in attempts),
         active_time_seconds=total_active_seconds,
         target_grams=calibration.target_grams,

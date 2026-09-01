@@ -298,7 +298,7 @@ class UpdateCyclicCageAmountUseCase:
         if self._inventory_repo:
             await self._inventory_repo.resize_reservation(session_id, new_session_total)
 
-        if applied_immediately:
+        if applied_immediately and current_visit_target_kg is not None:
             await self._machine.set_target_amount(line_id, current_visit_target_kg)
         cage_feeding = await self._cage_feeding_repo.update_amount_plan(
             cage_feeding.id,

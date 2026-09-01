@@ -9,6 +9,13 @@ class SystemConfig:
     _DEFAULT_CALIBRATION_TOLERANCE: float = 5.0
     _DEFAULT_CALIBRATION_MAX_PULSES: int = 10
     _DEFAULT_CALIBRATION_MAX_SECONDS: int = 20
+    _DEFAULT_TEMPERATURE_WARNING_THRESHOLD: float = 70.0
+    _DEFAULT_TEMPERATURE_CRITICAL_THRESHOLD: float = 85.0
+    _DEFAULT_PRESSURE_WARNING_THRESHOLD: float = 1.3
+    _DEFAULT_PRESSURE_CRITICAL_THRESHOLD: float = 1.5
+    _DEFAULT_FLOW_WARNING_THRESHOLD: float = 18.0
+    _DEFAULT_FLOW_CRITICAL_THRESHOLD: float = 22.0
+    _DEFAULT_DOSING_RATE_UNIT: str = "kg/min"
 
     def __init__(
         self,
@@ -19,6 +26,13 @@ class SystemConfig:
         doser_calibration_tolerance_percentage: float | None = None,
         doser_calibration_max_pulses: int | None = None,
         doser_calibration_max_attempt_seconds: int | None = None,
+        temperature_warning_threshold: float | None = None,
+        temperature_critical_threshold: float | None = None,
+        pressure_warning_threshold: float | None = None,
+        pressure_critical_threshold: float | None = None,
+        flow_warning_threshold: float | None = None,
+        flow_critical_threshold: float | None = None,
+        dosing_rate_unit: str | None = None,
     ) -> None:
         self._id = self._SINGLETON_ID
         self._feeding_start_time = feeding_start_time
@@ -36,6 +50,33 @@ class SystemConfig:
         self._doser_calibration_max_attempt_seconds = (
             doser_calibration_max_attempt_seconds or self._DEFAULT_CALIBRATION_MAX_SECONDS
         )
+        self._temperature_warning_threshold = (
+            temperature_warning_threshold
+            if temperature_warning_threshold is not None
+            else self._DEFAULT_TEMPERATURE_WARNING_THRESHOLD
+        )
+        self._temperature_critical_threshold = (
+            temperature_critical_threshold
+            if temperature_critical_threshold is not None
+            else self._DEFAULT_TEMPERATURE_CRITICAL_THRESHOLD
+        )
+        self._pressure_warning_threshold = (
+            pressure_warning_threshold
+            if pressure_warning_threshold is not None
+            else self._DEFAULT_PRESSURE_WARNING_THRESHOLD
+        )
+        self._pressure_critical_threshold = (
+            pressure_critical_threshold
+            if pressure_critical_threshold is not None
+            else self._DEFAULT_PRESSURE_CRITICAL_THRESHOLD
+        )
+        self._flow_warning_threshold = (
+            flow_warning_threshold if flow_warning_threshold is not None else self._DEFAULT_FLOW_WARNING_THRESHOLD
+        )
+        self._flow_critical_threshold = (
+            flow_critical_threshold if flow_critical_threshold is not None else self._DEFAULT_FLOW_CRITICAL_THRESHOLD
+        )
+        self._dosing_rate_unit = dosing_rate_unit or self._DEFAULT_DOSING_RATE_UNIT
 
     @property
     def id(self) -> int:
@@ -68,6 +109,34 @@ class SystemConfig:
     @property
     def doser_calibration_max_attempt_seconds(self) -> int:
         return self._doser_calibration_max_attempt_seconds
+
+    @property
+    def temperature_warning_threshold(self) -> float:
+        return self._temperature_warning_threshold
+
+    @property
+    def temperature_critical_threshold(self) -> float:
+        return self._temperature_critical_threshold
+
+    @property
+    def pressure_warning_threshold(self) -> float:
+        return self._pressure_warning_threshold
+
+    @property
+    def pressure_critical_threshold(self) -> float:
+        return self._pressure_critical_threshold
+
+    @property
+    def flow_warning_threshold(self) -> float:
+        return self._flow_warning_threshold
+
+    @property
+    def flow_critical_threshold(self) -> float:
+        return self._flow_critical_threshold
+
+    @property
+    def dosing_rate_unit(self) -> str:
+        return self._dosing_rate_unit
 
     def seconds_remaining_in_window(self, now_utc: datetime) -> float:
         """
@@ -108,6 +177,13 @@ class SystemConfig:
         doser_calibration_tolerance_percentage: float | None = None,
         doser_calibration_max_pulses: int | None = None,
         doser_calibration_max_attempt_seconds: int | None = None,
+        temperature_warning_threshold: float | None = None,
+        temperature_critical_threshold: float | None = None,
+        pressure_warning_threshold: float | None = None,
+        pressure_critical_threshold: float | None = None,
+        flow_warning_threshold: float | None = None,
+        flow_critical_threshold: float | None = None,
+        dosing_rate_unit: str | None = None,
     ) -> None:
         if feeding_end_time <= feeding_start_time:
             raise ValueError("feeding_end_time debe ser posterior a feeding_start_time")
@@ -124,6 +200,25 @@ class SystemConfig:
             self._doser_calibration_max_pulses = doser_calibration_max_pulses
         if doser_calibration_max_attempt_seconds is not None:
             self._doser_calibration_max_attempt_seconds = doser_calibration_max_attempt_seconds
+        threshold_updates = (
+            ("temperature", temperature_warning_threshold, temperature_critical_threshold),
+            ("pressure", pressure_warning_threshold, pressure_critical_threshold),
+            ("flow", flow_warning_threshold, flow_critical_threshold),
+        )
+        for name, warning, critical in threshold_updates:
+            current_warning = getattr(self, f"_{name}_warning_threshold")
+            current_critical = getattr(self, f"_{name}_critical_threshold")
+            new_warning = warning if warning is not None else current_warning
+            new_critical = critical if critical is not None else current_critical
+            if new_critical <= new_warning:
+                labels = {"temperature": "temperatura", "pressure": "presión", "flow": "flujo"}
+                raise ValueError(f"El umbral crítico de {labels[name]} debe ser mayor que el de advertencia")
+            setattr(self, f"_{name}_warning_threshold", new_warning)
+            setattr(self, f"_{name}_critical_threshold", new_critical)
+        if dosing_rate_unit is not None:
+            if dosing_rate_unit not in {"kg/min", "g/s"}:
+                raise ValueError("dosing_rate_unit no es una unidad válida")
+            self._dosing_rate_unit = dosing_rate_unit
 
     @classmethod
     def create_default(cls) -> "SystemConfig":

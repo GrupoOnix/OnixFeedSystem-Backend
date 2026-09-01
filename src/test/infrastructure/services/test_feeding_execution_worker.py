@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -134,3 +135,39 @@ async def test_recovery_stops_machine_interrupts_session_and_releases_resources(
     assert released.line is True
     assert released.inventory is True
     assert released.job_reason == "Proceso reiniciado"
+
+
+@pytest.mark.asyncio
+async def test_worker_starts_second_job_without_waiting_for_first_to_finish(monkeypatch):
+    """Las alimentaciones de líneas distintas no deben quedar serializadas."""
+    worker = FeedingExecutionWorker(_Machine(), lambda: _AsyncSession(), poll_interval_seconds=0.01)
+    jobs = iter([SimpleNamespace(id="job-1"), SimpleNamespace(id="job-2"), None])
+    both_started = asyncio.Event()
+    release_jobs = asyncio.Event()
+    started: list[str] = []
+
+    async def recover_one_expired_job():
+        return False
+
+    async def claim_next_job():
+        return next(jobs)
+
+    async def execute(job):
+        started.append(job.id)
+        if len(started) == 2:
+            both_started.set()
+        await release_jobs.wait()
+
+    monkeypatch.setattr(worker, "_recover_one_expired_job", recover_one_expired_job)
+    monkeypatch.setattr(worker, "_claim_next_job", claim_next_job)
+    monkeypatch.setattr(worker, "_execute", execute)
+
+    run_task = asyncio.create_task(worker.run())
+    try:
+        await asyncio.wait_for(both_started.wait(), timeout=0.5)
+        assert started == ["job-1", "job-2"]
+    finally:
+        release_jobs.set()
+        run_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await run_task

@@ -65,7 +65,7 @@ class RunDoserDurationRequest(BaseModel):
 class StartCalibrationSessionRequest(BaseModel):
     """Inicia una sesión iterativa para un Pulse Doser."""
 
-    target_grams: float = Field(..., gt=0.0, le=100000.0)
+    target_grams: Optional[float] = Field(default=None, gt=0.0, le=100000.0)
     tolerance_percentage: Optional[float] = Field(default=None, gt=0.0, le=100.0)
 
 
@@ -103,7 +103,7 @@ class CalibrationSessionResponse(BaseModel):
     doser_id: str
     line_id: str
     status: str
-    target_grams: float
+    target_grams: Optional[float] = None
     pulse_on_time: float
     pulse_off_time: float
     speed_percentage: int

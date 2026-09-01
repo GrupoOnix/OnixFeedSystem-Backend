@@ -9,20 +9,13 @@ Aplica umbrales personalizados y filtra sensores deshabilitados.
 from datetime import datetime, timezone
 from typing import Dict, Optional
 
+from domain.aggregates.system_config import SystemConfig
 from domain.dtos.machine_io_v2 import SensorReading, SensorReadings
 from domain.enums import SensorType
 from domain.exceptions import FeedingLineNotFoundException
 from domain.interfaces import IFeedingMachine, ISensor
-from domain.repositories import IFeedingLineRepository
+from domain.repositories import IFeedingLineRepository, ISystemConfigRepository
 from domain.value_objects.identifiers import LineId
-
-# Umbrales por defecto cuando no están configurados en el sensor
-DEFAULT_THRESHOLDS: Dict[SensorType, Dict[str, float]] = {
-    SensorType.TEMPERATURE: {"warning": 70.0, "critical": 85.0},
-    SensorType.PRESSURE: {"warning": 1.3, "critical": 1.5},
-    SensorType.FLOW: {"warning": 18.0, "critical": 22.0},
-}
-
 
 class GetSensorReadingsUseCase:
     """
@@ -40,9 +33,11 @@ class GetSensorReadingsUseCase:
         self,
         feeding_line_repo: IFeedingLineRepository,
         feeding_machine: IFeedingMachine,
+        system_config_repo: ISystemConfigRepository,
     ):
         self._feeding_line_repo = feeding_line_repo
         self._feeding_machine = feeding_machine
+        self._system_config_repo = system_config_repo
 
     async def execute(self, line_id_str: str) -> SensorReadings:
         """
@@ -69,6 +64,7 @@ class GetSensorReadingsUseCase:
 
         # 3. Obtener lecturas del PLC/simulador
         raw_readings = await self._feeding_machine.get_sensor_readings(line_id)
+        system_config = await self._system_config_repo.get()
 
         # 4. Filtrar y aplicar umbrales personalizados
         filtered_readings = []
@@ -80,7 +76,12 @@ class GetSensorReadingsUseCase:
                 continue
 
             # Aplicar umbrales personalizados si existen
-            is_warning, is_critical = self._apply_thresholds(reading.sensor_type, reading.value, sensor)
+            is_warning, is_critical = self._apply_thresholds(
+                reading.sensor_type,
+                reading.value,
+                sensor,
+                system_config,
+            )
 
             # Crear nueva lectura con umbrales aplicados
             filtered_readings.append(
@@ -106,6 +107,7 @@ class GetSensorReadingsUseCase:
         sensor_type: SensorType,
         value: float,
         sensor: Optional[ISensor],
+        system_config: SystemConfig,
     ) -> tuple[bool, bool]:
         """
         Aplica umbrales para determinar warning/critical.
@@ -116,18 +118,31 @@ class GetSensorReadingsUseCase:
         Returns:
             Tupla (is_warning, is_critical)
         """
-        # Obtener umbrales (personalizados o por defecto)
-        default = DEFAULT_THRESHOLDS.get(sensor_type, {})
+        # Los umbrales por sensor prevalecen; los globales se usan como respaldo.
+        global_thresholds = {
+            SensorType.TEMPERATURE: {
+                "warning": system_config.temperature_warning_threshold,
+                "critical": system_config.temperature_critical_threshold,
+            },
+            SensorType.PRESSURE: {
+                "warning": system_config.pressure_warning_threshold,
+                "critical": system_config.pressure_critical_threshold,
+            },
+            SensorType.FLOW: {
+                "warning": system_config.flow_warning_threshold,
+                "critical": system_config.flow_critical_threshold,
+            },
+        }.get(sensor_type, {})
 
         if sensor and sensor.warning_threshold is not None:
             warning_threshold = sensor.warning_threshold
         else:
-            warning_threshold = default.get("warning", float("inf"))
+            warning_threshold = global_thresholds.get("warning", float("inf"))
 
         if sensor and sensor.critical_threshold is not None:
             critical_threshold = sensor.critical_threshold
         else:
-            critical_threshold = default.get("critical", float("inf"))
+            critical_threshold = global_thresholds.get("critical", float("inf"))
 
         is_critical = value > critical_threshold
         is_warning = value > warning_threshold and not is_critical

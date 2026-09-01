@@ -44,13 +44,30 @@ class FeedingExecutionWorker:
         self._lease_seconds = lease_seconds
         self._worker_id = f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4()}"
         self._orchestrator = FeedingOrchestrator(machine=machine, session_factory=session_factory)
+        self._running_tasks: set[asyncio.Task[None]] = set()
 
     async def run(self) -> None:
         logger.info("Iniciando worker durable de alimentación %s", self._worker_id)
-        while True:
-            did_work = await self.poll_once()
-            if not did_work:
-                await asyncio.sleep(self._poll_interval)
+        try:
+            while True:
+                recovered = await self._recover_one_expired_job()
+                job = await self._claim_next_job()
+                if job:
+                    # No esperar aquí: cada alimentación reserva su propia línea,
+                    # por lo que las sesiones de líneas distintas pueden avanzar a
+                    # la vez. Esperar _execute dejaba todas las demás en PENDING.
+                    task = asyncio.create_task(self._execute(job))
+                    self._running_tasks.add(task)
+                    task.add_done_callback(self._running_tasks.discard)
+
+                if not recovered and not job:
+                    await asyncio.sleep(self._poll_interval)
+        finally:
+            tasks = list(self._running_tasks)
+            for task in tasks:
+                task.cancel()
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
 
     async def poll_once(self) -> bool:
         recovered = await self._recover_one_expired_job()
