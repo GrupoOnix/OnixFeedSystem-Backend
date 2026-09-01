@@ -68,15 +68,21 @@ def upgrade() -> None:
             ALTER TABLE cage_groups
                 DROP CONSTRAINT IF EXISTS uq_cage_groups_name_user;
             ALTER TABLE cage_groups
+                DROP CONSTRAINT IF EXISTS cage_groups_name_key;
+            ALTER TABLE cage_groups
                 ADD CONSTRAINT cage_groups_name_key UNIQUE (name);
 
             ALTER TABLE cages
                 DROP CONSTRAINT IF EXISTS uq_cages_name_user;
             ALTER TABLE cages
+                DROP CONSTRAINT IF EXISTS cages_name_key;
+            ALTER TABLE cages
                 ADD CONSTRAINT cages_name_key UNIQUE (name);
 
             ALTER TABLE feeding_lines
                 DROP CONSTRAINT IF EXISTS uq_feeding_lines_name_user;
+            ALTER TABLE feeding_lines
+                DROP CONSTRAINT IF EXISTS feeding_lines_name_key;
             ALTER TABLE feeding_lines
                 ADD CONSTRAINT feeding_lines_name_key UNIQUE (name);
 
@@ -85,12 +91,18 @@ def upgrade() -> None:
             ALTER TABLE foods
                 DROP CONSTRAINT IF EXISTS uq_foods_code_user;
             ALTER TABLE foods
+                DROP CONSTRAINT IF EXISTS foods_name_key;
+            ALTER TABLE foods
+                DROP CONSTRAINT IF EXISTS foods_code_key;
+            ALTER TABLE foods
                 ADD CONSTRAINT foods_name_key UNIQUE (name);
             ALTER TABLE foods
                 ADD CONSTRAINT foods_code_key UNIQUE (code);
 
             ALTER TABLE silos
                 DROP CONSTRAINT IF EXISTS uq_silos_name_user;
+            ALTER TABLE silos
+                DROP CONSTRAINT IF EXISTS silos_name_key;
             ALTER TABLE silos
                 ADD CONSTRAINT silos_name_key UNIQUE (name);
 
